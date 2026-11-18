@@ -51,7 +51,7 @@ var Album = (function () {
     stato.carico = true;
     return Store.chiama('foto_lista').then(function (r) {
       cartella = r.cartella || '';
-      foto = (r.foto || []).sort(function (a, b) { return a.data < b.data ? 1 : a.data > b.data ? -1 : b.aggiornato - a.aggiornato; });
+      foto = (r.foto || []).sort(ordinaFoto);
       try { localStorage.setItem(LISTA, JSON.stringify(foto)); } catch (e) { /* pieno */ }
       stato.errore = '';
       if (window.Native && Native.aggiornaFoto) setTimeout(function () { Native.aggiornaFoto(); }, 1500);
@@ -80,6 +80,46 @@ var Album = (function () {
     });
   }
 
+  // più recenti prima, per data e ora di scatto
+  function ordinaFoto(a, b) { var x = String(a.data || ''), y = String(b.data || ''); return x < y ? 1 : x > y ? -1 : (b.aggiornato || 0) - (a.aggiornato || 0); }
+
+  // ---------- data di scatto dai metadati EXIF (JPEG) ----------
+  // Restituisce "YYYY-MM-DD HH:MM" oppure null. Va letta dal file originale: il ridimensionamento la cancella.
+  function dataExif(file) {
+    if (!/jpe?g/i.test(file.type || '') && !/\.jpe?g$/i.test(file.name || '')) return Promise.resolve(null);
+    return file.slice(0, 262144).arrayBuffer().then(function (buf) {
+      var v = new DataView(buf);
+      if (v.byteLength < 4 || v.getUint16(0) !== 0xFFD8) return null;
+      var off = 2;
+      while (off + 10 < v.byteLength) {
+        var marker = v.getUint16(off), len = v.getUint16(off + 2);
+        if ((marker & 0xFF00) !== 0xFF00) break;
+        if (marker === 0xFFE1 && v.getUint32(off + 4) === 0x45786966) return leggiTiff(v, off + 10);
+        off += 2 + len;
+      }
+      return null;
+    }).catch(function () { return null; });
+  }
+  function leggiTiff(v, t) {
+    try {
+      var le = v.getUint16(t) === 0x4949;
+      var u16 = function (o) { return v.getUint16(o, le); }, u32 = function (o) { return v.getUint32(o, le); };
+      var cerca = function (ifd, id) { var n = u16(t + ifd); for (var i = 0; i < n; i++) { var e = t + ifd + 2 + i * 12; if (u16(e) === id) return e; } return -1; };
+      var testo = function (e) { var n = u32(e + 4), o = n > 4 ? t + u32(e + 8) : e + 8, s = ''; for (var i = 0; i < n - 1 && o + i < v.byteLength; i++) s += String.fromCharCode(v.getUint8(o + i)); return s; };
+      var ifd0 = u32(t + 4), val = null, p = cerca(ifd0, 0x8769);
+      if (p >= 0) { var exif = u32(p + 8), e = cerca(exif, 0x9003); if (e < 0) e = cerca(exif, 0x9004); if (e >= 0) val = testo(e); }
+      if (!val) { var e0 = cerca(ifd0, 0x0132); if (e0 >= 0) val = testo(e0); }
+      var m = val && val.match(/^(\d{4}):(\d{2}):(\d{2})[ T](\d{2}):(\d{2})/);
+      return m && m[1] !== '0000' ? m[1] + '-' + m[2] + '-' + m[3] + ' ' + m[4] + ':' + m[5] : null;
+    } catch (e) { return null; }
+  }
+  function dataFile(file) {
+    var d = new Date(file.lastModified || Date.now());
+    return C.iso(d) + ' ' + C.pad(d.getHours()) + ':' + C.pad(d.getMinutes());
+  }
+  function giorno(f) { return String(f.data || '').slice(0, 10); }
+  function ora(f) { var o = String(f.data || '').slice(11, 16); return o ? ' · ' + o : ''; }
+
   // ---------- ridimensionamento sul telefono ----------
   function caricaImmagine(file) {
     if (window.createImageBitmap) return createImageBitmap(file, { imageOrientation: 'from-image' }).catch(function () { return viaImg(file); });
@@ -103,15 +143,15 @@ var Album = (function () {
     ui.ridisegna();
     return files.reduce(function (p, file) {
       return p.then(function () {
-        return caricaImmagine(file).then(function (img) {
+        var data = null;
+        return dataExif(file).then(function (d) { data = d || dataFile(file); return caricaImmagine(file); }).then(function (img) {
           var g = riduci(img, 2048, 0.82), m = riduci(img, 420, 0.72);
-          var data = C.iso(new Date(file.lastModified || Date.now()));
           return Store.chiama('foto_carica', { dati: g.b64, mini: m.b64, data: data, larghezza: g.w, altezza: g.h, didascalia: '' }).then(function (r) {
             var bm = b64aBlob(m.b64);
             scriviCache('mini', r.foto.id, bm); scriviCache('grande', r.foto.id, b64aBlob(g.b64));
             mini[r.foto.id] = URL.createObjectURL(bm);
             foto.unshift(r.foto);
-            foto.sort(function (a, b) { return a.data < b.data ? 1 : a.data > b.data ? -1 : 0; });
+            foto.sort(ordinaFoto);
             try { localStorage.setItem(LISTA, JSON.stringify(foto)); } catch (e) { /* pieno */ }
           });
         }).catch(function (e) { ui.toast('Foto non caricata: ' + (e && e.message === 'Failed to fetch' ? 'nessuna connessione' : (e && e.message) || file.name)); })
@@ -176,7 +216,7 @@ var Album = (function () {
         var src = grandi[f.id] || mini[f.id];
         return '<button type="button" class="car-slide" data-foto="' + esc(f.id) + '" aria-label="Foto ' + (k + 1) + ' di ' + lista.length + (f.didascalia ? ': ' + esc(f.didascalia) : '') + '">' +
           (src ? '<img src="' + src + '" alt="">' : '<span class="segnaposto"></span>') +
-          '<span class="car-dida">' + (f.didascalia ? esc(f.didascalia) + '<br>' : '') + '<small>' + esc(C.etichettaGiorno(f.data)) + '</small></span></button>';
+          '<span class="car-dida">' + (f.didascalia ? esc(f.didascalia) + '<br>' : '') + '<small>' + esc(C.etichettaGiorno(giorno(f)) + ora(f)) + '</small></span></button>';
       }).join('') + '</div>' +
       '<div class="car-punti" aria-hidden="true">' + lista.map(function (f, k) { return '<i' + (k === car.indice ? ' class="on"' : '') + '></i>'; }).join('') + '</div>' +
       '<button type="button" class="car-play" data-car="play" aria-label="' + (car.attivo ? 'Ferma lo scorrimento' : 'Avvia lo scorrimento') + '">' + (car.attivo ? '❚❚' : '▶') + '</button></section>';
@@ -242,7 +282,7 @@ var Album = (function () {
       var m = +k.slice(5, 7) - 1;
       h += '<h2>' + (C.MESI[m] ? C.MESI[m].charAt(0).toUpperCase() + C.MESI[m].slice(1) + ' ' + k.slice(0, 4) : 'Senza data') + ' <small>' + gruppi[k].length + '</small></h2><div class="galleria">';
       gruppi[k].forEach(function (f) {
-        h += '<button type="button" class="scatto" data-foto="' + esc(f.id) + '" aria-label="' + esc(f.didascalia || 'Foto del ' + f.data) + '">' +
+        h += '<button type="button" class="scatto" data-foto="' + esc(f.id) + '" aria-label="' + esc(f.didascalia || 'Foto del ' + giorno(f) + ora(f)) + '">' +
           (mini[f.id] ? '<img src="' + mini[f.id] + '" alt="" loading="lazy">' : '<span class="segnaposto"></span>') + '</button>';
       });
       h += '</div>';
@@ -255,13 +295,14 @@ var Album = (function () {
     var f = foto[i], esc = ui.esc, fg = ui.foglio;
     fg.classList.add('visore');
     fg.innerHTML = '<div class="visore-corpo"><div class="visore-barra"><button class="btn icona chiaro" type="button" data-v="chiudi" aria-label="Chiudi">✕</button>' +
-      '<span>' + esc(C.etichettaGiorno(f.data)) + (f.caricataDa ? ' · ' + esc(f.caricataDa) : '') + '</span>' +
+      '<span>' + esc(C.etichettaGiorno(giorno(f)) + ora(f)) + (f.caricataDa ? ' · ' + esc(f.caricataDa) : '') + '</span>' +
       '<span style="display:flex;gap:8px"><button class="btn icona chiaro" type="button" data-v="presenta" aria-label="' + (presenta ? 'Ferma la presentazione' : 'Avvia la presentazione') + '">' + (presenta ? '❚❚' : '▶') + '</button>' +
       '<button class="btn icona chiaro" type="button" data-v="elimina" aria-label="Elimina foto">🗑</button></span></div>' +
       '<div class="visore-img">' + ((grandi[id] || mini[id]) ? '<img src="' + (grandi[id] || mini[id]) + '" alt="" id="img-visore">' : '<img alt="" id="img-visore">') +
       (i > 0 ? '<button class="freccia sx" type="button" data-v="prec" aria-label="Foto precedente">‹</button>' : '') +
       (i < foto.length - 1 ? '<button class="freccia dx" type="button" data-v="succ" aria-label="Foto successiva">›</button>' : '') + '</div>' +
-      '<form class="visore-didascalia" data-v="form"><input type="text" name="didascalia" maxlength="300" placeholder="Aggiungi una didascalia" value="' + esc(f.didascalia || '') + '"><button class="btn piccolo" type="submit">Salva</button></form></div>';
+      '<form class="visore-didascalia" data-v="form"><input type="text" name="didascalia" maxlength="300" placeholder="Aggiungi una didascalia" value="' + esc(f.didascalia || '') + '" aria-label="Didascalia">' +
+      '<input type="date" name="data" value="' + esc(giorno(f)) + '" aria-label="Data della foto"><button class="btn piccolo" type="submit">Salva</button></form></div>';
     if (!fg.open) fg.showModal();
     // foto grande: dalla cache o dallo script
     grandeUrl(id).then(function (u) { var im = document.getElementById('img-visore'); if (u && im && fg.open) im.src = u; });
@@ -292,8 +333,13 @@ var Album = (function () {
     };
     fg.querySelector('form').onsubmit = function (e) {
       e.preventDefault();
-      var d = e.target.didascalia.value.trim();
-      Store.chiama('foto_modifica', { id: id, didascalia: d }).then(function () { f.didascalia = d; try { localStorage.setItem(LISTA, JSON.stringify(foto)); } catch (x) { /* pieno */ } ui.toast('Didascalia salvata'); })
+      var d = e.target.didascalia.value.trim(), g = e.target.data.value;
+      var nuovaData = g && g !== giorno(f) ? g + (String(f.data || '').slice(10) || '') : '';
+      Store.chiama('foto_modifica', { id: id, didascalia: d, data: nuovaData || undefined }).then(function () {
+        f.didascalia = d; if (nuovaData) { f.data = nuovaData; foto.sort(ordinaFoto); }
+        try { localStorage.setItem(LISTA, JSON.stringify(foto)); } catch (x) { /* pieno */ }
+        ui.toast(nuovaData ? 'Data e didascalia salvate' : 'Didascalia salvata');
+      })
         .catch(function (x) { ui.toast('Non salvata: ' + x.message); });
     };
     // scorrimento con il dito

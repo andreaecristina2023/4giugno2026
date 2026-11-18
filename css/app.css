@@ -208,7 +208,9 @@ dialog.foglio.visore { max-width: 100vw; width: 100vw; height: 100vh; max-height
 .visore-img img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 6px; }
 .freccia { position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 64px; border: 0; border-radius: 12px; background: rgba(0,0,0,.35); color: #fff; font-size: 30px; cursor: pointer; }
 .freccia.sx { left: 4px; } .freccia.dx { right: 4px; }
-.visore-didascalia { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.visore-didascalia { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; }
+.visore-didascalia input[type=date] { width: auto; color-scheme: dark; }
+@media (max-width: 420px) { .visore-didascalia { grid-template-columns: minmax(0, 1fr) auto; } .visore-didascalia input[type=text] { grid-column: 1 / -1; } }
 .visore-didascalia input { background: rgba(255,255,255,.08); border-color: rgba(230,235,227,.25); color: #E6EBE3; }
 
 /* ---------- QR ---------- */
