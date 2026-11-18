@@ -186,7 +186,7 @@ var Viaggi = (function () {
     voli: { titolo: 'Voli', uno: 'volo', campi: [
       ['data', 'Data partenza', 'date', true], ['ora', 'Ora partenza', 'time'], ['dataArrivo', 'Data arrivo', 'date'], ['arrivo', 'Ora arrivo', 'time'],
       ['da', 'Da', 'text', 'Es. BLQ Bologna'], ['a', 'A', 'text', 'Es. NRT Tokyo'],
-      ['compagnia', 'Compagnia', 'text'], ['numero', 'Numero volo', 'text', 'Es. LH291'],
+      ['compagnia', 'Compagnia', 'compagnia'], ['numero', 'Numero volo', 'text', 'Es. LH291'],
       ['pnr', 'Codice prenotazione (PNR)', 'text'], ['posto', 'Posti', 'text', 'Es. 23A, 23B'], ['note', 'Note', 'textarea']] },
     hotel: { titolo: 'Hotel', uno: 'hotel', campi: [
       ['nome', 'Nome', 'text', true], ['indirizzo', 'Indirizzo', 'text'], ['checkin', 'Check-in', 'date'], ['checkout', 'Check-out', 'date'],
@@ -242,6 +242,7 @@ var Viaggi = (function () {
           (x.tel ? '<a class="sc-chiama" href="tel:' + esc(x.tel) + '" aria-label="Chiama ' + esc(x.nome) + '">☎️ Chiama</a>' : '') + '</div>';
       }).join('');
     }
+    h += '<div class="azioni"><button class="btn secondario piccolo" type="button" data-aggiungi-punti="' + esc(v.id) + '">+ Aggiungi punti</button></div>';
     Object.keys(SEZIONI).forEach(function (sez) {
       var lista = (v[sez] || []).slice().sort(function (a, b) { var x = a.data || a.checkin || a.scadenza || '', y = b.data || b.checkin || b.scadenza || ''; return x < y ? -1 : 1; });
       h += '<h2>' + SEZIONI[sez].titolo + ' <small>' + lista.length + '</small></h2>' + lista.map(function (s) { return rigaSotto(v, sez, s); }).join('') +
@@ -252,6 +253,12 @@ var Viaggi = (function () {
   }
 
   // ---------- moduli (foglio a scorrimento) ----------
+  var COMPAGNIE = [['Ryanair', 'FR'], ['easyJet', 'U2'], ['Wizz Air', 'W6'], ['Volotea', 'V7'], ['Vueling', 'VY'], ['ITA Airways', 'AZ'], ['Lufthansa', 'LH'], ['Air France', 'AF'], ['KLM', 'KL'], ['British Airways', 'BA'], ['Iberia', 'IB'], ['TAP Air Portugal', 'TP'], ['Swiss', 'LX'], ['Austrian', 'OS'], ['Brussels Airlines', 'SN'], ['Aer Lingus', 'EI'], ['Norwegian', 'DY'], ['SAS', 'SK'], ['Finnair', 'AY'], ['Turkish Airlines', 'TK'], ['Aegean', 'A3'], ['Emirates', 'EK'], ['Qatar Airways', 'QR'], ['Etihad', 'EY'], ['Singapore Airlines', 'SQ'], ['Japan Airlines', 'JL'], ['ANA', 'NH'], ['Air Dolomiti', 'EN'], ['Air Europa', 'UX'], ['Aeroflot', 'SU'], ['Altro', '']];
+  function siglaDi(nome) { var c = COMPAGNIE.filter(function (x) { return x[0].toLowerCase() === String(nome || '').trim().toLowerCase(); })[0]; return c ? c[1] : ''; }
+  function completaSigla(compagnia, numero) {
+    var sig = siglaDi(compagnia.value);
+    if (sig && numero && (!numero.value || /^[A-Z0-9]{2}$/.test(numero.value))) numero.value = sig;
+  }
   var PREFISSI = [['+39', 'Italia'], ['+41', 'Svizzera'], ['+33', 'Francia'], ['+34', 'Spagna'], ['+43', 'Austria'], ['+49', 'Germania'], ['+44', 'Regno Unito'], ['+351', 'Portogallo'], ['+30', 'Grecia'], ['+385', 'Croazia'], ['+1', 'USA e Canada'], ['+61', 'Australia'], ['+81', 'Giappone']];
   var PREFISSO_PREDEF = '+39';
   var COLORI_ETICHETTA = ['', '#2F6DB5', '#2E8B57', '#E3B505', '#D7263D', '#8A5A2B', '#7D4FA8', '#C2338F', '#1E7F8C'];
@@ -262,6 +269,7 @@ var Viaggi = (function () {
       var op = tipo === 'persone' ? [''].concat(Store.settings().persone) : extra;
       return '<label class="campo">' + et + '<select name="' + nome + '">' + op.map(function (o) { return '<option value="' + esc(o) + '"' + (o === (val || '') ? ' selected' : '') + '>' + (o ? esc(o) : 'Tutti e due') + '</option>'; }).join('') + '</select></label>';
     }
+    if (tipo === 'compagnia') return '<label class="campo">' + et + '<input type="text" name="' + nome + '" list="lista-compagnie" value="' + esc(val || '') + '" placeholder="Scegli o scrivi"></label>';
     if (tipo === 'prefisso') return '<label class="campo">' + et + '<select name="' + nome + '">' + PREFISSI.map(function (p) { return '<option value="' + p[0] + '"' + ((val || PREFISSO_PREDEF) === p[0] ? ' selected' : '') + '>' + p[0] + ' ' + p[1] + '</option>'; }).join('') + '</select></label>';
     if (tipo === 'colore') return '<fieldset class="campo colore-campo"><legend>' + et + '</legend><div class="colori">' + COLORI_ETICHETTA.map(function (c) { return '<label class="colore-pallino" style="--c:' + (c || '#8A9A90') + '"><input type="radio" name="' + nome + '" value="' + c + '"' + ((val || '') === c ? ' checked' : '') + '><span>' + (c ? '' : 'Auto') + '</span></label>'; }).join('') + '</div></fieldset>';
     var num = tipo === 'number' ? ' step="0.01" min="0" inputmode="decimal"' : '';
@@ -320,13 +328,16 @@ var Viaggi = (function () {
     function righeTappe(f) {
       var box = f.querySelector('#tappe-lista'); if (!box) return;
       box.innerHTML = tappeAttive.map(function (t, i) {
-        var campo = function (k, tipo, ph, etic) { return '<input type="' + tipo + '" data-tappa="' + i + '" data-k="' + k + '" value="' + ui.esc(t[k] || '') + '"' + (ph ? ' placeholder="' + ph + '"' : '') + ' aria-label="' + etic + ' tappa ' + (i + 1) + '">'; };
+        var campo = function (k, tipo, ph, etic) { return '<input type="' + tipo + '" data-tappa="' + i + '" data-k="' + k + '" value="' + ui.esc(t[k] || '') + '"' + (k === 'compagnia' ? ' list="lista-compagnie"' : '') + (ph ? ' placeholder="' + ph + '"' : '') + ' aria-label="' + etic + ' tappa ' + (i + 1) + '">'; };
         return '<div class="tappa-riga"><div class="tappa-testa">' + campo('compagnia', 'text', 'Compagnia', 'Compagnia') + campo('numero', 'text', 'Volo', 'Volo') + campo('da', 'text', 'Da', 'Partenza') + campo('a', 'text', 'A', 'Arrivo') +
           '<button type="button" class="btn secondario piccolo" data-togli-tappa="' + i + '" aria-label="Togli tappa">−</button></div>' +
           '<div class="tappa-date">' + campo('data', 'date', '', 'Data partenza') + campo('ora', 'time', '', 'Ora partenza') + campo('dataArrivo', 'date', '', 'Data arrivo') + campo('arrivo', 'time', '', 'Ora arrivo') + '</div>' +
           '<div class="tappa-date tappa-due">' + campo('pnr', 'text', 'PNR', 'Codice prenotazione') + campo('posto', 'text', 'Posti', 'Posti') + '</div></div>';
       }).join('');
-      box.querySelectorAll('[data-tappa]').forEach(function (inp) { inp.oninput = function () { tappeAttive[+inp.dataset.tappa][inp.dataset.k] = inp.value.trim(); }; });
+      box.querySelectorAll('[data-tappa]').forEach(function (inp) { inp.oninput = function () {
+        tappeAttive[+inp.dataset.tappa][inp.dataset.k] = inp.value.trim();
+        if (inp.dataset.k === 'compagnia') completaSigla(inp, box.querySelector('[data-tappa="' + inp.dataset.tappa + '"][data-k="numero"]'));
+      }; });
       box.querySelectorAll('[data-togli-tappa]').forEach(function (b) { b.onclick = function () { tappeAttive.splice(+b.dataset.togliTappa, 1); righeTappe(f); }; });
     }
     var opzHotel = {
@@ -359,8 +370,9 @@ var Viaggi = (function () {
       leggiExtra: function (f) { var la = parseFloat(f.elements.lat.value), lo = parseFloat(f.elements.lon.value); return { lat: isNaN(la) ? undefined : la, lon: isNaN(lo) ? undefined : lo }; }
     };
     var opzVoli = sez === 'voli' ? {
-      extraHtml: '<div class="campo tappe-campo"><span>Tappe successive</span><span class="aiuto">Per voli con scali o cambi: ogni tappa è un volo in più dello stesso viaggio.</span><div id="tappe-lista"></div><div class="tappe-azioni"><button type="button" class="btn secondario piccolo" id="aggiungi-tappa">+ Aggiungi tappa</button><button type="button" class="btn secondario piccolo" id="ar-volo" title="Crea il volo di ritorno con le tratte invertite">⇄ A/R</button></div></div>',
+      extraHtml: '<datalist id="lista-compagnie">' + COMPAGNIE.map(function (c) { return '<option value="' + c[0] + '">'; }).join('') + '</datalist><div class="campo tappe-campo"><span>Tappe successive</span><span class="aiuto">Per voli con scali o cambi: ogni tappa è un volo in più dello stesso viaggio.</span><div id="tappe-lista"></div><div class="tappe-azioni"><button type="button" class="btn secondario piccolo" id="aggiungi-tappa">+ Aggiungi tappa</button><button type="button" class="btn secondario piccolo" id="ar-volo" title="Crea il volo di ritorno con le tratte invertite">⇄ A/R</button></div></div>',
       dopo: function (f) {
+        f.elements.compagnia.addEventListener('input', function () { completaSigla(f.elements.compagnia, f.elements.numero); });
         f.querySelector('#aggiungi-tappa').onclick = function () { tappeAttive.push({ numero: '', da: '', a: '', ora: '' }); righeTappe(f); };
         f.querySelector('#ar-volo').onclick = function () {
           // ritorno: tratte invertite in ordine inverso, orari e date da reimpostare
@@ -465,6 +477,7 @@ var Viaggi = (function () {
     if (d.modificaViaggio) { apriViaggio(d.modificaViaggio); return true; }
     if (d.nuovoSotto) { apriSotto(idCorrente(), d.nuovoSotto, null); return true; }
     if (d.modificaSotto) { var q = d.modificaSotto.split('|'); apriSotto(idCorrente(), q[0], q[1]); return true; }
+    if (d.aggiungiPunti) { apriPunti(d.aggiungiPunti); return true; }
     if (d.altro) { var k = d.altro.split('|'), vaggio = idCorrente(); if (k[0] === 'luogo') { var lg = (Store.get(vaggio).luoghi || []).filter(function (x) { return x.id === k[1]; })[0]; if (lg) apriLuogo(vaggio, null, JSON.parse(JSON.stringify(lg))); } else apriSotto(vaggio, 'hotel', k[1]); return true; }
     if (d.nuovoConcerto !== undefined) { apriConcerto(null); return true; }
     if (d.modificaConcerto) { apriConcerto(d.modificaConcerto); return true; }
@@ -535,6 +548,36 @@ var Viaggi = (function () {
   function icona(emoji, colore) {
     return L.divIcon({ className: 'pin-luogo', html: '<span style="--c:' + colore + '">' + emoji + '</span>', iconSize: [38, 38], iconAnchor: [19, 19] });
   }
+  // punti da coordinate, link di Google Maps o elenco (uno per riga)
+  function parsaPunti(testo) {
+    var righe = String(testo || '').split(/\r?\n/).map(function (r) { return r.trim(); }).filter(Boolean), punti = [], scartate = 0;
+    righe.forEach(function (r) {
+      var m = r.match(/@(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)/) || r.match(/[?&](?:q|ll|query|destination)=(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)/) || r.match(/(-?\d{1,2}\.\d+)\s*[, ]\s*(-?\d{1,3}\.\d+)/);
+      var lat = m ? +m[1] : NaN, lon = m ? +m[2] : NaN;
+      if (!m || isNaN(lat) || isNaN(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) { scartate++; return; }
+      var nome = '', luogo = r.match(/\/place\/([^\/@?]+)/);
+      if (luogo) { try { nome = decodeURIComponent(luogo[1].replace(/\+/g, ' ')); } catch (e) { nome = luogo[1]; } }
+      if (!nome) nome = r.slice(0, m.index).replace(/https?:\/\/\S*/g, '').replace(/[,;|\t:\s]+$/, '').replace(/^[\s,;|\t]+/, '').trim();
+      punti.push({ nome: nome, lat: lat, lon: lon });
+    });
+    return { punti: punti, scartate: scartate };
+  }
+  function apriPunti(id) {
+    modulo('Aggiungi punti', [['testo', 'Coordinate, link o elenco (uno per riga)', 'textarea'], ['simbolo', 'Simbolo', 'select', SIMBOLI_LUOGO]], { testo: '', simbolo: SIMBOLI_LUOGO[0] }, {
+      valida: function (o) {
+        var r = parsaPunti(o.testo);
+        if (!r.punti.length) { ui.toast(r.scartate ? 'Non riconosco i punti: servono coordinate tipo 44.12, 11.23 o link Google Maps completi' : 'Scrivi almeno un punto'); return false; }
+        return true;
+      },
+      salva: function (o) {
+        var r = parsaPunti(o.testo), vv = JSON.parse(JSON.stringify(Store.get(id)));
+        if (!vv.luoghi) vv.luoghi = [];
+        r.punti.forEach(function (p) { vv.luoghi.push({ id: C.nuovoId(), nome: p.nome || 'Punto', lat: p.lat, lon: p.lon, simbolo: o.simbolo, note: '' }); });
+        Store.upsert(vv); disegnaMappa(id);
+        ui.toast('Aggiunti ' + r.punti.length + (r.scartate ? ' (' + r.scartate + ' non riconosciuti)' : ''));
+      }
+    });
+  }
   function apriLuogo(id, pos, luogo) {
     var v = JSON.parse(JSON.stringify(Store.get(id)));
     var dati = luogo || { nome: '', simbolo: SIMBOLI_LUOGO[0] };
@@ -554,25 +597,22 @@ var Viaggi = (function () {
   var mioPunto = null;
   // comandi della mappa: la mia posizione e schermo intero
   function aggiungiComandi(m, contenitore) {
-    var Posizione = L.Control.extend({ options: { position: 'topleft' }, onAdd: function () {
-      var b = L.DomUtil.create('a', 'mappa-bottone'); b.href = '#'; b.title = 'La mia posizione'; b.setAttribute('aria-label', 'La mia posizione'); b.textContent = '⌖';
-      L.DomEvent.disableClickPropagation(b);
-      L.DomEvent.on(b, 'click', function (e) { L.DomEvent.preventDefault(e); mioPosizione(m); });
-      return b;
-    } });
-    var Schermo = L.Control.extend({ options: { position: 'topleft' }, onAdd: function () {
-      var b = L.DomUtil.create('a', 'mappa-bottone'); b.href = '#'; b.title = 'Schermo intero'; b.setAttribute('aria-label', 'Schermo intero'); b.textContent = '⛶';
-      L.DomEvent.disableClickPropagation(b);
-      L.DomEvent.on(b, 'click', function (e) {
+    var Comandi = L.Control.extend({ options: { position: 'topleft' }, onAdd: function () {
+      var barra = L.DomUtil.create('div', 'leaflet-bar leaflet-control mappa-comandi');
+      var pos = L.DomUtil.create('a', '', barra); pos.href = '#'; pos.title = 'La mia posizione'; pos.setAttribute('aria-label', 'La mia posizione'); pos.textContent = '⌖';
+      var sch = L.DomUtil.create('a', '', barra); sch.href = '#'; sch.title = 'Schermo intero'; sch.setAttribute('aria-label', 'Schermo intero'); sch.textContent = '⛶';
+      L.DomEvent.disableClickPropagation(barra);
+      L.DomEvent.on(pos, 'click', function (e) { L.DomEvent.preventDefault(e); mioPosizione(m); });
+      L.DomEvent.on(sch, 'click', function (e) {
         L.DomEvent.preventDefault(e);
         var sezione = contenitore.parentElement;
         sezione.classList.toggle('mappa-piena');
-        b.textContent = sezione.classList.contains('mappa-piena') ? '✕' : '⛶';
+        sch.textContent = sezione.classList.contains('mappa-piena') ? '✕' : '⛶';
         setTimeout(function () { m.invalidateSize(); }, 50);
       });
-      return b;
+      return barra;
     } });
-    m.addControl(new Posizione()); m.addControl(new Schermo());
+    m.addControl(new Comandi());
   }
   function mioPosizione(m) {
     if (!navigator.geolocation) { ui.toast('Posizione non disponibile su questo dispositivo'); return; }
@@ -605,6 +645,12 @@ var Viaggi = (function () {
       }
       apriLuogo(id, e.latlng);
     });
+    var casaMia = (Store.settings().anagrafica || {}).casa || {};
+    if (casaMia.lat != null && casaMia.lon != null) {
+      var casaPos = [casaMia.lat, casaMia.lon];
+      L.marker(casaPos, { icon: icona('🏠', '#1E7F8C'), zIndexOffset: 500 }).bindTooltip('Casa').addTo(m);
+      punti.push(casaPos);
+    }
     (v && v.luoghi || []).forEach(function (x) {
       var pos = [x.lat, x.lon];
       L.marker(pos, { icon: icona(emojiDi(x.simbolo), '#59665D') }).bindTooltip(x.nome).on('click', function () { apriLuogo(id, null, x); }).addTo(m);
