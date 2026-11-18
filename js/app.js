@@ -234,9 +234,11 @@
     if (Store.configurato()) {
       h += '<p>Collegato al Google Sheet. ' + (st.ultimo ? 'Ultima sincronizzazione: ' + new Date(st.ultimo).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' }) + '.' : '') + '</p>';
       if (st.errore) h += '<p style="color:var(--sangiovese)">' + esc(st.errore) + '</p>';
+      h += '</div><h2>Collega un altro telefono</h2><div class="sezione"><p>Manda questo link all\'altro telefono (per esempio su WhatsApp): aprendolo si collega da solo, senza ricopiare indirizzo e chiave. Nell\'app Android incolla il link nel campo "Indirizzo dello script" qui sotto.</p><p class="testo-muto">Il link contiene la chiave: mandalo solo a chi deve vedere i dati di casa.</p>' +
+        '<div class="azioni">' + (navigator.share ? '<button class="btn" type="button" data-azione="condividi-link">Condividi il link</button>' : '') + '<button class="btn secondario" type="button" data-azione="copia-link">Copia il link</button></div></div><div class="sezione" style="margin-top:12px">';
     } else h += '<p>Ora i dati restano solo su questo telefono. Collega lo script del Google Sheet per vederli in due (istruzioni nel README del repository).</p>';
-    h += '<form id="form-collega" class="campi"><label class="campo">Indirizzo dello script<input type="url" name="url" value="' + esc(conf.url) + '" placeholder="https://script.google.com/macros/s/…/exec" required></label>' +
-      '<label class="campo">Chiave<span class="aiuto">È nel foglio Google «Casa», scheda «Impostazioni» in basso, cella B1. Compare dopo aver eseguito la funzione setup nello script.</span><input type="password" name="chiave" value="' + esc(conf.chiave) + '" autocomplete="off" required></label>' +
+    h += '<form id="form-collega" class="campi"><label class="campo">Indirizzo dello script<span class="aiuto">Oppure incolla qui il link di collegamento ricevuto dall\'altro telefono.</span><input type="text" inputmode="url" name="url" value="' + esc(conf.url) + '" placeholder="https://script.google.com/macros/s/…/exec" required></label>' +
+      '<label class="campo">Chiave<span class="aiuto">Non serve se hai incollato il link di collegamento. È nel foglio Google «Casa», scheda «Impostazioni» in basso, cella B1. Compare dopo aver eseguito la funzione setup nello script.</span><input type="password" name="chiave" value="' + esc(conf.chiave) + '" autocomplete="off"></label>' +
       '<div class="azioni"><button class="btn" type="submit">Collega e sincronizza</button>' + (Store.configurato() ? '<button class="btn secondario" type="button" data-azione="scollega">Scollega</button>' : '') + '</div></form></div>';
 
     h += '<h2>Promemoria</h2><div class="sezione">';
@@ -371,20 +373,55 @@
       t.files[0].text().then(function (txt) { try { toast('Importate ' + Store.importa(txt) + ' voci'); } catch (err) { toast('File non valido: serve un backup esportato da Casa'); } });
     }
   });
-  vista.addEventListener('submit', function (e) {
-    if (e.target.id !== 'form-collega') return;
-    e.preventDefault();
-    var f = e.target, url = f.url.value.trim(), chiave = f.chiave.value.trim();
+  var SITO = 'https://andreaecristina2023.github.io/4giugno2026/';
+  function linkCollegamento() {
+    var c = Store.conf(), dati = JSON.stringify({ u: c.url, k: c.chiave });
+    return SITO + '#collega=' + btoa(unescape(encodeURIComponent(dati))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function leggiCollegamento(testo) {
+    var i = String(testo || '').indexOf('#collega=');
+    if (i < 0) return null;
+    try {
+      var b = testo.slice(i + 9).trim().replace(/-/g, '+').replace(/_/g, '/');
+      while (b.length % 4) b += '=';
+      var o = JSON.parse(decodeURIComponent(escape(atob(b))));
+      return o.u && o.k ? { url: o.u, chiave: o.k } : null;
+    } catch (e) { return null; }
+  }
+  function collega(url, chiave) {
     toast('Provo il collegamento…');
-    Store.prova(url, chiave).then(function (r) {
+    return Store.prova(url, chiave).then(function (r) {
       if (!r.ok) throw new Error(r.errore || 'Chiave non valida');
       Store.setConf({ url: url, chiave: chiave }); toast('Collegato al foglio di casa'); Store.sync();
     }).catch(function (err) { toast('Collegamento non riuscito: ' + (err.message === 'Failed to fetch' ? 'controlla l\'indirizzo e che lo script sia distribuito per "Chiunque"' : err.message)); });
+  }
+  vista.addEventListener('submit', function (e) {
+    if (e.target.id !== 'form-collega') return;
+    e.preventDefault();
+    var f = e.target, link = leggiCollegamento(f.url.value);
+    if (link) return collega(link.url, link.chiave);
+    var url = f.url.value.trim(), chiave = f.chiave.value.trim();
+    if (!chiave) { toast('Manca la chiave'); f.chiave.focus(); return; }
+    collega(url, chiave);
+  });
+  vista.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-azione]'); if (!t) return;
+    if (t.dataset.azione === 'condividi-link') navigator.share({ title: 'Casa', text: 'Apri questo link per collegare il telefono ai dati di casa', url: linkCollegamento() }).catch(function () {});
+    else if (t.dataset.azione === 'copia-link') {
+      var l = linkCollegamento();
+      (navigator.clipboard ? navigator.clipboard.writeText(l) : Promise.reject()).then(function () { toast('Link copiato: incollalo su WhatsApp'); })
+        .catch(function () { window.prompt('Copia questo link:', l); });
+    }
   });
 
   // ---------- avvio ----------
   Native.creaCanale().then(function () { if (Native.isApp) Native.permesso(); });
   if ('serviceWorker' in navigator && !Native.isApp && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function () {});
+  var daLink = leggiCollegamento(location.hash);
+  if (daLink) {
+    history.replaceState(null, '', location.pathname + '#oggi'); // tolgo la chiave dalla barra degli indirizzi
+    if (Store.conf().url !== daLink.url || Store.conf().chiave !== daLink.chiave) collega(daLink.url, daLink.chiave);
+  }
   disegna();
   Store.sync();
   setInterval(function () { if (document.visibilityState === 'visible') Store.sync(); }, 5 * 60 * 1000);

@@ -152,7 +152,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--ardesia); outlin
 .campi { display: grid; gap: 16px; }
 .due { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; }
 .campi > *, .due > * { min-width: 0; }
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 20px; border-radius: 12px; border: 0; background: var(--azione); color: #fff; font-weight: 700; cursor: pointer; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; min-height: 48px; padding: 0 20px; border-radius: 12px; border: 0; background: var(--azione); color: #fff; font-weight: 700; cursor: pointer; }
 .btn.secondario { background: transparent; color: var(--inchiostro); border: 1.5px solid var(--confine); }
 .btn.pericolo { background: transparent; color: var(--sangiovese); border: 1.5px solid var(--sangiovese); }
 .btn.piccolo { min-height: 38px; padding: 0 14px; font-size: 15px; }
