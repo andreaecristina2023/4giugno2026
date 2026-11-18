@@ -743,6 +743,15 @@ var Casa = (function () {
       var q0 = x.data + 'T' + base;
       if (dentro(q0)) out.push({ quando: q0, titolo: it.titolo + (x.tipo === 'promemoria' ? '' : ' scade oggi'), testo: [TIPI[x.tipo].nome].concat(dett).join(' · '), chiave: 'p' + it.id + x.data });
     });
+    // promemoria individuali: ogni nota con un momento preciso diventa un avviso
+    items.forEach(function (it) {
+      if (it.eliminato || !it.annotazioni) return;
+      it.annotazioni.forEach(function (nota, i) {
+        if (!nota.testo || !nota.quando) return;
+        var g = nota.quando.slice(0, 10);
+        if (g >= da && g <= a) out.push({ quando: nota.quando, titolo: it.titolo, testo: nota.testo, chiave: 'n' + it.id + i + nota.quando });
+      });
+    });
     out.sort(function (p, q) { return p.quando < q.quando ? -1 : 1; });
     return out;
   }

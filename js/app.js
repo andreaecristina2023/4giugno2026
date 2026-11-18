@@ -6,6 +6,8 @@
   var vista = $('#vista'), foglio = $('#foglio');
   var REPO = 'https://github.com/andreaecristina2023/4giugno2026';
   var COLORE_TIPO = { appuntamento: 'var(--ardesia)', pagamento: 'var(--sangiovese)', scadenza: 'var(--albana)', promemoria: 'var(--muschio)', viaggio: '#1E7F8C', volo: '#1E7F8C', hotel: '#1E7F8C', concerto: '#A3307A' };
+  var COLORI_VOCE = ['#2F6DB5', '#2E8B57', '#E3B505', '#D7263D', '#8A5A2B', '#7D4FA8', '#C2338F', '#1E7F8C'];
+  function colVoce(it) { return it.colore || COLORE_TIPO[it.tipo]; }
   var ZONE = {
     'centro': { nome: 'Centro', pdf: 'https://www.alea-ambiente.it/wp-content/uploads/2025/12/bertinoro_centro.pdf' },
     'cintura': { nome: 'Cintura urbana', pdf: 'https://www.alea-ambiente.it/wp-content/uploads/2025/12/bertinoro_cintura.pdf' },
@@ -46,7 +48,7 @@
     var destra = '';
     if (it.importo) destra += '<span class="importo">' + C.euro(it.importo) + '</span>';
     if (C.chiudibile(it)) destra += '<button class="spunta" type="button" data-fatto="' + esc(it.id) + '" data-data="' + x.data + '" aria-pressed="' + x.fatto + '" aria-label="' + (x.fatto ? 'Segna come da fare: ' : 'Segna come fatto: ') + esc(it.titolo) + '"></button>';
-    return '<li class="' + cls + '" style="--c:' + COLORE_TIPO[it.tipo] + '"><span class="barra"></span>' +
+    return '<li class="' + cls + '" style="--c:' + colVoce(it) + '"><span class="barra"></span>' +
       '<button class="corpo-riga" type="button" data-apri="' + esc(it.id) + '"><span class="titolo">' + esc(it.titolo) + '</span><span class="meta">' + esc(meta.join(' · ')) + '</span></button>' +
       '<span class="destra">' + destra + '</span></li>';
   }
@@ -164,7 +166,7 @@
     for (var d = inizio; d <= fine; d = C.addGiorni(d, 1)) {
       var cls = 'cella' + (d.slice(0, 7) !== ui.meseCal ? ' fuori' : '') + (d === oggi ? ' oggi' : '') + (d === ui.giornoCal ? ' scelta' : '') + (C.eFestivo(d) || C.giornoSett(d) === 0 ? ' festa' : '');
       var punti = (perGiorno[d] || []).slice(0, 4).map(function (x) {
-        var col = x.tipo === 'rifiuti' ? C.FRAZIONI[x.frazioni[0]].colore : COLORE_TIPO[x.tipo];
+        var col = x.tipo === 'rifiuti' ? C.FRAZIONI[x.frazioni[0]].colore : (x.item ? colVoce(x.item) : COLORE_TIPO[x.tipo]);
         return '<i style="--c:' + col + '"></i>';
       }).join('');
       var tt = C.turnoDel(tcfg, d), tinta = '';
@@ -398,6 +400,8 @@
   }
   function apriVoce(id, pre) {
     var it = id ? JSON.parse(JSON.stringify(Store.get(id))) : Object.assign({ tipo: 'appuntamento', titolo: '', data: C.oggi(), ora: '', ricorrenza: '', importo: '', categoria: '', chi: '', note: '', avviso: '', targa: '' }, pre || {});
+    if (!it.annotazioni) it.annotazioni = it.note ? [{ testo: it.note, quando: '' }] : [];
+    if (!it.annotazioni.length) it.annotazioni.push({ testo: '', quando: '' });
     var s = Store.settings();
     var targhe = {};
     Store.lista().forEach(function (v) { if (v.targa) targhe[v.targa] = true; });
@@ -417,11 +421,23 @@
         '<label class="campo">Fino al<input type="date" name="fine" value="' + esc(it.fine || '') + '"' + (rip.n ? '' : ' disabled') + '></label></div>' +
         '<label class="campo">Avviso prima<span class="aiuto">Vuoto = ' + predef + (it.tipo === 'appuntamento' ? ' prima' : (it.tipo === 'promemoria' ? '' : ' prima, più il giorno stesso')) + '.</span><span class="durata"><input type="number" name="avvN" min="0" max="999" inputmode="numeric" value="' + esc(avv.n) + '" placeholder="—" aria-label="Quanti">' + selUnita('avvU', C.UNITA_AVVISO, avv.u) + '</span></label>' +
         '<label class="campo">Per chi<select name="chi"><option value="">Tutti e due</option>' + s.persone.map(function (p) { return '<option' + (it.chi === p ? ' selected' : '') + '>' + esc(p) + '</option>'; }).join('') + '</select></label>' +
-        '<label class="campo">Note<textarea name="note" maxlength="1000">' + esc(it.note) + '</textarea></label>' +
+        '<div class="campo"><span>Note</span><div class="note-elenco">' + it.annotazioni.map(function (n, i) {
+          return '<div class="nota-riga"><input type="text" name="ntesto" maxlength="300" value="' + esc(n.testo) + '" placeholder="Es. Portare la tessera sanitaria" aria-label="Nota ' + (i + 1) + '">' +
+            '<input type="datetime-local" name="nquando" value="' + esc(n.quando) + '" aria-label="Promemoria nota ' + (i + 1) + ' (facoltativo)">' +
+            '<button class="btn icona" type="button" data-nota-piu aria-label="Aggiungi nota">+</button>' +
+            (it.annotazioni.length > 1 ? '<button class="btn icona secondario" type="button" data-nota-meno="' + i + '" aria-label="Togli nota">−</button>' : '') + '</div>';
+        }).join('') + '</div><span class="aiuto">Con un orario la nota diventa un promemoria.</span></div>' +
+        '<div class="campo"><span>Colore</span><div class="colori" role="group" aria-label="Colore">' +
+          '<button type="button" class="colore-scelta" data-colore="" style="--c:' + COLORE_TIPO[it.tipo] + '" aria-pressed="' + (!it.colore) + '" aria-label="Colore predefinito">Auto</button>' +
+          COLORI_VOCE.map(function (c) { return '<button type="button" class="colore-scelta" data-colore="' + c + '" style="--c:' + c + '" aria-pressed="' + (it.colore === c) + '" aria-label="' + c + '"></button>'; }).join('') +
+        '</div></div>' +
         '<div class="azioni"><button class="btn" type="submit" value="salva">Salva</button><button class="btn secondario" type="button" data-chiudi>Annulla</button>' + (id ? '<button class="btn pericolo" type="button" data-elimina style="margin-left:auto">Elimina</button>' : '') + '</div></div></form>';
       var f = $('#form-voce', foglio);
       f.querySelectorAll('[data-tipo]').forEach(function (b) { b.onclick = function () { leggi(f); it.tipo = b.dataset.tipo; it.avviso = ''; render(); }; });
       f.ripN.oninput = function () { f.fine.disabled = !(+f.ripN.value > 0); };
+      f.querySelectorAll('[data-colore]').forEach(function (b) { b.onclick = function () { leggi(f); it.colore = b.dataset.colore; render(); }; });
+      f.querySelectorAll('[data-nota-piu]').forEach(function (b) { b.onclick = function () { leggi(f); it.annotazioni.push({ testo: '', quando: '' }); render(); }; });
+      f.querySelectorAll('[data-nota-meno]').forEach(function (b) { b.onclick = function () { leggi(f); it.annotazioni.splice(+b.dataset.notaMeno, 1); render(); }; });
       if (f.categoria) f.categoria.onchange = function () {
         leggi(f);
         if (RIPETI_CAT[it.categoria] && !C.leggiDurata(it.ricorrenza)) it.ricorrenza = RIPETI_CAT[it.categoria];
@@ -435,11 +451,16 @@
       f.onsubmit = function (e) {
         e.preventDefault(); leggi(f);
         if (!it.titolo.trim()) { f.titolo.focus(); return; }
+        it.annotazioni = it.annotazioni.filter(function (n) { return n.testo || n.quando; });
+        it.note = it.annotazioni.map(function (n) { return n.testo; }).filter(Boolean).join(' · ');
+        if (!it.colore) delete it.colore;
         Store.upsert(it); foglio.close(); toast(id ? 'Modifiche salvate' : 'Aggiunto: ' + it.titolo);
       };
     }
     function leggi(f) {
-      ['titolo', 'data', 'ora', 'chi', 'note'].forEach(function (k) { if (f[k]) it[k] = f[k].value; });
+      ['titolo', 'data', 'ora', 'chi'].forEach(function (k) { if (f[k]) it[k] = f[k].value; });
+      var testi = f.querySelectorAll('[name=ntesto]'), quando = f.querySelectorAll('[name=nquando]');
+      it.annotazioni = Array.prototype.map.call(testi, function (t, i) { return { testo: t.value.trim(), quando: quando[i] ? quando[i].value : '' }; });
       var rn = parseInt(f.ripN.value, 10);
       it.ricorrenza = rn > 0 ? rn + ' ' + f.ripU.value : '';
       it.fine = rn > 0 ? f.fine.value : '';
