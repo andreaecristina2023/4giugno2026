@@ -190,11 +190,12 @@ var Viaggi = (function () {
       ['pnr', 'Codice prenotazione (PNR)', 'text'], ['posto', 'Posti', 'text', 'Es. 23A, 23B'], ['note', 'Note', 'textarea']] },
     hotel: { titolo: 'Hotel', uno: 'hotel', campi: [
       ['nome', 'Nome', 'text', true], ['indirizzo', 'Indirizzo', 'text'], ['checkin', 'Check-in', 'date'], ['checkout', 'Check-out', 'date'],
-      ['conferma', 'Numero di conferma', 'text'], ['telefono', 'Telefono', 'tel'], ['note', 'Note', 'textarea']] },
+      ['conferma', 'Numero di conferma', 'text'], ['prefisso', 'Prefisso', 'prefisso'], ['telefono', 'Telefono', 'tel'], ['note', 'Note', 'textarea']] },
     documenti: { titolo: 'Documenti', uno: 'documento', campi: [
       ['tipo', 'Tipo', 'select', ['eVisa', 'Passaporto', 'Carta d\'identità', 'Assicurazione viaggio', 'Patente internazionale', 'Vaccinazioni', 'ESTA / ETA', 'Altro']],
       ['persona', 'Di chi', 'persone'], ['numero', 'Numero', 'text'], ['scadenza', 'Scadenza', 'date'], ['note', 'Note', 'textarea']] }
   };
+  function numeroTel(s) { return (s.prefisso || PREFISSO_PREDEF) + String(s.telefono || '').replace(/[^0-9]/g, ''); }
   function rigaSotto(v, sez, s) {
     var esc = ui.esc, ctx = v.id + '|' + sez + '|' + s.id, titolo = '', righe = [];
     if (sez === 'voli') {
@@ -209,6 +210,7 @@ var Viaggi = (function () {
       titolo = s.nome || 'Hotel';
       if (s.checkin) righe.push(intervallo(s.checkin, s.checkout) + (s.checkout && s.checkin ? ' · ' + C.diffGiorni(s.checkin, s.checkout) + ' notti' : ''));
       if (s.conferma) righe.push('Conferma ' + s.conferma);
+      if (s.telefono) righe.push('Tel ' + (s.prefisso || PREFISSO_PREDEF) + ' ' + s.telefono);
     } else {
       titolo = (s.tipo || 'Documento') + (s.persona ? ' · ' + s.persona : '');
       if (s.numero) righe.push('N. ' + s.numero);
@@ -218,6 +220,7 @@ var Viaggi = (function () {
     return '<div class="sotto-card"><button type="button" class="sc-corpo" data-modifica-sotto="' + esc(sez) + '|' + esc(s.id) + '"><span class="sc-titolo">' + esc(titolo) + '</span>' +
       righe.map(function (r) { return '<span class="sc-riga">' + esc(r) + '</span>'; }).join('') +
       (avv ? '<span class="sc-avviso">⚠ ' + esc(avv) + '</span>' : '') + (s.note ? '<span class="sc-riga testo-muto">' + esc(s.note) + '</span>' : '') + '</button>' +
+      (sez === 'hotel' && s.telefono ? '<a class="sc-chiama" href="tel:' + esc(numeroTel(s)) + '" aria-label="Chiama ' + esc(s.nome || 'hotel') + '">☎️ Chiama</a>' : '') +
       (sez === 'hotel' && s.indirizzo ? '<a class="sc-mappa" href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(s.nome + ', ' + s.indirizzo) + '" target="_blank" rel="noopener">Mappa</a>' : '') +
       htmlAllegati(s.allegati, ctx, sez === 'documenti' ? 'Allega documento' : sez === 'voli' ? 'Allega carta d\'imbarco' : 'Allega conferma') + '</div>';
   }
@@ -229,6 +232,15 @@ var Viaggi = (function () {
       '<header class="testa-viaggio"><h1>' + esc(v.titolo) + '</h1><p>' + esc(intervallo(v.data, v.fine)) + ' · <span class="cv-quando ' + q.classe + '">' + q.testo + '</span>' + (v.chi ? ' · ' + esc(v.chi) : '') + '</p>' +
       '<div class="azioni"><button class="btn piccolo secondario" type="button" data-modifica-viaggio="' + esc(v.id) + '">Modifica</button></div></header>';
     h += '<section class="mappa-viaggio"><div id="mappa-viaggio" class="mappa"></div><p id="mappa-nota" class="testo-muto"></p></section>';
+    var altri = (v.luoghi || []).map(function (x) { return { tipo: 'luogo', id: x.id, emoji: emojiDi(x.simbolo), nome: x.nome, sub: x.note || '' }; })
+      .concat((v.hotel || []).map(function (x) { return { tipo: 'hotel', id: x.id, emoji: '🏨', nome: x.nome || 'Hotel', sub: [x.indirizzo, x.lat != null ? 'posizione segnata' : 'posizione non segnata'].filter(Boolean).join(' · '), tel: x.telefono ? numeroTel(x) : '' }; }));
+    if (altri.length) {
+      h += '<h2>Altri punti <small>' + altri.length + '</small></h2>' + altri.map(function (x) {
+        return '<div class="sotto-card altro-punto"><span class="altro-simbolo" aria-hidden="true">' + x.emoji + '</span><button type="button" class="sc-corpo altro-corpo" data-altro="' + esc(x.tipo + '|' + x.id) + '"><span class="sc-titolo">' + esc(x.nome) + '</span>' +
+          (x.sub ? '<span class="sc-riga">' + esc(x.sub) + '</span>' : '') + '</button>' +
+          (x.tel ? '<a class="sc-chiama" href="tel:' + esc(x.tel) + '" aria-label="Chiama ' + esc(x.nome) + '">☎️ Chiama</a>' : '') + '</div>';
+      }).join('');
+    }
     Object.keys(SEZIONI).forEach(function (sez) {
       var lista = (v[sez] || []).slice().sort(function (a, b) { var x = a.data || a.checkin || a.scadenza || '', y = b.data || b.checkin || b.scadenza || ''; return x < y ? -1 : 1; });
       h += '<h2>' + SEZIONI[sez].titolo + ' <small>' + lista.length + '</small></h2>' + lista.map(function (s) { return rigaSotto(v, sez, s); }).join('') +
@@ -239,6 +251,8 @@ var Viaggi = (function () {
   }
 
   // ---------- moduli (foglio a scorrimento) ----------
+  var PREFISSI = [['+39', 'Italia'], ['+41', 'Svizzera'], ['+33', 'Francia'], ['+34', 'Spagna'], ['+43', 'Austria'], ['+49', 'Germania'], ['+44', 'Regno Unito'], ['+351', 'Portogallo'], ['+30', 'Grecia'], ['+385', 'Croazia'], ['+1', 'USA e Canada'], ['+61', 'Australia'], ['+81', 'Giappone']];
+  var PREFISSO_PREDEF = '+39';
   var COLORI_ETICHETTA = ['', '#2F6DB5', '#2E8B57', '#E3B505', '#D7263D', '#8A5A2B', '#7D4FA8', '#C2338F', '#1E7F8C'];
   function campoHtml(c, val) {
     var esc = ui.esc, nome = c[0], et = c[1], tipo = c[2], extra = c[3];
@@ -247,6 +261,7 @@ var Viaggi = (function () {
       var op = tipo === 'persone' ? [''].concat(Store.settings().persone) : extra;
       return '<label class="campo">' + et + '<select name="' + nome + '">' + op.map(function (o) { return '<option value="' + esc(o) + '"' + (o === (val || '') ? ' selected' : '') + '>' + (o ? esc(o) : 'Tutti e due') + '</option>'; }).join('') + '</select></label>';
     }
+    if (tipo === 'prefisso') return '<label class="campo">' + et + '<select name="' + nome + '">' + PREFISSI.map(function (p) { return '<option value="' + p[0] + '"' + ((val || PREFISSO_PREDEF) === p[0] ? ' selected' : '') + '>' + p[0] + ' ' + p[1] + '</option>'; }).join('') + '</select></label>';
     if (tipo === 'colore') return '<fieldset class="campo colore-campo"><legend>' + et + '</legend><div class="colori">' + COLORI_ETICHETTA.map(function (c) { return '<label class="colore-pallino" style="--c:' + (c || '#8A9A90') + '"><input type="radio" name="' + nome + '" value="' + c + '"' + ((val || '') === c ? ' checked' : '') + '><span>' + (c ? '' : 'Auto') + '</span></label>'; }).join('') + '</div></fieldset>';
     var num = tipo === 'number' ? ' step="0.01" min="0" inputmode="decimal"' : '';
     return '<label class="campo">' + et + '<input type="' + tipo + '" name="' + nome + '" value="' + esc(val == null ? '' : val) + '"' + num + (extra === true ? ' required' : '') + (typeof extra === 'string' ? ' placeholder="' + esc(extra) + '"' : '') + '></label>';
@@ -313,6 +328,35 @@ var Viaggi = (function () {
       box.querySelectorAll('[data-tappa]').forEach(function (inp) { inp.oninput = function () { tappeAttive[+inp.dataset.tappa][inp.dataset.k] = inp.value.trim(); }; });
       box.querySelectorAll('[data-togli-tappa]').forEach(function (b) { b.onclick = function () { tappeAttive.splice(+b.dataset.togliTappa, 1); righeTappe(f); }; });
     }
+    var opzHotel = {
+      extraHtml: '<div class="campo posizione-campo"><span>Posizione sulla mappa</span><span class="aiuto" id="pos-stato">' + (dati.lat != null ? 'Posizione segnata' : 'Non ancora segnata') + '</span><div class="posizione-azioni"><button type="button" class="btn secondario piccolo" id="loc-hotel">📍 Localizza</button><button type="button" class="btn secondario piccolo" id="scegli-hotel">🗺️ Scegli sulla mappa</button></div>' +
+        '<input type="hidden" name="lat" value="' + (dati.lat != null ? dati.lat : '') + '"><input type="hidden" name="lon" value="' + (dati.lon != null ? dati.lon : '') + '"></div>',
+      dopo: function (f) {
+        var stato = f.querySelector('#pos-stato');
+        function scrivi(pos) { f.elements.lat.value = pos[0]; f.elements.lon.value = pos[1]; stato.textContent = 'Trovata: ' + pos[0].toFixed(4) + ', ' + pos[1].toFixed(4); }
+        f.querySelector('#loc-hotel').onclick = function () {
+          var nome = f.elements.nome.value.trim(), ind = f.elements.indirizzo.value.trim();
+          if (!nome && !ind) { stato.textContent = 'Scrivi prima nome o indirizzo'; return; }
+          stato.textContent = 'Cerco…';
+          geocodifica([ind, nome].filter(Boolean).join(', ')).then(function (pos) { return pos || (nome && ind ? geocodifica(nome) : null); }).then(function (pos) {
+            if (pos) scrivi(pos); else stato.textContent = 'Non trovato: prova a scrivere l\'indirizzo completo, oppure usa «Scegli sulla mappa»';
+          });
+        };
+        f.querySelector('#scegli-hotel').onclick = function () {
+          var o = {};
+          def.campi.forEach(function (c) { var el = f.elements[c[0]]; if (el) o[c[0]] = el.value.trim(); });
+          if (!o.nome) { f.elements.nome.focus(); return; }
+          var vv = JSON.parse(JSON.stringify(Store.get(v.id)));
+          if (!vv.hotel) vv.hotel = [];
+          if (s) { var t = vv.hotel.filter(function (x) { return x.id === idSotto; })[0]; Object.keys(o).forEach(function (k) { t[k] = o[k]; }); o.id = t.id; }
+          else { o.id = C.nuovoId(); o.allegati = []; vv.hotel.push(o); }
+          Store.upsert(vv);
+          sceltaHotel = { viaggio: v.id, hotel: o.id, nome: o.nome };
+          ui.foglio.close(); disegnaMappa(v.id);
+        };
+      },
+      leggiExtra: function (f) { var la = parseFloat(f.elements.lat.value), lo = parseFloat(f.elements.lon.value); return { lat: isNaN(la) ? undefined : la, lon: isNaN(lo) ? undefined : lo }; }
+    };
     var opzVoli = sez === 'voli' ? {
       extraHtml: '<div class="campo tappe-campo"><span>Tappe successive</span><span class="aiuto">Per voli con scali o cambi: ogni tappa è un volo in più dello stesso viaggio.</span><div id="tappe-lista"></div><button type="button" class="btn secondario piccolo" id="aggiungi-tappa">+ Aggiungi tappa</button></div>',
       dopo: function (f) {
@@ -325,7 +369,7 @@ var Viaggi = (function () {
         righeTappe(f);
       },
       leggiExtra: function () { return { tappe: tappeAttive.filter(function (t) { return t.da || t.a || t.numero; }) }; }
-    } : {};
+    } : sez === 'hotel' ? opzHotel : {};
     modulo((s ? 'Modifica ' : 'Nuovo ') + def.uno, def.campi, dati, Object.assign(opzVoli, {
       valida: function (o, f) { var obbl = def.campi.filter(function (c) { return c[3] === true; })[0]; if (obbl && !o[obbl[0]]) { f.elements[obbl[0]].focus(); return false; } return true; },
       salva: function (o) {
@@ -414,6 +458,7 @@ var Viaggi = (function () {
     if (d.modificaViaggio) { apriViaggio(d.modificaViaggio); return true; }
     if (d.nuovoSotto) { apriSotto(idCorrente(), d.nuovoSotto, null); return true; }
     if (d.modificaSotto) { var q = d.modificaSotto.split('|'); apriSotto(idCorrente(), q[0], q[1]); return true; }
+    if (d.altro) { var k = d.altro.split('|'), vaggio = idCorrente(); if (k[0] === 'luogo') { var lg = (Store.get(vaggio).luoghi || []).filter(function (x) { return x.id === k[1]; })[0]; if (lg) apriLuogo(vaggio, null, JSON.parse(JSON.stringify(lg))); } else apriSotto(vaggio, 'hotel', k[1]); return true; }
     if (d.nuovoConcerto !== undefined) { apriConcerto(null); return true; }
     if (d.modificaConcerto) { apriConcerto(d.modificaConcerto); return true; }
     return false;
@@ -457,8 +502,8 @@ var Viaggi = (function () {
     });
     (v.hotel || []).forEach(function (h) {
       var q = [h.indirizzo || '', h.nome || ''].filter(Boolean).join(', ');
-      var nomeHotel = h.nome ? h.nome : '';
-      if (q) out.push({ etichetta: 'Hotel ' + (h.nome || h.indirizzo), q: q, alt: h.indirizzo && nomeHotel ? nomeHotel : '', col: COLORI_LUOGO.hotel, tipo: 'hotel', nome: 'Hotel ' + (h.nome || h.indirizzo) });
+      var nomeHotel = h.nome ? h.nome : '', segnato = h.lat != null && h.lon != null ? [h.lat, h.lon] : null;
+      if (q || segnato) out.push({ etichetta: 'Hotel ' + (h.nome || h.indirizzo), q: q, alt: h.indirizzo && nomeHotel ? nomeHotel : '', pos: segnato, col: COLORI_LUOGO.hotel, tipo: 'hotel' });
     });
     return out;
   }
@@ -498,26 +543,40 @@ var Viaggi = (function () {
       confermaElimina: 'Eliminare questo luogo?'
     });
   }
+  var sceltaHotel = null; // hotel in attesa di un tocco sulla mappa
   function disegnaMappa(id) {
     var el = document.getElementById('mappa-viaggio'), nota = document.getElementById('mappa-nota');
     if (!el || !nota || !window.L) return;
     if (mappaCorrente) { mappaCorrente.remove(); mappaCorrente = null; }
     var v = Store.get(id), luoghi = v ? luoghiViaggio(v) : [];
-    var m = L.map(el, { scrollWheelZoom: false }), punti = [];
+    var m = L.map(el, { scrollWheelZoom: false }), punti = [], mancanti = [];
     mappaCorrente = m;
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap' }).addTo(m);
     m.setView([44.5, 11.3], 4);
-    m.on('click', function (e) { apriLuogo(id, e.latlng); });
+    m.on('click', function (e) {
+      if (sceltaHotel && sceltaHotel.viaggio === id) {
+        var vv = JSON.parse(JSON.stringify(Store.get(id)));
+        var h = (vv.hotel || []).filter(function (x) { return x.id === sceltaHotel.hotel; })[0];
+        if (h) { h.lat = e.latlng.lat; h.lon = e.latlng.lng; Store.upsert(vv); ui.toast('Hotel segnato sulla mappa'); }
+        sceltaHotel = null; disegnaMappa(id); return;
+      }
+      apriLuogo(id, e.latlng);
+    });
     (v && v.luoghi || []).forEach(function (x) {
       var pos = [x.lat, x.lon];
       L.marker(pos, { icon: icona(emojiDi(x.simbolo), '#59665D') }).bindTooltip(x.nome).on('click', function () { apriLuogo(id, null, x); }).addTo(m);
       punti.push(pos);
     });
-    nota.textContent = (luoghi.length ? 'Cerco i luoghi…' : '') + (luoghi.length || punti.length ? '' : 'Tocca la mappa per aggiungere un luogo.');
-    if (punti.length) m.fitBounds(punti, { padding: [24, 24] });
-    var mancanti = [];
+    function piazza(pos, l) {
+      if (!el.isConnected || mappaCorrente !== m) return;
+      L.marker(pos, { icon: icona(EMOJI_FISSI[l.tipo] || '📍', l.col) }).bindTooltip(l.etichetta).addTo(m);
+      punti.push(pos);
+      m.fitBounds(punti, { padding: [24, 24] });
+    }
+    nota.textContent = luoghi.length ? 'Cerco i luoghi…' : '';
     luoghi.reduce(function (prima, l) {
       return prima.then(function () {
+        if (l.pos) { piazza(l.pos, l); return; }
         var daRete = !(l.q in geoCache());
         return new Promise(function (ok) { setTimeout(ok, daRete ? 1100 : 0); }).then(function () { return geocodifica(l.q); }).then(function (pos) {
           if (!pos && l.alt) return new Promise(function (ok) { setTimeout(ok, 1100); }).then(function () { return geocodifica(l.alt); });
@@ -525,18 +584,20 @@ var Viaggi = (function () {
         }).then(function (pos) {
           if (!el.isConnected || mappaCorrente !== m) return;
           if (!pos) { mancanti.push(l.etichetta); return; }
-          var emoji = EMOJI_FISSI[l.tipo] || '📍';
-          L.marker(pos, { icon: icona(emoji, l.col) }).bindTooltip(l.etichetta).addTo(m);
-          punti.push(pos);
-          m.fitBounds(punti, { padding: [24, 24] });
+          piazza(pos, l);
         });
       });
     }, Promise.resolve()).then(function () {
       if (!el.isConnected || mappaCorrente !== m) return;
-      var msg = mancanti.length ? 'Non trovati: ' + mancanti.join(', ') + '. Aggiungi l\'indirizzo completo (via e città) nella scheda, oppure tocca la mappa per segnare il punto.' : 'Tocca la mappa per aggiungere un luogo.';
-      nota.textContent = msg;
+      if (sceltaHotel && sceltaHotel.viaggio === id) {
+        nota.innerHTML = 'Tocca la mappa per segnare l\'hotel «' + esc(sceltaHotel.nome) + '». <button type="button" class="btn secondario piccolo" id="annulla-scelta">Annulla</button>';
+        nota.querySelector('#annulla-scelta').onclick = function () { sceltaHotel = null; disegnaMappa(id); };
+        return;
+      }
+      nota.textContent = mancanti.length ? 'Non trovati: ' + mancanti.join(', ') + '. Aggiungi l\'indirizzo completo nella scheda, oppure usa «Scegli sulla mappa».' : 'Tocca la mappa per aggiungere un luogo.';
     });
   }
+  function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   return {
     init: function (u) { ui = u; },
     disegnaMappa: disegnaMappa,
