@@ -199,8 +199,11 @@ var Viaggi = (function () {
     var esc = ui.esc, ctx = v.id + '|' + sez + '|' + s.id, titolo = '', righe = [];
     if (sez === 'voli') {
       titolo = [s.compagnia, s.numero].filter(Boolean).join(' ') || 'Volo';
-      if (s.da || s.a) titolo += ' · ' + [s.da, s.a].filter(Boolean).join(' → ');
+      var tappe = s.tappe || [];
+      var percorso = [s.da, s.a].concat(tappe.map(function (t) { return t.a; })).filter(Boolean);
+      if (percorso.length) titolo += ' · ' + percorso.join(' → ');
       righe.push(C.etichettaGiorno(s.data) + (s.ora ? ', ' + s.ora : '') + (s.arrivo ? ' → ' + s.arrivo : ''));
+      if (tappe.length) righe.push(tappe.length + (tappe.length === 1 ? ' tappa successiva' : ' tappe successive') + ': ' + tappe.map(function (t) { return [t.numero, t.da, t.a].filter(Boolean).join(' '); }).join(', '));
       if (s.pnr) righe.push('PNR ' + s.pnr); if (s.posto) righe.push('Posti ' + s.posto);
     } else if (sez === 'hotel') {
       titolo = s.nome || 'Hotel';
@@ -268,6 +271,7 @@ var Viaggi = (function () {
       e.preventDefault();
       var out = {};
       campi.forEach(function (c) { var el = f.elements[c[0]]; if (el) out[c[0]] = el.value.trim(); });
+      if (opz.leggiExtra) Object.assign(out, opz.leggiExtra(f));
       if (opz.valida && !opz.valida(out, f)) return;
       opz.salva(out); fg.close();
     };
@@ -295,7 +299,34 @@ var Viaggi = (function () {
     var v = JSON.parse(JSON.stringify(Store.get(idViaggio))), def = SEZIONI[sez];
     var s = idSotto ? (v[sez] || []).filter(function (x) { return x.id === idSotto; })[0] : null;
     var dati = s || (sez === 'voli' ? { data: v.data } : sez === 'hotel' ? { checkin: v.data, checkout: v.fine } : { tipo: 'eVisa' });
-    modulo((s ? 'Modifica ' : 'Nuovo ') + def.uno, def.campi, dati, {
+    var tappeIn = sez === 'voli' ? (dati.tappe || []).map(function (t) { return Object.assign({}, t); }) : null;
+    var tappeAttive = tappeIn;
+    function righeTappe(f) {
+      var box = f.querySelector('#tappe-lista'); if (!box) return;
+      box.innerHTML = tappeAttive.map(function (t, i) {
+        return '<div class="tappa-riga"><input type="text" data-tappa="' + i + '" data-k="numero" value="' + ui.esc(t.numero || '') + '" placeholder="Volo" aria-label="Volo tappa ' + (i + 1) + '">' +
+          '<input type="text" data-tappa="' + i + '" data-k="da" value="' + ui.esc(t.da || '') + '" placeholder="Da" aria-label="Partenza tappa ' + (i + 1) + '">' +
+          '<input type="text" data-tappa="' + i + '" data-k="a" value="' + ui.esc(t.a || '') + '" placeholder="A" aria-label="Arrivo tappa ' + (i + 1) + '">' +
+          '<input type="time" data-tappa="' + i + '" data-k="ora" value="' + ui.esc(t.ora || '') + '" aria-label="Partenza tappa ' + (i + 1) + '">' +
+          '<button type="button" class="btn secondario piccolo" data-togli-tappa="' + i + '" aria-label="Togli tappa">−</button></div>';
+      }).join('');
+      box.querySelectorAll('[data-tappa]').forEach(function (inp) { inp.oninput = function () { tappeAttive[+inp.dataset.tappa][inp.dataset.k] = inp.value.trim(); }; });
+      box.querySelectorAll('[data-togli-tappa]').forEach(function (b) { b.onclick = function () { tappeAttive.splice(+b.dataset.togliTappa, 1); righeTappe(f); }; });
+    }
+    var opzVoli = sez === 'voli' ? {
+      extraHtml: '<div class="campo tappe-campo"><span>Tappe successive</span><span class="aiuto">Per voli con scali o cambi: ogni tappa è un volo in più dello stesso viaggio.</span><div id="tappe-lista"></div><button type="button" class="btn secondario piccolo" id="aggiungi-tappa">+ Aggiungi tappa</button></div>',
+      dopo: function (f) {
+        var arBtn = document.createElement('button');
+        arBtn.type = 'button'; arBtn.className = 'btn secondario piccolo'; arBtn.id = 'ar-volo'; arBtn.textContent = '⇄ A/R';
+        arBtn.title = 'Scambia partenza e arrivo per il volo di ritorno';
+        arBtn.onclick = function () { var da = f.elements.da.value; f.elements.da.value = f.elements.a.value; f.elements.a.value = da; };
+        f.elements.a.closest('label').insertAdjacentElement('afterend', arBtn);
+        f.querySelector('#aggiungi-tappa').onclick = function () { tappeAttive.push({ numero: '', da: '', a: '', ora: '' }); righeTappe(f); };
+        righeTappe(f);
+      },
+      leggiExtra: function () { return { tappe: tappeAttive.filter(function (t) { return t.da || t.a || t.numero; }) }; }
+    } : {};
+    modulo((s ? 'Modifica ' : 'Nuovo ') + def.uno, def.campi, dati, Object.assign(opzVoli, {
       valida: function (o, f) { var obbl = def.campi.filter(function (c) { return c[3] === true; })[0]; if (obbl && !o[obbl[0]]) { f.elements[obbl[0]].focus(); return false; } return true; },
       salva: function (o) {
         if (!v[sez]) v[sez] = [];
@@ -309,7 +340,7 @@ var Viaggi = (function () {
         v[sez] = v[sez].filter(function (x) { return x.id !== idSotto; }); Store.upsert(v); ui.toast('Eliminato');
       } : null,
       confermaElimina: 'Eliminare questo ' + def.uno + ' e i suoi allegati?'
-    });
+    }));
   }
 
   // ---------- CONCERTI ----------
@@ -414,6 +445,14 @@ var Viaggi = (function () {
       [['da', 'Partenza'], ['a', 'Arrivo']].forEach(function (c) {
         var t = (s[c[0]] || '').trim();
         if (t) out.push({ etichetta: c[1] + ' ' + t + (s.numero ? ' · ' + s.numero : ''), q: t + ' airport', col: COLORI_LUOGO.voli, tipo: 'voli' });
+      });
+    });
+    (v.voli || []).forEach(function (s) {
+      (s.tappe || []).forEach(function (t, i) {
+        [['da', 'Partenza'], ['a', 'Arrivo']].forEach(function (c) {
+          var x = (t[c[0]] || '').trim();
+          if (x) out.push({ etichetta: c[1] + ' ' + x + ' · tappa ' + (i + 1) + (t.numero ? ' · ' + t.numero : ''), q: x + ' airport', col: COLORI_LUOGO.voli, tipo: 'voli' });
+        });
       });
     });
     (v.hotel || []).forEach(function (h) {
