@@ -30,8 +30,6 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - uses: android-actions/setup-android@v3
-
       - name: Prepara il progetto Android
         working-directory: android-app
         run: |
@@ -42,6 +40,8 @@ jobs:
         working-directory: android-app/android
         run: |
           chmod +x gradlew
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Firma l'APK
