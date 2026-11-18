@@ -413,12 +413,12 @@ var Viaggi = (function () {
     (v.voli || []).forEach(function (s) {
       [['da', 'Partenza'], ['a', 'Arrivo']].forEach(function (c) {
         var t = (s[c[0]] || '').trim();
-        if (t) out.push({ etichetta: c[1] + ' ' + t + (s.numero ? ' · ' + s.numero : ''), q: t + ' airport', col: COLORI_LUOGO.voli });
+        if (t) out.push({ etichetta: c[1] + ' ' + t + (s.numero ? ' · ' + s.numero : ''), q: t + ' airport', col: COLORI_LUOGO.voli, tipo: 'voli' });
       });
     });
     (v.hotel || []).forEach(function (h) {
       var q = [h.indirizzo || '', h.nome || ''].filter(Boolean).join(', ');
-      if (q) out.push({ etichetta: 'Hotel ' + (h.nome || h.indirizzo), q: q, col: COLORI_LUOGO.hotel });
+      if (q) out.push({ etichetta: 'Hotel ' + (h.nome || h.indirizzo), q: q, col: COLORI_LUOGO.hotel, tipo: 'hotel' });
     });
     return out;
   }
@@ -435,28 +435,59 @@ var Viaggi = (function () {
       })
       .catch(function () { return null; }); // offline: non salvo nulla, riprova più tardi
   }
+  var SIMBOLI_LUOGO = ['🍽️ Ristorante', '🍕 Pizzeria o bar', '🏛️ Museo', '🏰 Castello o monumento', '⛪ Chiesa', '🏞️ Panorama o natura', '🏖️ Spiaggia', '🎤 Concerto o evento', '🛍️ Negozio', '🚆 Stazione', '🚗 Noleggio auto', '🅿️ Parcheggio', '🏥 Ospedale o farmacia', '💳 Banca o cambio', '📍 Altro'];
+  var EMOJI_FISSI = { voli: '✈️', hotel: '🏨' };
+  var mappaCorrente = null;
+  function emojiDi(simbolo) { return (simbolo || '📍').split(' ')[0]; }
+  function icona(emoji, colore) {
+    return L.divIcon({ className: 'pin-luogo', html: '<span style="--c:' + colore + '">' + emoji + '</span>', iconSize: [38, 38], iconAnchor: [19, 19] });
+  }
+  function apriLuogo(id, pos, luogo) {
+    var v = JSON.parse(JSON.stringify(Store.get(id)));
+    var dati = luogo || { nome: '', simbolo: SIMBOLI_LUOGO[0] };
+    modulo(luogo ? 'Modifica luogo' : 'Nuovo luogo', [['nome', 'Nome', 'text', true], ['simbolo', 'Simbolo', 'select', SIMBOLI_LUOGO], ['note', 'Note', 'textarea']], dati, {
+      valida: function (o, f) { if (!o.nome) { f.elements.nome.focus(); return false; } return true; },
+      salva: function (o) {
+        if (!v.luoghi) v.luoghi = [];
+        if (luogo) { var t = v.luoghi.filter(function (x) { return x.id === luogo.id; })[0]; Object.keys(o).forEach(function (k) { t[k] = o[k]; }); }
+        else { o.id = C.nuovoId(); o.lat = pos.lat; o.lon = pos.lng; v.luoghi.push(o); }
+        Store.upsert(v); disegnaMappa(id);
+      },
+      elimina: luogo ? function () { v.luoghi = v.luoghi.filter(function (x) { return x.id !== luogo.id; }); Store.upsert(v); disegnaMappa(id); } : null,
+      confermaElimina: 'Eliminare questo luogo?'
+    });
+  }
   function disegnaMappa(id) {
     var el = document.getElementById('mappa-viaggio'), nota = document.getElementById('mappa-nota');
     if (!el || !nota || !window.L) return;
+    if (mappaCorrente) { mappaCorrente.remove(); mappaCorrente = null; }
     var v = Store.get(id), luoghi = v ? luoghiViaggio(v) : [];
-    if (!luoghi.length) { el.style.display = 'none'; nota.textContent = 'Aggiungi voli o hotel con aeroporto o indirizzo per vedere la mappa.'; return; }
     var m = L.map(el, { scrollWheelZoom: false }), punti = [];
+    mappaCorrente = m;
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap' }).addTo(m);
     m.setView([44.5, 11.3], 4);
-    nota.textContent = 'Cerco i luoghi…';
+    m.on('click', function (e) { apriLuogo(id, e.latlng); });
+    (v && v.luoghi || []).forEach(function (x) {
+      var pos = [x.lat, x.lon];
+      L.marker(pos, { icon: icona(emojiDi(x.simbolo), '#59665D') }).bindTooltip(x.nome).on('click', function () { apriLuogo(id, null, x); }).addTo(m);
+      punti.push(pos);
+    });
+    nota.textContent = (luoghi.length ? 'Cerco i luoghi…' : '') + (luoghi.length || punti.length ? '' : 'Tocca la mappa per aggiungere un luogo.');
+    if (punti.length) m.fitBounds(punti, { padding: [24, 24] });
     luoghi.reduce(function (prima, l) {
       return prima.then(function () {
         var daRete = !(l.q in geoCache());
         return new Promise(function (ok) { setTimeout(ok, daRete ? 1100 : 0); }).then(function () { return geocodifica(l.q); }).then(function (pos) {
-          if (!el.isConnected || !pos) return;
-          L.circleMarker(pos, { radius: 9, color: '#fff', weight: 2, fillColor: l.col, fillOpacity: 1 }).bindTooltip(l.etichetta).addTo(m);
+          if (!el.isConnected || mappaCorrente !== m || !pos) return;
+          var emoji = EMOJI_FISSI[l.tipo] || '📍';
+          L.marker(pos, { icon: icona(emoji, l.col) }).bindTooltip(l.etichetta).addTo(m);
           punti.push(pos);
-          if (punti.length === 1) m.setView(pos, 6); else m.fitBounds(punti, { padding: [24, 24] });
+          m.fitBounds(punti, { padding: [24, 24] });
         });
       });
     }, Promise.resolve()).then(function () {
-      if (!el.isConnected) return;
-      nota.textContent = punti.length ? '' : 'Nessun luogo trovato: controlla i nomi di aeroporti e indirizzi.';
+      if (!el.isConnected || mappaCorrente !== m) return;
+      nota.textContent = luoghi.length && !punti.length ? 'Nessun aeroporto o hotel trovato: controlla i nomi. Tocca la mappa per aggiungere luoghi.' : 'Tocca la mappa per aggiungere un luogo.';
     });
   }
   return {
