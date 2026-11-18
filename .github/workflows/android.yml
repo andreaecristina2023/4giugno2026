@@ -1,0 +1,81 @@
+name: App Android
+
+on:
+  push:
+    branches: [main]
+    paths: ['index.html', 'css/**', 'js/**', 'fonts/**', 'icons/**', 'android-app/**', '.github/workflows/android.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: android-app/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Prepara il progetto Android
+        working-directory: android-app
+        run: |
+          npm ci
+          bash prepara.sh
+
+      - name: Compila
+        working-directory: android-app/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Firma l'APK
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          UNSIGNED=android-app/android/app/build/outputs/apk/release/app-release-unsigned.apk
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > casa.jks
+            echo "FIRMA=stabile" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Manca il segreto ANDROID_KEYSTORE_B64: firmo con una chiave temporanea (per aggiornare l'app bisognerà disinstallarla prima)."
+            KS_PASS=temporanea123
+            keytool -genkeypair -keystore casa.jks -storepass "$KS_PASS" -keypass "$KS_PASS" -alias casa -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Casa"
+            echo "FIRMA=temporanea" >> "$GITHUB_ENV"
+          fi
+          "$BT/zipalign" -f -p 4 "$UNSIGNED" allineato.apk
+          "$BT/apksigner" sign --ks casa.jks --ks-pass "pass:$KS_PASS" --out Casa.apk allineato.apk
+          "$BT/apksigner" verify Casa.apk
+          rm -f casa.jks
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Casa-apk
+          path: Casa.apk
+
+      - name: Pubblica nella release "app"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NOTE="App Android di Casa, build ${{ github.run_number }} ($(date -u +%Y-%m-%d)). Firma: ${FIRMA}. Scarica Casa.apk dal telefono e aprilo per installare."
+          gh release view app >/dev/null 2>&1 || gh release create app --title "App Android" --notes "$NOTE" --latest
+          gh release edit app --notes "$NOTE" --latest
+          gh release upload app Casa.apk --clobber

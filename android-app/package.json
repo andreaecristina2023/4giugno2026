@@ -1,0 +1,17 @@
+{
+  "name": "casa-android",
+  "private": true,
+  "version": "1.0.0",
+  "description": "App Android di Casa (Capacitor). Costruita da GitHub Actions.",
+  "scripts": {
+    "prepara": "bash prepara.sh"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/cli": "^8.6.2",
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/local-notifications": "^8.3.1",
+    "@capacitor/preferences": "^8.0.1"
+  }
+}

@@ -1,0 +1,73 @@
+# Casa · Andrea e Cristina
+
+Sito e app Android per la casa di Fratta Terme: bidoni della raccolta Alea, pagamenti, scadenze, appuntamenti e promemoria. I dati sono condivisi tra i due telefoni tramite un Google Sheet.
+
+- **Sito**: https://andreaecristina2023.github.io/4giugno2026/
+- **App Android**: https://github.com/andreaecristina2023/4giugno2026/releases/latest (file `Casa.apk`)
+
+## Cosa c'è
+
+| Sezione | A cosa serve |
+|---|---|
+| Oggi | Quali bidoni portare fuori stasera, voci scadute, prossimi 7 giorni |
+| Calendario | Mese con pallini colorati (bidoni, appuntamenti, pagamenti) |
+| Conti | Da pagare, scaduti, pagati, spese ricorrenti con stima annua |
+| Rifiuti | Zona Alea, giorni di ritiro, recuperi per festività, variazioni |
+| Altro | Chi usa il telefono, collegamento al foglio, notifiche, backup |
+
+Le festività seguono le regole dell'Eco-Calendario Alea: un ritiro che cade di festa si sposta al sabato prima (lun–mer) o al sabato dopo (gio–ven); se cade di sabato salta. Pasquetta è calcolata in automatico. Per i casi particolari annunciati da Alea c'è "Aggiungi una variazione".
+
+## 1. Pubblicare il sito (una volta)
+
+Repository → **Settings → Pages** → Source: *Deploy from a branch* → Branch `main`, cartella `/ (root)` → Save. Dopo un minuto il sito è online.
+
+## 2. Collegare il Google Sheet (una volta, dal computer)
+
+1. Crea un Google Sheet nuovo, chiamalo per esempio "Casa".
+2. **Estensioni → Apps Script**. Cancella il contenuto di `Code.gs` e incolla [`apps-script/Code.gs`](apps-script/Code.gs).
+3. Aggiungi un secondo file (＋ → Script) chiamato `Core` e incolla [`apps-script/Core.gs`](apps-script/Core.gs).
+4. In **Impostazioni progetto** controlla che il fuso orario sia `Europe/Rome`.
+5. Seleziona la funzione `setup` ed esegui. Accetta i permessi (è il tuo script).
+6. **Distribuisci → Nuova distribuzione → App web**: "Esegui come: Me", "Chi ha accesso: Chiunque". Copia l'URL che finisce con `/exec`.
+7. Nel foglio "Impostazioni", cella B1, c'è la chiave.
+8. Sul sito (o nell'app), sezione **Altro → Condivisione tra i telefoni**: incolla URL e chiave, poi "Collega e sincronizza". Ripeti sul telefono di Cristina.
+
+Nel foglio "Voci" vedi tutto in chiaro. Puoi anche aggiungere righe a mano (basta tipo, titolo, data `AAAA-MM-GG`): alla prossima sincronizzazione prendono un id.
+
+Se modifichi `Code.gs` dopo, ricorda **Distribuisci → Gestisci distribuzioni → modifica → Nuova versione**, altrimenti l'URL continua a usare il codice vecchio.
+
+## 3. Promemoria
+
+**App Android** — le notifiche vere: la sera prima dei ritiri all'ora scelta (predefinita 20:00), i pagamenti 2 giorni prima e il giorno stesso alle 9, gli appuntamenti con l'anticipo scelto. L'app programma i prossimi 21 giorni ogni volta che la apri o che cambia qualcosa, quindi aprila almeno ogni tanto. C'è anche il **widget** per la home: tieni premuto sulla home → Widget → Casa.
+
+**Bot Telegram** (facoltativo, funziona anche ad app chiusa e per tutti e due):
+
+1. Su Telegram scrivi a `@BotFather` → `/newbot` → copia il token.
+2. Apps Script → Impostazioni progetto → **Proprietà script** → aggiungi `TELEGRAM_TOKEN`.
+3. Scrivete entrambi un messaggio al bot (oppure aggiungetelo a un gruppo e scrivete lì).
+4. Esegui `trovaChatId`: nel registro compaiono gli id. Aggiungi la proprietà `TELEGRAM_CHAT_ID` con gli id separati da virgola.
+5. Esegui `installaPromemoria`: ogni sera all'ora dei rifiuti arriva "Stasera fuori…", gli impegni di domani e i pagamenti vicini; ogni mattina alle 7 il riepilogo di oggi e gli arretrati.
+
+**Browser** — senza app, l'avviso compare solo a sito aperto.
+
+## 4. App Android
+
+Ogni modifica al sito su `main` fa partire l'azione **App Android** (scheda Actions), che costruisce `Casa.apk` e lo mette nella release "app". Dal telefono apri il link della release, scarica `Casa.apk` e installalo (Android chiederà di consentire l'installazione da browser/file).
+
+Per poter **aggiornare** l'app senza disinstallarla, la firma deve restare sempre la stessa: aggiungi una volta i segreti `ANDROID_KEYSTORE_B64` e `ANDROID_KEYSTORE_PASSWORD` in Settings → Secrets and variables → Actions. Senza segreti l'app si costruisce lo stesso, ma con una firma diversa ogni volta.
+
+Il progetto Android (Capacitor 8) non è nel repository: viene generato da `android-app/prepara.sh`, che copia il sito, aggiunge widget e plugin nativi (`android-app/native/`) e i permessi.
+
+## Struttura
+
+```
+index.html, css/, js/, fonts/, icons/   sito (PWA, funziona offline)
+js/core.js                             logica: ricorrenze, rifiuti, festività (usata anche da Apps Script)
+js/store.js                            dati locali + sincronizzazione
+js/native.js                           notifiche e widget nell'app Android
+apps-script/                           backend Google Sheet + bot Telegram
+android-app/                           app Android e widget
+.github/workflows/android.yml          costruzione dell'APK
+```
+
+`apps-script/Core.gs` è una copia di `js/core.js`: se cambi uno, copia anche nell'altro. Quando modifichi il sito, alza `VERSIONE` in `sw.js` così i telefoni scaricano i file nuovi.

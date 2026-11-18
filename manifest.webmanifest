@@ -1,0 +1,16 @@
+{
+  "name": "Casa · Andrea e Cristina",
+  "short_name": "Casa",
+  "description": "Rifiuti, pagamenti, scadenze e appuntamenti di casa",
+  "lang": "it",
+  "start_url": "./#oggi",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#E9ECE3",
+  "theme_color": "#7A1F3D",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

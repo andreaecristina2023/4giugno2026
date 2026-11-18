@@ -1,0 +1,9 @@
+{
+  "appId": "it.andreaecristina.casa",
+  "appName": "Casa",
+  "webDir": "www",
+  "android": { "allowMixedContent": false },
+  "plugins": {
+    "LocalNotifications": { "smallIcon": "ic_stat_casa", "iconColor": "#7A1F3D" }
+  }
+}
