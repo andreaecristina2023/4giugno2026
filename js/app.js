@@ -115,6 +115,12 @@
 
   // ---------- CALENDARIO ----------
   function turni() { return Store.settings().turni; }
+  // sigle dei turni in servizio nel giorno (diurno sopra, notte sotto); il proprio turno sottolineato
+  function servizioCella(tcfg, d) {
+    if (!tcfg || !tcfg.attivo) return '';
+    var sv = C.turniDelGiorno(d), L = String(tcfg.turno || '').toUpperCase();
+    return '<span class="servizio"><b' + (sv.giorno.charAt(0) === L ? ' class="mio"' : '') + '>' + esc(sv.giorno) + '</b><i' + (sv.notte.charAt(0) === L ? ' class="mio"' : '') + '>' + esc(sv.notte.toLowerCase()) + '</i></span>';
+  }
   function vistaCalendario() {
     if (ui.calModo === 'turni') return vistaTurni();
     var oggi = C.oggi(), cfg = rifiuti(), tcfg = turni();
@@ -136,9 +142,9 @@
         var col = x.tipo === 'rifiuti' ? C.FRAZIONI[x.frazioni[0]].colore : COLORE_TIPO[x.tipo];
         return '<i style="--c:' + col + '"></i>';
       }).join('');
-      var tt = C.turnoDel(tcfg, d), badge = '';
-      if (tt && C.STATI_TURNO[tt.stato] && (C.STATI_TURNO[tt.stato].lavoro || tt.stato === 'salto' || tt.stato === 'ferie')) badge = '<span class="badge-turno" style="--c:' + C.STATI_TURNO[tt.stato].colore + '">' + C.STATI_TURNO[tt.stato].breve + '</span>';
-      h += '<button class="' + cls + '" type="button" data-giorno="' + d + '" aria-label="' + esc(C.etichettaGiorno(d, oggi)) + (tt ? ', ' + esc(C.testoTurno(tt)) : '') + ((perGiorno[d] || []).length ? ', ' + perGiorno[d].length + ' voci' : '') + '">' + badge + '<span class="n">' + C.parse(d).getDate() + '</span><span class="punti">' + punti + '</span></button>';
+      var tt = C.turnoDel(tcfg, d), tinta = '';
+      if (tt && C.STATI_TURNO[tt.stato] && (C.STATI_TURNO[tt.stato].lavoro || tt.stato === 'salto' || tt.stato === 'ferie')) { cls += ' tinta-turno'; tinta = ' style="--t:' + C.STATI_TURNO[tt.stato].colore + '"'; }
+      h += '<button class="' + cls + '"' + tinta + ' type="button" data-giorno="' + d + '" aria-label="' + esc(C.etichettaGiorno(d, oggi)) + (tt ? ', ' + esc(C.testoTurno(tt)) : '') + ((perGiorno[d] || []).length ? ', ' + perGiorno[d].length + ' voci' : '') + '"><span class="n">' + C.parse(d).getDate() + '</span>' + servizioCella(tcfg, d) + '<span class="punti">' + punti + '</span></button>';
     }
     h += '</div>';
     var sel = perGiorno[ui.giornoCal] || [];
@@ -177,11 +183,9 @@
     for (var d = inizio; d <= fine; d = C.addGiorni(d, 1)) {
       var tt = C.turnoDel(t, d), st = C.STATI_TURNO[tt.stato] || C.STATI_TURNO.altro;
       var cls = 'cella' + (d.slice(0, 7) !== ui.meseCal ? ' fuori' : '') + (d === oggi ? ' oggi' : '') + (st.lavoro || tt.stato === 'salto' || tt.stato === 'ferie' ? ' piena' : '') + (tt.modificato ? ' modificata' : '');
-      var sv = C.turniDelGiorno(d), L = String(t.turno).toUpperCase();
-      var gio = '<b' + (sv.giorno.charAt(0) === L ? ' class="mio"' : '') + '>' + esc(sv.giorno) + '</b>';
-      var not = '<i' + (sv.notte.charAt(0) === L ? ' class="mio"' : '') + '>' + esc(sv.notte.toLowerCase()) + '</i>';
+      var sv = C.turniDelGiorno(d);
       var badgeE = (tt.modificato || tt.stato === 'salto') ? '<span class="badge-turno" style="--c:' + st.colore + '">' + esc(st.breve) + '</span>' : '';
-      h += '<button class="' + cls + '" type="button" data-turno-giorno="' + d + '" style="--c:' + st.colore + '" aria-label="' + esc(C.etichettaGiorno(d, oggi) + ': ' + C.testoTurno(tt) + '. In servizio diurno ' + sv.giorno + ', notte ' + sv.notte) + '">' + badgeE + '<span class="n">' + C.parse(d).getDate() + '</span><span class="servizio">' + gio + not + '</span></button>';
+      h += '<button class="' + cls + '" type="button" data-turno-giorno="' + d + '" style="--c:' + st.colore + '" aria-label="' + esc(C.etichettaGiorno(d, oggi) + ': ' + C.testoTurno(tt) + '. In servizio diurno ' + sv.giorno + ', notte ' + sv.notte) + '">' + badgeE + '<span class="n">' + C.parse(d).getDate() + '</span>' + servizioCella(t, d) + '</button>';
     }
     h += '</div>';
     var tg0 = C.turniDelGiorno(oggi);
