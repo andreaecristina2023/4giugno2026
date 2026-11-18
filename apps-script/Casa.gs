@@ -22,6 +22,9 @@ function foglio() { return SpreadsheetApp.getActiveSpreadsheet() || SpreadsheetA
 
 // ---------------- installazione ----------------
 function setup() {
+  // Con il consenso "granulare" di Google si possono spuntare solo alcuni permessi:
+  // qui li chiedo tutti (fogli, Drive per le foto, connessioni esterne per Telegram)
+  ScriptApp.requireAllScopes(ScriptApp.AuthMode.FULL);
   var ss = foglio();
   var v = ss.getSheetByName(FOGLIO_VOCI) || ss.insertSheet(FOGLIO_VOCI);
   v.getRange(1, 1, 1, COLONNE.length).setValues([COLONNE]).setFontWeight('bold');
@@ -32,7 +35,7 @@ function setup() {
   fo.setFrozenRows(1);
   fo.getRange('A:J').setNumberFormat('@');
   var cartellaFoto = null, erroreCartella = '';
-  try { cartellaFoto = cartellaAlbum(); } catch (e) { erroreCartella = e.message; } // crea la cartella delle foto su Drive (e chiede il permesso la prima volta)
+  try { cartellaFoto = cartellaAlbum(); } catch (e) { erroreCartella = e.message + ' — riesegui setup e spunta "Seleziona tutto" nei permessi'; } // crea la cartella delle foto su Drive (e chiede il permesso la prima volta)
   var imp = ss.getSheetByName(FOGLIO_IMP) || ss.insertSheet(FOGLIO_IMP);
   var props = PropertiesService.getScriptProperties();
   var chiave = props.getProperty('CHIAVE');
@@ -180,12 +183,13 @@ function cartellaAlbum() {
 
 // Da eseguire a mano se l'album non va: scrive nel registro dov'è la cartella delle foto (o perché non si crea)
 function verificaAlbum() {
+  ScriptApp.requireAllScopes(ScriptApp.AuthMode.FULL);
   Logger.log('Script eseguito da: ' + Session.getEffectiveUser().getEmail());
   try {
     var c = cartellaAlbum();
     Logger.log('Cartella foto OK: ' + c.getUrl());
   } catch (e) {
-    Logger.log('Cartella foto NON creata: ' + e.message + ' — esegui di nuovo setup e accetta il permesso per Google Drive.');
+    Logger.log('Cartella foto NON creata: ' + e.message + ' — esegui di nuovo setup e, nella schermata dei permessi, spunta "Seleziona tutto".');
   }
 }
 
