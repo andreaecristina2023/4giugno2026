@@ -357,3 +357,8 @@ details.passati[open] summary h2::after { content: ' ⌄'; }
 .altro-simbolo { font-size: 22px; line-height: 1; }
 .altro-corpo { text-align: left; background: none; border: 0; padding: 0; cursor: pointer; color: inherit; }
 .posizione-azioni { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.tappa-riga { grid-template-columns: 1fr; }
+.tappa-testa { display: grid; grid-template-columns: minmax(0,0.8fr) minmax(0,1fr) minmax(0,1fr) auto; gap: 6px; align-items: center; }
+.tappa-date { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 6px; }
+.tappa-date input { min-width: 0; font-size: 12px; }
+@media (max-width: 440px) { .tappa-testa { grid-template-columns: 1fr 1fr; } .tappa-testa button { grid-column: 2; justify-self: end; } .tappa-date { grid-template-columns: 1fr 1fr; } }

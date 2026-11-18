@@ -205,7 +205,7 @@ var Viaggi = (function () {
       if (percorso.length) titolo += ' · ' + percorso.join(' → ');
       var arrivoTesto = (s.dataArrivo && s.dataArrivo !== s.data ? C.etichettaGiorno(s.dataArrivo) + (s.arrivo ? ' ' : '') : '') + (s.arrivo || '');
       righe.push(C.etichettaGiorno(s.data) + (s.ora ? ', ' + s.ora : '') + (arrivoTesto ? ' → ' + arrivoTesto : ''));
-      if (tappe.length) righe.push(tappe.length + (tappe.length === 1 ? ' tappa successiva' : ' tappe successive') + ': ' + tappe.map(function (t) { return [t.numero, t.da, t.a].filter(Boolean).join(' '); }).join(', '));
+      if (tappe.length) righe.push(tappe.length + (tappe.length === 1 ? ' tappa successiva' : ' tappe successive') + ': ' + tappe.map(function (t) { return [t.numero, t.da, t.a, t.data ? C.dataBreve(t.data) + (t.ora ? ' ' + t.ora : '') : ''].filter(Boolean).join(' '); }).join(', '));
       if (s.pnr) righe.push('PNR ' + s.pnr); if (s.posto) righe.push('Posti ' + s.posto);
     } else if (sez === 'hotel') {
       titolo = s.nome || 'Hotel';
@@ -320,11 +320,10 @@ var Viaggi = (function () {
     function righeTappe(f) {
       var box = f.querySelector('#tappe-lista'); if (!box) return;
       box.innerHTML = tappeAttive.map(function (t, i) {
-        return '<div class="tappa-riga"><input type="text" data-tappa="' + i + '" data-k="numero" value="' + ui.esc(t.numero || '') + '" placeholder="Volo" aria-label="Volo tappa ' + (i + 1) + '">' +
-          '<input type="text" data-tappa="' + i + '" data-k="da" value="' + ui.esc(t.da || '') + '" placeholder="Da" aria-label="Partenza tappa ' + (i + 1) + '">' +
-          '<input type="text" data-tappa="' + i + '" data-k="a" value="' + ui.esc(t.a || '') + '" placeholder="A" aria-label="Arrivo tappa ' + (i + 1) + '">' +
-          '<input type="time" data-tappa="' + i + '" data-k="ora" value="' + ui.esc(t.ora || '') + '" aria-label="Partenza tappa ' + (i + 1) + '">' +
-          '<button type="button" class="btn secondario piccolo" data-togli-tappa="' + i + '" aria-label="Togli tappa">−</button></div>';
+        var campo = function (k, tipo, ph, etic) { return '<input type="' + tipo + '" data-tappa="' + i + '" data-k="' + k + '" value="' + ui.esc(t[k] || '') + '"' + (ph ? ' placeholder="' + ph + '"' : '') + ' aria-label="' + etic + ' tappa ' + (i + 1) + '">'; };
+        return '<div class="tappa-riga"><div class="tappa-testa">' + campo('numero', 'text', 'Volo', 'Volo') + campo('da', 'text', 'Da', 'Partenza') + campo('a', 'text', 'A', 'Arrivo') +
+          '<button type="button" class="btn secondario piccolo" data-togli-tappa="' + i + '" aria-label="Togli tappa">−</button></div>' +
+          '<div class="tappa-date">' + campo('data', 'date', '', 'Data partenza') + campo('ora', 'time', '', 'Ora partenza') + campo('dataArrivo', 'date', '', 'Data arrivo') + campo('arrivo', 'time', '', 'Ora arrivo') + '</div></div>';
       }).join('');
       box.querySelectorAll('[data-tappa]').forEach(function (inp) { inp.oninput = function () { tappeAttive[+inp.dataset.tappa][inp.dataset.k] = inp.value.trim(); }; });
       box.querySelectorAll('[data-togli-tappa]').forEach(function (b) { b.onclick = function () { tappeAttive.splice(+b.dataset.togliTappa, 1); righeTappe(f); }; });
