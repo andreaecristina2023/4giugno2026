@@ -23,18 +23,17 @@ Repository → **Settings → Pages** → Source: *Deploy from a branch* → Bra
 
 ## 2. Collegare il Google Sheet (una volta, dal computer)
 
-1. Crea un Google Sheet nuovo, chiamalo per esempio "Casa".
-2. **Estensioni → Apps Script**. Cancella il contenuto di `Code.gs` e incolla [`apps-script/Code.gs`](apps-script/Code.gs).
-3. Aggiungi un secondo file (＋ → Script) chiamato `Core` e incolla [`apps-script/Core.gs`](apps-script/Core.gs).
-4. In **Impostazioni progetto** controlla che il fuso orario sia `Europe/Rome`.
-5. Seleziona la funzione `setup` ed esegui. Accetta i permessi (è il tuo script).
-6. **Distribuisci → Nuova distribuzione → App web**: "Esegui come: Me", "Chi ha accesso: Chiunque". Copia l'URL che finisce con `/exec`.
-7. Nel foglio "Impostazioni", cella B1, c'è la chiave.
-8. Sul sito (o nell'app), sezione **Altro → Condivisione tra i telefoni**: incolla URL e chiave, poi "Collega e sincronizza". Ripeti sul telefono di Cristina.
+1. Apri il Google Sheet "Casa" → **Estensioni → Apps Script**.
+2. Cancella tutto quello che c'è in `Code.gs` e incolla l'intero file [`apps-script/Casa.gs`](https://raw.githubusercontent.com/andreaecristina2023/4giugno2026/main/apps-script/Casa.gs). Salva (icona dischetto).
+3. In **Impostazioni progetto** (ingranaggio) controlla che il fuso orario sia `Europe/Rome`.
+4. In alto scegli la funzione `setup` e premi **Esegui**. Accetta i permessi (è il tuo script; se compare "app non verificata": Avanzate → Vai a Casa).
+5. **Distribuisci → Nuova distribuzione → App web**: "Esegui come: Me", "Chi ha accesso: Chiunque". Copia l'URL che finisce con `/exec`.
+6. Nel foglio "Impostazioni", cella B1, c'è la chiave.
+7. Sul sito (o nell'app), sezione **Altro → Condivisione tra i telefoni**: incolla URL e chiave, poi "Collega e sincronizza". Ripeti sul telefono di Cristina.
 
 Nel foglio "Voci" vedi tutto in chiaro. Puoi anche aggiungere righe a mano (basta tipo, titolo, data `AAAA-MM-GG`): alla prossima sincronizzazione prendono un id.
 
-Se modifichi `Code.gs` dopo, ricorda **Distribuisci → Gestisci distribuzioni → modifica → Nuova versione**, altrimenti l'URL continua a usare il codice vecchio.
+Se modifichi lo script dopo, ricorda **Distribuisci → Gestisci distribuzioni → modifica → Nuova versione**, altrimenti l'URL continua a usare il codice vecchio.
 
 ## 3. Promemoria
 
@@ -65,9 +64,9 @@ index.html, css/, js/, fonts/, icons/   sito (PWA, funziona offline)
 js/core.js                             logica: ricorrenze, rifiuti, festività (usata anche da Apps Script)
 js/store.js                            dati locali + sincronizzazione
 js/native.js                           notifiche e widget nell'app Android
-apps-script/                           backend Google Sheet + bot Telegram
+apps-script/Casa.gs                    backend Google Sheet + bot Telegram
 android-app/                           app Android e widget
 .github/workflows/android.yml          costruzione dell'APK
 ```
 
-`apps-script/Core.gs` è una copia di `js/core.js`: se cambi uno, copia anche nell'altro. Quando modifichi il sito, alza `VERSIONE` in `sw.js` così i telefoni scaricano i file nuovi.
+`apps-script/Casa.gs` contiene in fondo una copia di `js/core.js`: se cambi la logica, aggiorna anche lì. Quando modifichi il sito, alza `VERSIONE` in `sw.js` così i telefoni scaricano i file nuovi.
