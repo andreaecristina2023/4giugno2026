@@ -18,7 +18,7 @@ var Store = (function () {
     aggiornato: 0,
     rifiuti: { attivo: true, zona: '', oraAvviso: '20:00', festivita: true, regole: [], eccezioni: [] },
     persone: ['Andrea', 'Cristina'],
-    categorie: ['Casa', 'Bollette', 'Auto', 'Salute', 'Tasse', 'Banca', 'Altro']
+    categorie: ['Casa', 'Bollette', 'Condominio', 'Bollo auto/moto', 'Assicurazione', 'Revisione', 'Auto', 'Salute', 'Tasse', 'Banca', 'Altro']
   };
   // Eco-Calendario Alea di casa (foto del 18/11/2026): precaricato una volta se non ci sono giorni impostati
   var CALENDARIO_CASA = {
@@ -38,6 +38,13 @@ var Store = (function () {
   }
 
   function precarica() {
+    // categorie nuove (18/11/2026)
+    var nuove = ['Condominio', 'Bollo auto/moto', 'Assicurazione', 'Revisione'].filter(function (c) { return settings.categorie.indexOf(c) < 0; });
+    if (nuove.length) {
+      var i = settings.categorie.indexOf('Auto'); if (i < 0) i = settings.categorie.length;
+      Array.prototype.splice.apply(settings.categorie, [i, 0].concat(nuove));
+      settings.aggiornato = Date.now(); dirty.settings = true; persist();
+    }
     var r = settings.rifiuti;
     // v2: aggiunti 4 ottobre e 26 dicembre ai giorni senza raccolta (confermati il 18/11/2026)
     if (r.festivi && r.festivi.length && r.festiviVer !== 2) {
@@ -132,6 +139,18 @@ var Store = (function () {
     return inCorso;
   }
 
+  // chiamata generica allo script (album foto)
+  function chiama(azione, dati) {
+    if (!configurato()) return Promise.reject(new Error('Collega prima il foglio di casa (sezione Altro)'));
+    var body = Object.assign({ chiave: conf.chiave, azione: azione, chi: conf.chi }, dati || {});
+    return fetch(conf.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body), redirect: 'follow' })
+      .then(function (r) { if (!r.ok) throw new Error('Risposta ' + r.status + ' dallo script'); return r.json(); })
+      .then(function (res) {
+        if (!res.ok) throw new Error(/Azione sconosciuta/.test(res.errore || '') ? 'Aggiorna lo script del foglio (vedi README, "Aggiornare lo script")' : res.errore || 'Errore dallo script');
+        return res;
+      });
+  }
+
   function prova(url, chiave) {
     return fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ chiave: chiave, azione: 'ping' }), redirect: 'follow' })
       .then(function (r) { return r.json(); });
@@ -153,7 +172,7 @@ var Store = (function () {
     lista: lista, get: get, upsert: upsert, elimina: elimina, segnaFatto: segnaFatto,
     settings: function () { return settings; }, setSettings: setSettings,
     conf: function () { return conf; }, setConf: setConf,
-    sync: sync, prova: prova, configurato: configurato, stato: function () { return stato; },
+    sync: sync, prova: prova, chiama: chiama, configurato: configurato, stato: function () { return stato; },
     pendenti: function () { return Object.keys(dirty.items).length + (dirty.settings ? 1 : 0); },
     on: function (f) { listeners.push(f); }, esporta: esporta, importa: importa
   };

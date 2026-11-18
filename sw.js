@@ -1,6 +1,6 @@
 /* Service worker: il sito si apre anche senza rete. Alza VERSIONE a ogni modifica. */
-var VERSIONE = 'casa-v6';
-var FILE = ['./', 'index.html', 'css/app.css', 'js/core.js', 'js/store.js', 'js/native.js', 'js/app.js', 'manifest.webmanifest',
+var VERSIONE = 'casa-v7';
+var FILE = ['./', 'index.html', 'css/app.css', 'js/vendor/qrcode.js', 'js/vendor/jsQR.js', 'js/core.js', 'js/store.js', 'js/native.js', 'js/album.js', 'js/app.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'fonts/bricolage-grotesque-latin-500-normal.woff2', 'fonts/bricolage-grotesque-latin-700-normal.woff2',
   'fonts/bricolage-grotesque-latin-800-normal.woff2', 'fonts/atkinson-hyperlegible-latin-400-normal.woff2', 'fonts/atkinson-hyperlegible-latin-700-normal.woff2'];
 self.addEventListener('install', function (e) { e.waitUntil(caches.open(VERSIONE).then(function (c) { return c.addAll(FILE); }).then(function () { return self.skipWaiting(); })); });

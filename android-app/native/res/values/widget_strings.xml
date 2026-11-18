@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="widget_descrizione">Bidoni di stasera, pagamenti e appuntamenti</string>
+    <string name="widget_rifiuti_descrizione">Solo i bidoni da portare fuori, sfondo trasparente</string>
 </resources>

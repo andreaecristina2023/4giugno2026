@@ -39,7 +39,9 @@
     if (x.scaduto) meta.push('Scaduto ' + C.dataBreve(x.data));
     if (x.ora) meta.push(x.ora);
     meta.push(C.TIPI[it.tipo].nome);
-    if (it.ricorrenza) meta.push(C.RICORRENZE[it.ricorrenza].nome.toLowerCase());
+    if (C.leggiDurata(it.ricorrenza)) meta.push(C.nomeRipeti(it).toLowerCase());
+    if (it.targa) meta.push(it.targa);
+    else if (it.categoria) meta.push(it.categoria);
     if (it.chi) meta.push(it.chi);
     var destra = '';
     if (it.importo) destra += '<span class="importo">' + C.euro(it.importo) + '</span>';
@@ -156,8 +158,8 @@
       lista = C.agenda(tutti, null, C.addGiorni(oggi, -90), C.addGiorni(oggi, 60), oggi).filter(function (x) { return x.fatto; }).reverse();
       h += lista.length ? elencoPerGiorno(lista, oggi) : '<div class="vuoto" style="margin-top:14px">Qui compaiono i pagamenti degli ultimi 3 mesi che hai spuntato.</div>';
     } else if (ui.filtroConti === 'ricorrenti') {
-      var ric = tutti.filter(function (v) { return v.ricorrenza; }).sort(function (a, b) { return a.titolo.localeCompare(b.titolo); });
-      var annuo = ric.reduce(function (s, v) { var r = C.RICORRENZE[v.ricorrenza]; var volte = r.mesi ? 12 / r.mesi : 365 / r.giorni; return s + (+v.importo || 0) * volte; }, 0);
+      var ric = tutti.filter(function (v) { return C.volteAnno(v) > 0; }).sort(function (a, b) { return a.titolo.localeCompare(b.titolo); });
+      var annuo = ric.reduce(function (s, v) { return s + (+v.importo || 0) * C.volteAnno(v); }, 0);
       h += ric.length ? '<p class="testo-muto" style="margin:14px 0 8px">Stima annua delle spese fisse: <b>' + C.euro(annuo) + '</b> (' + C.euro(annuo / 12) + ' al mese)</p><ul class="righe">' + ric.map(function (v) {
         var pross = C.occorrenze(v, oggi, C.addGiorni(oggi, 400))[0];
         return rigaVoce({ data: pross || v.data, ora: v.ora, tipo: v.tipo, item: v, fatto: false, scaduto: false }).replace('</span></button>', ' · prossima ' + (pross ? esc(C.dataBreve(pross)) : 'terminata') + '</span></button>');
@@ -226,6 +228,13 @@
   }
   function toggle(arr, v) { var i = arr.indexOf(v); if (i >= 0) arr.splice(i, 1); else arr.push(v); arr.sort(function (a, b) { return a > b ? 1 : -1; }); return arr; }
 
+  // ---------- ALBUM ----------
+  var albumAggiornato = 0;
+  function vistaAlbum() {
+    vista.innerHTML = testata('Album', Album.numero() ? Album.numero() + ' foto' : 'Le vostre foto') + Album.html();
+    if (Date.now() - albumAggiornato > 60000) { albumAggiornato = Date.now(); Album.aggiorna(); }
+  }
+
   // ---------- ALTRO ----------
   function vistaAltro() {
     var conf = Store.conf(), st = Store.stato(), s = Store.settings();
@@ -236,12 +245,12 @@
     if (Store.configurato()) {
       h += '<p>Collegato al Google Sheet. ' + (st.ultimo ? 'Ultima sincronizzazione: ' + new Date(st.ultimo).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' }) + '.' : '') + '</p>';
       if (st.errore) h += '<p style="color:var(--sangiovese)">' + esc(st.errore) + '</p>';
-      h += '</div><h2>Collega un altro telefono</h2><div class="sezione"><p>Manda questo link all\'altro telefono (per esempio su WhatsApp): aprendolo si collega da solo, senza ricopiare indirizzo e chiave. Nell\'app Android incolla il link nel campo "Indirizzo dello script" qui sotto.</p><p class="testo-muto">Il link contiene la chiave: mandalo solo a chi deve vedere i dati di casa.</p>' +
-        '<div class="azioni">' + (navigator.share ? '<button class="btn" type="button" data-azione="condividi-link">Condividi il link</button>' : '') + '<button class="btn secondario" type="button" data-azione="copia-link">Copia il link</button></div></div><div class="sezione" style="margin-top:12px">';
+      h += '</div><h2>Collega un altro telefono</h2><div class="sezione"><p>Mostra il QR code all\'altro telefono: nell\'app lo inquadri con "Inquadra QR" qui sotto, dal browser basta la fotocamera. In alternativa manda il link (per esempio su WhatsApp).</p><p class="testo-muto">Il link contiene la chiave: mandalo solo a chi deve vedere i dati di casa.</p>' +
+        '<div class="azioni"><button class="btn" type="button" data-azione="mostra-qr">Mostra QR code</button>' + (navigator.share ? '<button class="btn secondario" type="button" data-azione="condividi-link">Condividi il link</button>' : '') + '<button class="btn secondario" type="button" data-azione="copia-link">Copia il link</button></div></div><div class="sezione" style="margin-top:12px">';
     } else h += '<p>Ora i dati restano solo su questo telefono. Collega lo script del Google Sheet per vederli in due (istruzioni nel README del repository).</p>';
     h += '<form id="form-collega" class="campi"><label class="campo">Indirizzo dello script<span class="aiuto">Oppure incolla qui il link di collegamento ricevuto dall\'altro telefono.</span><input type="text" inputmode="url" name="url" value="' + esc(conf.url) + '" placeholder="https://script.google.com/macros/s/…/exec" required></label>' +
       '<label class="campo">Chiave<span class="aiuto">Non serve se hai incollato il link di collegamento. È nel foglio Google «Casa», scheda «Impostazioni» in basso, cella B1. Compare dopo aver eseguito la funzione setup nello script.</span><input type="password" name="chiave" value="' + esc(conf.chiave) + '" autocomplete="off"></label>' +
-      '<div class="azioni"><button class="btn" type="submit">Collega e sincronizza</button>' + (Store.configurato() ? '<button class="btn secondario" type="button" data-azione="scollega">Scollega</button>' : '') + '</div></form></div>';
+      '<div class="azioni"><button class="btn" type="submit">Collega e sincronizza</button><button class="btn secondario" type="button" data-azione="scansiona-qr">Inquadra QR</button>' + (Store.configurato() ? '<button class="btn secondario" type="button" data-azione="scollega">Scollega</button>' : '') + '</div></form></div>';
 
     h += '<h2>Promemoria</h2><div class="sezione">';
     if (Native.isApp) h += '<p>L\'app programma da sola le notifiche dei prossimi 21 giorni: bidoni la sera prima alle ' + esc(rifiuti().oraAvviso || '20:00') + ', pagamenti 2 giorni prima e il giorno stesso alle 9, appuntamenti con l\'anticipo scelto.</p><div class="azioni"><button class="btn secondario" type="button" data-azione="permesso">Controlla il permesso notifiche</button></div>';
@@ -254,30 +263,42 @@
   }
 
   // ---------- FORM VOCE ----------
+  var CAT_VEICOLO = ['Bollo auto/moto', 'Assicurazione', 'Revisione', 'Auto'];
+  var RIPETI_CAT = { 'Bollo auto/moto': '1 anni', 'Assicurazione': '1 anni', 'Revisione': '2 anni' };
+  function selUnita(nome, lista, scelta) {
+    return '<select name="' + nome + '" aria-label="Unità">' + lista.map(function (u) { return '<option value="' + u + '"' + (u === scelta ? ' selected' : '') + '>' + C.UNITA[u].piu + '</option>'; }).join('') + '</select>';
+  }
   function apriVoce(id, pre) {
-    var it = id ? JSON.parse(JSON.stringify(Store.get(id))) : Object.assign({ tipo: 'appuntamento', titolo: '', data: C.oggi(), ora: '', ricorrenza: '', importo: '', categoria: '', chi: '', note: '', avviso: '' }, pre || {});
+    var it = id ? JSON.parse(JSON.stringify(Store.get(id))) : Object.assign({ tipo: 'appuntamento', titolo: '', data: C.oggi(), ora: '', ricorrenza: '', importo: '', categoria: '', chi: '', note: '', avviso: '', targa: '' }, pre || {});
     var s = Store.settings();
-    function avvisiPer(tipo) {
-      if (tipo === 'appuntamento') return [['', 'Predefinito (1 ora prima)'], ['0', 'All\'ora esatta'], ['15', '15 minuti prima'], ['30', '30 minuti prima'], ['60', '1 ora prima'], ['120', '2 ore prima'], ['1440', 'Il giorno prima']];
-      if (tipo === 'promemoria') return [['', 'Il giorno stesso']];
-      return [['', 'Predefinito (2 giorni prima)'], ['1440', '1 giorno prima'], ['2880', '2 giorni prima'], ['4320', '3 giorni prima'], ['10080', '1 settimana prima']];
-    }
+    var targhe = {};
+    Store.lista().forEach(function (v) { if (v.targa) targhe[v.targa] = true; });
     function render() {
       var conImporto = it.tipo === 'pagamento' || it.tipo === 'scadenza';
+      var rip = C.leggiDurata(it.ricorrenza) || { n: '', u: 'mesi' };
+      var avv = C.leggiDurata(it.avviso) || { n: '', u: it.tipo === 'appuntamento' ? 'ore' : 'giorni' };
+      var predef = { appuntamento: '1 ora', pagamento: '2 giorni', scadenza: '2 giorni', promemoria: 'nessun anticipo' }[it.tipo];
+      var veicolo = conImporto && (CAT_VEICOLO.indexOf(it.categoria) >= 0 || it.targa);
       foglio.innerHTML = '<form method="dialog" id="form-voce"><div class="maniglia"></div><h3 id="foglio-titolo">' + (id ? 'Modifica' : 'Nuova voce') + '</h3><div class="campi">' +
         '<div class="tipi" role="group" aria-label="Tipo">' + Object.keys(C.TIPI).map(function (t) { return '<button type="button" data-tipo="' + t + '" style="--c:' + COLORE_TIPO[t] + '" aria-pressed="' + (it.tipo === t) + '">' + C.TIPI[t].nome + '</button>'; }).join('') + '</div>' +
-        '<label class="campo">Titolo<input type="text" name="titolo" required maxlength="120" value="' + esc(it.titolo) + '" placeholder="' + { appuntamento: 'Es. Dentista Cristina', pagamento: 'Es. Bolletta Hera gas', scadenza: 'Es. Revisione auto', promemoria: 'Es. Cambiare filtro caldaia' }[it.tipo] + '"></label>' +
+        '<label class="campo">Titolo<input type="text" name="titolo" required maxlength="120" value="' + esc(it.titolo) + '" placeholder="' + { appuntamento: 'Es. Dentista Cristina', pagamento: 'Es. Spese condominiali', scadenza: 'Es. Revisione Panda', promemoria: 'Es. Cambiare filtro caldaia' }[it.tipo] + '"></label>' +
         '<div class="due"><label class="campo">' + (conImporto ? 'Scadenza' : 'Data') + '<input type="date" name="data" required value="' + esc(it.data) + '"></label><label class="campo">Ora<input type="time" name="ora" value="' + esc(it.ora) + '"></label></div>' +
         (conImporto ? '<div class="due"><label class="campo">Importo €<input type="number" name="importo" inputmode="decimal" step="0.01" min="0" value="' + esc(it.importo) + '"></label><label class="campo">Categoria<select name="categoria"><option value=""></option>' + s.categorie.map(function (c) { return '<option' + (it.categoria === c ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('') + '</select></label></div>' : '') +
-        '<div class="due"><label class="campo">Ripeti<select name="ricorrenza">' + Object.keys(C.RICORRENZE).map(function (r) { return '<option value="' + r + '"' + ((it.ricorrenza || '') === r ? ' selected' : '') + '>' + C.RICORRENZE[r].nome + '</option>'; }).join('') + '</select></label>' +
-        '<label class="campo">Fino al<input type="date" name="fine" value="' + esc(it.fine || '') + '"' + (it.ricorrenza ? '' : ' disabled') + '></label></div>' +
-        '<div class="due"><label class="campo">Per chi<select name="chi"><option value="">Tutti e due</option>' + s.persone.map(function (p) { return '<option' + (it.chi === p ? ' selected' : '') + '>' + esc(p) + '</option>'; }).join('') + '</select></label>' +
-        '<label class="campo">Avviso<select name="avviso">' + avvisiPer(it.tipo).map(function (a) { return '<option value="' + a[0] + '"' + (String(it.avviso || '') === a[0] ? ' selected' : '') + '>' + a[1] + '</option>'; }).join('') + '</select></label></div>' +
+        (veicolo ? '<label class="campo">Targa<span class="aiuto">Auto o moto a cui si riferisce.</span><input type="text" name="targa" list="lista-targhe" maxlength="12" autocapitalize="characters" value="' + esc(it.targa || '') + '" placeholder="Es. AB123CD"><datalist id="lista-targhe">' + Object.keys(targhe).map(function (t) { return '<option value="' + esc(t) + '">'; }).join('') + '</datalist></label>' : '') +
+        '<div class="due"><label class="campo">Ripeti ogni<span class="durata"><input type="number" name="ripN" min="0" max="999" inputmode="numeric" value="' + esc(rip.n) + '" placeholder="—" aria-label="Quanti">' + selUnita('ripU', C.UNITA_RIPETI, rip.u) + '</span></label>' +
+        '<label class="campo">Fino al<input type="date" name="fine" value="' + esc(it.fine || '') + '"' + (rip.n ? '' : ' disabled') + '></label></div>' +
+        '<label class="campo">Avviso prima<span class="aiuto">Vuoto = ' + predef + (it.tipo === 'appuntamento' ? ' prima' : (it.tipo === 'promemoria' ? '' : ' prima, più il giorno stesso')) + '.</span><span class="durata"><input type="number" name="avvN" min="0" max="999" inputmode="numeric" value="' + esc(avv.n) + '" placeholder="—" aria-label="Quanti">' + selUnita('avvU', C.UNITA_AVVISO, avv.u) + '</span></label>' +
+        '<label class="campo">Per chi<select name="chi"><option value="">Tutti e due</option>' + s.persone.map(function (p) { return '<option' + (it.chi === p ? ' selected' : '') + '>' + esc(p) + '</option>'; }).join('') + '</select></label>' +
         '<label class="campo">Note<textarea name="note" maxlength="1000">' + esc(it.note) + '</textarea></label>' +
         '<div class="azioni"><button class="btn" type="submit" value="salva">Salva</button><button class="btn secondario" type="button" data-chiudi>Annulla</button>' + (id ? '<button class="btn pericolo" type="button" data-elimina style="margin-left:auto">Elimina</button>' : '') + '</div></div></form>';
       var f = $('#form-voce', foglio);
       f.querySelectorAll('[data-tipo]').forEach(function (b) { b.onclick = function () { leggi(f); it.tipo = b.dataset.tipo; it.avviso = ''; render(); }; });
-      f.ricorrenza.onchange = function () { f.fine.disabled = !f.ricorrenza.value; };
+      f.ripN.oninput = function () { f.fine.disabled = !(+f.ripN.value > 0); };
+      if (f.categoria) f.categoria.onchange = function () {
+        leggi(f);
+        if (RIPETI_CAT[it.categoria] && !C.leggiDurata(it.ricorrenza)) it.ricorrenza = RIPETI_CAT[it.categoria];
+        render();
+      };
       $('[data-chiudi]', f).onclick = function () { foglio.close(); };
       if (id) $('[data-elimina]', f).onclick = function () {
         var copia = Store.get(id); Store.elimina(id); foglio.close();
@@ -290,10 +311,15 @@
       };
     }
     function leggi(f) {
-      ['titolo', 'data', 'ora', 'ricorrenza', 'chi', 'avviso', 'note'].forEach(function (k) { if (f[k]) it[k] = f[k].value; });
-      it.fine = f.ricorrenza.value ? f.fine.value : '';
+      ['titolo', 'data', 'ora', 'chi', 'note'].forEach(function (k) { if (f[k]) it[k] = f[k].value; });
+      var rn = parseInt(f.ripN.value, 10);
+      it.ricorrenza = rn > 0 ? rn + ' ' + f.ripU.value : '';
+      it.fine = rn > 0 ? f.fine.value : '';
+      var an = parseInt(f.avvN.value, 10);
+      it.avviso = an >= 0 && f.avvN.value !== '' ? an + ' ' + f.avvU.value : '';
       if (f.importo) { it.importo = f.importo.value === '' ? '' : Math.round(parseFloat(f.importo.value) * 100) / 100; it.categoria = f.categoria.value; }
       else { it.importo = ''; }
+      if (f.targa) it.targa = f.targa.value.toUpperCase().replace(/\s+/g, '');
       it.titolo = it.titolo.trim();
     }
     render();
@@ -322,11 +348,12 @@
   }
 
   // ---------- routing e eventi ----------
-  var VISTE = { oggi: vistaOggi, calendario: vistaCalendario, conti: vistaConti, rifiuti: vistaRifiuti, altro: vistaAltro };
+  var VISTE = { oggi: vistaOggi, calendario: vistaCalendario, conti: vistaConti, rifiuti: vistaRifiuti, album: vistaAlbum, altro: vistaAltro };
   function rotta() { var r = location.hash.replace('#', ''); return VISTE[r] ? r : 'oggi'; }
   function disegna() {
     var r = rotta(), y = window.scrollY;
     VISTE[r]();
+    $('#fab').style.display = (r === 'altro' || r === 'album') ? 'none' : '';
     document.querySelectorAll('nav.barra-nav a').forEach(function (a) { if (a.dataset.r === r) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
     window.scrollTo(0, y);
     Native.aggiorna(voci(), rifiuti());
@@ -334,12 +361,15 @@
   window.addEventListener('hashchange', function () { disegna(); window.scrollTo(0, 0); });
   Store.on(disegna);
 
-  $('#fab').onclick = function () { apriVoce(null, rotta() === 'calendario' ? { data: ui.giornoCal } : rotta() === 'conti' ? { tipo: 'pagamento' } : null); };
+  Album.init({ esc: esc, toast: toast, foglio: foglio, ridisegna: function () { if (rotta() === 'album' && !foglio.open) disegna(); } });
+  $('#fab').onclick = function () {
+    if (rotta() === 'album') { var inp = $('input[data-album=file]'); if (inp) inp.click(); else location.hash = 'altro'; return; } apriVoce(null, rotta() === 'calendario' ? { data: ui.giornoCal } : rotta() === 'conti' ? { tipo: 'pagamento' } : null); };
   foglio.addEventListener('click', function (e) { if (e.target === foglio) foglio.close(); });
 
   vista.addEventListener('click', function (e) {
     var t = e.target.closest('button, a'); if (!t) return;
     var d = t.dataset;
+    if (d.foto) { Album.apri(d.foto); return; }
     if (d.fatto) {
       var nuovo = t.getAttribute('aria-pressed') !== 'true';
       Store.segnaFatto(d.fatto, d.data, nuovo);
@@ -376,6 +406,7 @@
     }
     else if (d.rif) salvaRifiuti(function (cfg) { cfg[d.rif] = d.rif === 'festivita' ? t.value === '1' : t.value; });
     else if (d.reg && d.campo === 'giorno') salvaRifiuti(function (cfg) { cfg.regole[+d.reg].giorno = +t.value; });
+    else if (d.album === 'file') { Album.carica(t.files); t.value = ''; }
     else if (d.azione === 'importa' && t.files[0]) {
       t.files[0].text().then(function (txt) { try { toast('Importate ' + Store.importa(txt) + ' voci'); } catch (err) { toast('File non valido: serve un backup esportato da A&C'); } });
     }
@@ -411,8 +442,62 @@
     if (!chiave) { toast('Manca la chiave'); f.chiave.focus(); return; }
     collega(url, chiave);
   });
+  // ---------- QR code ----------
+  function mostraQR() {
+    var q = qrcode(0, 'M'); q.addData(linkCollegamento()); q.make();
+    foglio.innerHTML = '<form method="dialog"><div class="maniglia"></div><h3 id="foglio-titolo">Collega un altro telefono</h3>' +
+      '<div class="qr-box">' + q.createSvgTag({ cellSize: 6, margin: 3, scalable: true }) + '</div>' +
+      '<p class="testo-muto">Sull\'altro telefono: app A&amp;C → Altro → <b>Inquadra QR</b>, oppure inquadralo con la fotocamera per aprire il sito già collegato. Il QR contiene la chiave: non mostrarlo ad altri.</p>' +
+      '<div class="azioni"><button class="btn" type="submit">Fatto</button></div></form>';
+    foglio.showModal();
+  }
+  var jsQRpronto = null;
+  function caricaJsQR() {
+    if (window.jsQR) return Promise.resolve();
+    if (jsQRpronto) return jsQRpronto;
+    jsQRpronto = new Promise(function (ok, ko) { var sc = document.createElement('script'); sc.src = 'js/vendor/jsQR.js'; sc.onload = ok; sc.onerror = ko; document.head.appendChild(sc); });
+    return jsQRpronto;
+  }
+  function scansionaQR() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { toast('Questo browser non può usare la fotocamera: incolla il link'); return; }
+    var flusso = null, attivo = true;
+    foglio.innerHTML = '<form method="dialog"><div class="maniglia"></div><h3 id="foglio-titolo">Inquadra il QR code</h3>' +
+      '<div class="qr-video"><video playsinline muted></video><span class="mirino"></span></div>' +
+      '<p class="testo-muto" id="qr-stato">Apri il QR sull\'altro telefono (Altro → Mostra QR code) e inquadralo.</p>' +
+      '<div class="azioni"><button class="btn secondario" type="submit">Annulla</button></div></form>';
+    foglio.showModal();
+    function stop() { attivo = false; if (flusso) flusso.getTracks().forEach(function (t) { t.stop(); }); }
+    foglio.addEventListener('close', stop, { once: true });
+    var video = $('video', foglio), canvas = document.createElement('canvas'), ctx = canvas.getContext('2d', { willReadFrequently: true });
+    Promise.all([caricaJsQR(), navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })]).then(function (r) {
+      flusso = r[1]; if (!attivo) return stop();
+      video.srcObject = flusso; video.play();
+      (function giro() {
+        if (!attivo) return;
+        if (video.readyState >= 2 && video.videoWidth) {
+          var k = Math.min(1, 640 / video.videoWidth);
+          canvas.width = Math.round(video.videoWidth * k); canvas.height = Math.round(video.videoHeight * k);
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          var img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          var cod = window.jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+          if (cod && cod.data) {
+            var link = leggiCollegamento(cod.data);
+            if (link) { stop(); foglio.close(); collega(link.url, link.chiave); return; }
+            var st = $('#qr-stato', foglio); if (st) st.textContent = 'Questo QR non è un collegamento di A&C.';
+          }
+        }
+        setTimeout(giro, 180);
+      })();
+    }).catch(function (e) {
+      var st = $('#qr-stato', foglio);
+      if (st) st.textContent = (e && e.name === 'NotAllowedError') ? 'Permesso fotocamera negato: abilitalo nelle impostazioni del telefono per A&C.' : 'Fotocamera non disponibile: incolla il link nel campo indirizzo.';
+    });
+  }
+
   vista.addEventListener('click', function (e) {
     var t = e.target.closest('[data-azione]'); if (!t) return;
+    if (t.dataset.azione === 'mostra-qr') return mostraQR();
+    if (t.dataset.azione === 'scansiona-qr') return scansionaQR();
     if (t.dataset.azione === 'condividi-link') navigator.share({ title: 'A&C', text: 'Apri questo link per collegare il telefono ai dati di casa', url: linkCollegamento() }).catch(function () {});
     else if (t.dataset.azione === 'copia-link') {
       var l = linkCollegamento();

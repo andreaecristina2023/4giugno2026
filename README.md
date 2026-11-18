@@ -13,7 +13,8 @@ Sito e app Android per la casa di Fratta Terme: bidoni della raccolta Alea, paga
 | Calendario | Mese con pallini colorati (bidoni, appuntamenti, pagamenti) |
 | Conti | Da pagare, scaduti, pagati, spese ricorrenti con stima annua |
 | Rifiuti | Zona Alea, giorni di ritiro, recuperi per festività, variazioni |
-| Altro | Chi usa il telefono, collegamento al foglio, notifiche, backup |
+| Album | Foto di casa, salvate nel Google Drive (cartella "A&C Album") |
+| Altro | Chi usa il telefono, collegamento al foglio, QR code per l'altro telefono, notifiche, backup |
 
 Le festività seguono le regole dell'Eco-Calendario Alea: un ritiro che cade di festa si sposta al sabato prima (lun–mer) o al sabato dopo (gio–ven); se cade di sabato salta. Pasquetta è calcolata in automatico. Per i casi particolari annunciati da Alea c'è "Aggiungi una variazione".
 
@@ -35,9 +36,23 @@ Nel foglio "Voci" vedi tutto in chiaro. Puoi anche aggiungere righe a mano (bast
 
 Se modifichi lo script dopo, ricorda **Distribuisci → Gestisci distribuzioni → modifica → Nuova versione**, altrimenti l'URL continua a usare il codice vecchio.
 
+## Aggiornare lo script
+
+Quando cambia `apps-script/Casa.gs` (per esempio per l'album foto):
+
+1. Apri lo script (script.google.com, progetto della casa), seleziona tutto il codice e incolla la versione nuova di [`Casa.gs`](https://raw.githubusercontent.com/andreaecristina2023/4giugno2026/main/apps-script/Casa.gs). Salva.
+2. Scegli `setup` → **Esegui**: Google chiede i permessi nuovi (per l'album, l'accesso a Drive). La chiave resta la stessa.
+3. **Esegui il deployment → Gestisci deployment → matita → Versione: Nuova versione → Esegui il deployment**. L'URL `/exec` non cambia.
+
+## Voci
+
+Ripeti e avviso hanno le unità di misura: minuti, ore, giorni, settimane, mesi, anni (la ripetizione va da giorni ad anni). Le categorie Bollo auto/moto, Assicurazione e Revisione mostrano il campo **Targa** e propongono da sole la ripetizione (1 anno, revisione 2 anni). C'è anche la categoria Condominio.
+
 ## 3. Promemoria
 
-**App Android** — le notifiche vere: la sera prima dei ritiri all'ora scelta (predefinita 20:00), i pagamenti 2 giorni prima e il giorno stesso alle 9, gli appuntamenti con l'anticipo scelto. L'app programma i prossimi 21 giorni ogni volta che la apri o che cambia qualcosa, quindi aprila almeno ogni tanto. C'è anche il **widget** per la home: tieni premuto sulla home → Widget → A&C.
+**App Android** — le notifiche vere: la sera prima dei ritiri all'ora scelta (predefinita 20:00), i pagamenti 2 giorni prima e il giorno stesso alle 9, gli appuntamenti con l'anticipo scelto. L'app programma i prossimi 21 giorni ogni volta che la apri o che cambia qualcosa, quindi aprila almeno ogni tanto. Ci sono due **widget**: tieni premuto sulla home → Widget → A&C.
+- **A&C**: prossime cose da fare (bidoni, pagamenti, appuntamenti).
+- **A&C Rifiuti**: sfondo trasparente, solo i bidoni colorati di stasera (o del prossimo ritiro). È dichiarato anche per la schermata di blocco, ma Android lo permette solo su alcuni telefoni: sui Samsung la schermata di blocco accetta solo widget approvati da Samsung (o tramite Good Lock). La notifica delle 20 compare comunque sulla schermata di blocco.
 
 **Bot Telegram** (facoltativo, funziona anche ad app chiusa e per tutti e due):
 

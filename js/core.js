@@ -23,16 +23,50 @@ var Casa = (function () {
     promemoria:   { nome: 'Promemoria',   plurale: 'Promemoria' }
   };
 
-  var RICORRENZE = {
-    '':            { nome: 'Una volta', mesi: 0, giorni: 0 },
-    settimanale:   { nome: 'Ogni settimana', giorni: 7 },
-    quindicinale:  { nome: 'Ogni 2 settimane', giorni: 14 },
-    mensile:       { nome: 'Ogni mese', mesi: 1 },
-    bimestrale:    { nome: 'Ogni 2 mesi', mesi: 2 },
-    trimestrale:   { nome: 'Ogni 3 mesi', mesi: 3 },
-    semestrale:    { nome: 'Ogni 6 mesi', mesi: 6 },
-    annuale:       { nome: 'Ogni anno', mesi: 12 }
+  // Unità di misura per ripetizioni e avvisi. Valori salvati come testo "N unità" (es. "2 mesi").
+  var UNITA = {
+    minuti:    { uno: 'minuto',    piu: 'minuti',    min: 1 },
+    ore:       { uno: 'ora',       piu: 'ore',       min: 60 },
+    giorni:    { uno: 'giorno',    piu: 'giorni',    min: 1440 },
+    settimane: { uno: 'settimana', piu: 'settimane', min: 10080 },
+    mesi:      { uno: 'mese',      piu: 'mesi',      min: 43200 },
+    anni:      { uno: 'anno',      piu: 'anni',      min: 525600 }
   };
+  var UNITA_RIPETI = ['giorni', 'settimane', 'mesi', 'anni'];
+  var UNITA_AVVISO = ['minuti', 'ore', 'giorni', 'settimane', 'mesi', 'anni'];
+  // vecchi valori (prima versione) ancora leggibili
+  var RIC_VECCHIE = { settimanale: '1 settimane', quindicinale: '2 settimane', mensile: '1 mesi', bimestrale: '2 mesi', trimestrale: '3 mesi', semestrale: '6 mesi', annuale: '1 anni' };
+
+  function leggiDurata(v) {
+    if (v === undefined || v === null || v === '') return null;
+    v = String(v).trim().toLowerCase();
+    if (RIC_VECCHIE[v]) v = RIC_VECCHIE[v];
+    var m = v.match(/^(\d+)\s*([a-z]+)$/);
+    if (m && UNITA[m[2]]) return { n: +m[1], u: m[2] };
+    if (/^\d+$/.test(v)) { // vecchio avviso in minuti
+      var x = +v;
+      var u = ['anni', 'mesi', 'settimane', 'giorni', 'ore'].filter(function (k) { return x && x % UNITA[k].min === 0; })[0] || 'minuti';
+      return { n: x / UNITA[u].min, u: u };
+    }
+    return null;
+  }
+  function testoDurata(d) { return d ? d.n + ' ' + (d.n === 1 ? UNITA[d.u].uno : UNITA[d.u].piu) : ''; }
+  function minutiDurata(d) { return d ? d.n * UNITA[d.u].min : 0; }
+  function nomeRipeti(item) {
+    var d = leggiDurata(item && item.ricorrenza);
+    if (!d || d.n < 1) return 'Una volta';
+    return 'Ogni ' + (d.n === 1 ? UNITA[d.u].uno : d.n + ' ' + UNITA[d.u].piu);
+  }
+  function volteAnno(item) {
+    var d = leggiDurata(item && item.ricorrenza);
+    if (!d || d.n < 1) return 0;
+    return { giorni: 365, settimane: 52.18, mesi: 12, anni: 1 }[d.u] / d.n;
+  }
+  function anticipoMinuti(item) {
+    var d = leggiDurata(item.avviso);
+    if (d) return minutiDurata(d);
+    return { appuntamento: 60, pagamento: 2880, scadenza: 2880, promemoria: 0 }[item.tipo] || 0;
+  }
 
   // ---------- date (sempre "YYYY-MM-DD", fuso locale) ----------
   function pad(n) { return (n < 10 ? '0' : '') + n; }
@@ -152,20 +186,21 @@ var Casa = (function () {
   // ---------- voci (appuntamenti, pagamenti, scadenze, promemoria) ----------
   function occorrenze(item, da, a) {
     if (!item || item.eliminato || !item.data) return [];
-    var ric = RICORRENZE[item.ricorrenza || ''] || RICORRENZE[''];
+    var d = leggiDurata(item.ricorrenza);
     var fine = item.fine || '9999-12-31';
     var out = [];
-    if (!ric.mesi && !ric.giorni) {
+    if (!d || d.n < 1 || !(d.u in { giorni: 1, settimane: 1, mesi: 1, anni: 1 })) {
       if (item.data >= da && item.data <= a) out.push(item.data);
       return out;
     }
+    var passoG = d.u === 'giorni' ? d.n : d.u === 'settimane' ? d.n * 7 : 0;
+    var passoM = d.u === 'mesi' ? d.n : d.u === 'anni' ? d.n * 12 : 0;
     var s = item.data, n = 0, g0 = parse(item.data).getDate();
-    // salto veloce per ricorrenze a giorni
-    if (ric.giorni && s < da) { var salti = Math.floor(diffGiorni(s, da) / ric.giorni); s = addGiorni(s, salti * ric.giorni); }
-    while (s <= a && s <= fine && n < 2000) {
+    if (passoG && s < da) { var salti = Math.floor(diffGiorni(s, da) / passoG); s = addGiorni(s, salti * passoG); }
+    while (s <= a && s <= fine && n < 5000) {
       if (s >= da) out.push(s);
       n++;
-      s = ric.giorni ? addGiorni(s, ric.giorni) : addMesi(item.data, ric.mesi * n, g0);
+      s = passoG ? addGiorni(s, passoG) : addMesi(item.data, passoM * n, g0);
     }
     return out;
   }
@@ -202,36 +237,44 @@ var Casa = (function () {
 
   function nomiFrazioni(lista) { return lista.map(function (f) { return (FRAZIONI[f] || { nome: f }).nome; }).join(' + '); }
 
-  // Promemoria da programmare (notifiche app e bot Telegram)
-  // opz = { oraRifiuti:'20:00', oraMattino:'09:00', anticipoAppuntamento:60 }
+  function menoMinuti(data, ora, minuti) {
+    var p = parse(data);
+    var t = new Date(p.getFullYear(), p.getMonth(), p.getDate(), +ora.slice(0, 2), +ora.slice(3, 5));
+    t = new Date(t.getTime() - minuti * 60000);
+    return iso(t) + 'T' + pad(t.getHours()) + ':' + pad(t.getMinutes());
+  }
+
+  // Promemoria da programmare (notifiche app)
+  // opz = { oraRifiuti:'20:00', oraMattino:'09:00' }
   function promemoria(items, cfgRifiuti, da, a, opz) {
     opz = opz || {};
     var oraR = (cfgRifiuti && cfgRifiuti.oraAvviso) || opz.oraRifiuti || '20:00';
     var oraM = opz.oraMattino || '09:00';
     var out = [];
-    agenda(items, cfgRifiuti, da, addGiorni(a, 1)).forEach(function (x) {
-      if (x.tipo === 'rifiuti') {
-        var sera = addGiorni(x.data, -1);
-        if (sera >= da && sera <= a) out.push({ quando: sera + 'T' + oraR, titolo: 'Stasera fuori: ' + nomiFrazioni(x.frazioni), testo: 'Ritiro di ' + GIORNI_LUNGHI[giornoSett(x.data)] + (x.nota ? ' · ' + x.nota : ''), chiave: 'r' + x.data });
-        return;
-      }
+    function dentro(q) { var g = q.slice(0, 10); return g >= da && g <= a; }
+    calendarioRifiuti(cfgRifiuti && cfgRifiuti.attivo !== false ? cfgRifiuti : null, da, addGiorni(a, 1)).forEach(function (x) {
+      var sera = addGiorni(x.data, -1);
+      if (sera >= da && sera <= a) out.push({ quando: sera + 'T' + oraR, titolo: 'Stasera fuori: ' + nomiFrazioni(x.frazioni), testo: 'Ritiro di ' + GIORNI_LUNGHI[giornoSett(x.data)] + (x.nota ? ' · ' + x.nota : ''), chiave: 'r' + x.data });
+    });
+    // le voci con avviso lungo (es. 1 anno prima) vanno cercate più avanti nel tempo
+    agenda(items, null, da, addGiorni(a, 400)).forEach(function (x) {
       if (x.fatto) return;
-      var it = x.item;
-      if (x.tipo === 'appuntamento' && x.ora) {
-        var ant = it.avviso !== undefined && it.avviso !== '' ? +it.avviso : (opz.anticipoAppuntamento || 60);
-        var t = new Date(parse(x.data).getFullYear(), parse(x.data).getMonth(), parse(x.data).getDate(), +x.ora.slice(0, 2), +x.ora.slice(3, 5));
-        t = new Date(t.getTime() - ant * 60000);
-        var q = iso(t) + 'T' + pad(t.getHours()) + ':' + pad(t.getMinutes());
-        if (q.slice(0, 10) >= da && q.slice(0, 10) <= a) out.push({ quando: q, titolo: it.titolo, testo: 'Alle ' + x.ora + (it.note ? ' · ' + it.note : ''), chiave: 'a' + it.id + x.data });
+      var it = x.item, ant = anticipoMinuti(it), d = leggiDurata(it.avviso);
+      var dett = [];
+      if (it.importo) dett.push(euro(it.importo));
+      if (it.targa) dett.push(it.targa);
+      if (x.tipo === 'appuntamento') {
+        var q = menoMinuti(x.data, x.ora || oraM, ant);
+        if (dentro(q)) out.push({ quando: q, titolo: it.titolo, testo: (x.ora ? 'Alle ' + x.ora : etichettaGiorno(x.data)) + (it.note ? ' · ' + it.note : ''), chiave: 'a' + it.id + x.data });
         return;
       }
-      var pre = (x.tipo === 'pagamento' || x.tipo === 'scadenza') ? (it.avviso !== undefined && it.avviso !== '' ? Math.round(+it.avviso / 1440) : 2) : 0;
-      var importo = it.importo ? ' · € ' + Number(it.importo).toFixed(2).replace('.', ',') : '';
-      if (pre > 0) {
-        var dpre = addGiorni(x.data, -pre);
-        if (dpre >= da && dpre <= a) out.push({ quando: dpre + 'T' + oraM, titolo: it.titolo + ' tra ' + pre + (pre === 1 ? ' giorno' : ' giorni'), testo: TIPI[x.tipo].nome + importo, chiave: 'p' + it.id + x.data + 'pre' });
+      var base = x.ora || oraM;
+      if (ant > 0) {
+        var qp = menoMinuti(x.data, base, ant);
+        if (dentro(qp)) out.push({ quando: qp, titolo: it.titolo + ' tra ' + (d ? testoDurata(d) : '2 giorni'), testo: [TIPI[x.tipo].nome].concat(dett).join(' · '), chiave: 'p' + it.id + x.data + 'pre' });
       }
-      if (x.data >= da && x.data <= a) out.push({ quando: x.data + 'T' + (x.ora || oraM), titolo: it.titolo + (x.tipo === 'promemoria' ? '' : ' scade oggi'), testo: TIPI[x.tipo].nome + importo, chiave: 'p' + it.id + x.data });
+      var q0 = x.data + 'T' + base;
+      if (dentro(q0)) out.push({ quando: q0, titolo: it.titolo + (x.tipo === 'promemoria' ? '' : ' scade oggi'), testo: [TIPI[x.tipo].nome].concat(dett).join(' · '), chiave: 'p' + it.id + x.data });
     });
     out.sort(function (p, q) { return p.quando < q.quando ? -1 : 1; });
     return out;
@@ -242,7 +285,8 @@ var Casa = (function () {
   function euro(n) { return '€ ' + Number(n || 0).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 
   return {
-    GIORNI: GIORNI, GIORNI_LUNGHI: GIORNI_LUNGHI, MESI: MESI, FRAZIONI: FRAZIONI, TIPI: TIPI, RICORRENZE: RICORRENZE,
+    GIORNI: GIORNI, GIORNI_LUNGHI: GIORNI_LUNGHI, MESI: MESI, FRAZIONI: FRAZIONI, TIPI: TIPI, UNITA: UNITA, UNITA_RIPETI: UNITA_RIPETI, UNITA_AVVISO: UNITA_AVVISO,
+    leggiDurata: leggiDurata, testoDurata: testoDurata, nomeRipeti: nomeRipeti, volteAnno: volteAnno, anticipoMinuti: anticipoMinuti,
     iso: iso, parse: parse, oggi: oggi, addGiorni: addGiorni, addMesi: addMesi, diffGiorni: diffGiorni,
     giornoSett: giornoSett, settimanaDelMese: settimanaDelMese, etichettaGiorno: etichettaGiorno, dataBreve: dataBreve,
     pasqua: pasqua, eFestivo: eFestivo, senzaRaccolta: senzaRaccolta, FESTIVI_ALEA: FESTIVI_ALEA, ritiri: ritiri, calendarioRifiuti: calendarioRifiuti,

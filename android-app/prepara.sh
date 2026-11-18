@@ -32,11 +32,19 @@ if 'CasaWidget' not in s:
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_casa_info" />
         </receiver>
+        <receiver android:name=".RifiutiWidget" android:exported="false" android:label="A&amp;C Rifiuti">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_rifiuti_info" />
+        </receiver>
     </application>'''
     s = s.replace('</application>', ricevitore, 1)
 permessi = [
     '<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />',
     '<uses-permission android:name="android.permission.USE_EXACT_ALARM" />',
+    '<uses-permission android:name="android.permission.CAMERA" />',
+    '<uses-feature android:name="android.hardware.camera" android:required="false" />',
     '<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />',
 ]
 for x in permessi:

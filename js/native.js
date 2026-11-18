@@ -85,7 +85,13 @@ var Native = (function () {
     });
     righe = righe.filter(function (r) { return r.data >= da; }).sort(function (p, q) { return p.data < q.data ? -1 : p.data > q.data ? 1 : (q.rifiuti ? 1 : -1); });
     var json = JSON.stringify({ aggiornato: Date.now(), righe: righe.slice(0, 12) });
-    return Prefs.set({ key: 'widget', value: json }).then(function () { return Widget.aggiorna().catch(function () {}); }).catch(function () {});
+    // widget solo rifiuti: giorni di ritiro delle prossime 3 settimane
+    var giorni = (cfgRifiuti && cfgRifiuti.attivo !== false) ? Casa.calendarioRifiuti(cfgRifiuti, da, Casa.addGiorni(da, 21)).map(function (x) {
+      return { data: x.data, nota: x.nota || '', frazioni: x.frazioni.map(function (f) { var fr = Casa.FRAZIONI[f] || { nome: f, colore: '#6B6F73' }; return { n: fr.nome.split(' ')[0], c: fr.colore }; }) };
+    }) : [];
+    return Prefs.set({ key: 'widget', value: json })
+      .then(function () { return Prefs.set({ key: 'widgetRifiuti', value: JSON.stringify({ aggiornato: Date.now(), giorni: giorni }) }); })
+      .then(function () { return Widget.aggiorna().catch(function () {}); }).catch(function () {});
   }
 
   // Nel browser: avviso una volta al giorno se stasera c'è da esporre qualcosa

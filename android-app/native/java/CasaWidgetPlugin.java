@@ -11,6 +11,7 @@ public class CasaWidgetPlugin extends Plugin {
     @PluginMethod
     public void aggiorna(PluginCall call) {
         CasaWidget.aggiornaTutti(getContext());
+        RifiutiWidget.aggiornaTutti(getContext());
         call.resolve();
     }
 }
