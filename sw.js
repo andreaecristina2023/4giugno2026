@@ -1,5 +1,5 @@
 /* Service worker: il sito si apre anche senza rete. Alza VERSIONE a ogni modifica. */
-var VERSIONE = 'casa-v1';
+var VERSIONE = 'casa-v2';
 var FILE = ['./', 'index.html', 'css/app.css', 'js/core.js', 'js/store.js', 'js/native.js', 'js/app.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'fonts/bricolage-grotesque-latin-500-normal.woff2', 'fonts/bricolage-grotesque-latin-700-normal.woff2',
   'fonts/bricolage-grotesque-latin-800-normal.woff2', 'fonts/atkinson-hyperlegible-latin-400-normal.woff2', 'fonts/atkinson-hyperlegible-latin-700-normal.woff2'];

@@ -236,7 +236,7 @@
       if (st.errore) h += '<p style="color:var(--sangiovese)">' + esc(st.errore) + '</p>';
     } else h += '<p>Ora i dati restano solo su questo telefono. Collega lo script del Google Sheet per vederli in due (istruzioni nel README del repository).</p>';
     h += '<form id="form-collega" class="campi"><label class="campo">Indirizzo dello script<input type="url" name="url" value="' + esc(conf.url) + '" placeholder="https://script.google.com/macros/s/…/exec" required></label>' +
-      '<label class="campo">Chiave<span class="aiuto">La trovi nel foglio "Impostazioni" dopo aver eseguito setup.</span><input type="password" name="chiave" value="' + esc(conf.chiave) + '" autocomplete="off" required></label>' +
+      '<label class="campo">Chiave<span class="aiuto">È nel foglio Google «Casa», scheda «Impostazioni» in basso, cella B1. Compare dopo aver eseguito la funzione setup nello script.</span><input type="password" name="chiave" value="' + esc(conf.chiave) + '" autocomplete="off" required></label>' +
       '<div class="azioni"><button class="btn" type="submit">Collega e sincronizza</button>' + (Store.configurato() ? '<button class="btn secondario" type="button" data-azione="scollega">Scollega</button>' : '') + '</div></form></div>';
 
     h += '<h2>Promemoria</h2><div class="sezione">';
