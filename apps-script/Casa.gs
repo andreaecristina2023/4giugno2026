@@ -31,7 +31,8 @@ function setup() {
   fo.getRange(1, 1, 1, COLONNE_FOTO.length).setValues([COLONNE_FOTO]).setFontWeight('bold');
   fo.setFrozenRows(1);
   fo.getRange('A:J').setNumberFormat('@');
-  cartellaAlbum(); // crea la cartella delle foto su Drive (e chiede il permesso la prima volta)
+  var cartellaFoto = null, erroreCartella = '';
+  try { cartellaFoto = cartellaAlbum(); } catch (e) { erroreCartella = e.message; } // crea la cartella delle foto su Drive (e chiede il permesso la prima volta)
   var imp = ss.getSheetByName(FOGLIO_IMP) || ss.insertSheet(FOGLIO_IMP);
   var props = PropertiesService.getScriptProperties();
   var chiave = props.getProperty('CHIAVE');
@@ -44,6 +45,8 @@ function setup() {
   if (s1 && s1.getLastRow() === 0 && ss.getSheets().length > 2) ss.deleteSheet(s1);
   var tz = Session.getScriptTimeZone();
   Logger.log('Pronto. Chiave: ' + chiave + ' — fuso orario script: ' + tz + (tz !== 'Europe/Rome' ? '  ⚠ Imposta Europe/Rome in Impostazioni progetto' : ''));
+  Logger.log(cartellaFoto ? 'Cartella foto: ' + cartellaFoto.getUrl() : '⚠ Cartella foto non creata: ' + erroreCartella);
+  Logger.log('Ricorda: Esegui il deployment → Gestisci deployment → modifica → Nuova versione, altrimenti il sito usa ancora il codice vecchio.');
 }
 
 // ---------------- API ----------------
@@ -59,7 +62,7 @@ function doPost(e) {
     if (!chiave || req.chiave !== chiave) throw new Error('Chiave non valida');
     if (req.azione === 'ping') out = { ok: true, messaggio: 'Collegato' };
     else if (req.azione === 'sync') out = sincronizza(req.voci || [], req.impostazioni || null);
-    else if (req.azione === 'foto_lista') out = { ok: true, foto: leggiFoto().filter(function (f) { return !f.eliminato; }) };
+    else if (req.azione === 'foto_lista') out = { ok: true, foto: leggiFoto().filter(function (f) { return !f.eliminato; }), cartella: urlCartella() };
     else if (req.azione === 'foto_carica') out = caricaFoto(req);
     else if (req.azione === 'foto_mini') out = { ok: true, mini: datiFoto(req.ids || [], 'mini') };
     else if (req.azione === 'foto_grande') out = { ok: true, grande: datiFoto([req.id], 'file')[req.id] || null };
@@ -166,10 +169,27 @@ function cartellaAlbum() {
   var props = PropertiesService.getScriptProperties();
   var id = props.getProperty('CARTELLA_FOTO');
   if (id) { try { var c = DriveApp.getFolderById(id); if (!c.isTrashed()) return c; } catch (e) { /* cartella sparita: la ricreo */ } }
-  var nuova = DriveApp.createFolder('A&C Album');
-  props.setProperty('CARTELLA_FOTO', nuova.getId());
-  return nuova;
+  // la cartella va accanto al foglio "Casa" (se si può), altrimenti nel Drive principale di chi esegue lo script
+  var padre = null;
+  try { var it = DriveApp.getFileById(foglio().getId()).getParents(); if (it.hasNext()) padre = it.next(); } catch (e) { padre = null; }
+  var esistenti = (padre || DriveApp.getRootFolder()).getFoldersByName('A&C Album');
+  var cartella = esistenti.hasNext() ? esistenti.next() : (padre ? padre.createFolder('A&C Album') : DriveApp.createFolder('A&C Album'));
+  props.setProperty('CARTELLA_FOTO', cartella.getId());
+  return cartella;
 }
+
+// Da eseguire a mano se l'album non va: scrive nel registro dov'è la cartella delle foto (o perché non si crea)
+function verificaAlbum() {
+  Logger.log('Script eseguito da: ' + Session.getEffectiveUser().getEmail());
+  try {
+    var c = cartellaAlbum();
+    Logger.log('Cartella foto OK: ' + c.getUrl());
+  } catch (e) {
+    Logger.log('Cartella foto NON creata: ' + e.message + ' — esegui di nuovo setup e accetta il permesso per Google Drive.');
+  }
+}
+
+function urlCartella() { try { return cartellaAlbum().getUrl(); } catch (e) { return ''; } }
 
 function foglioFoto() {
   var ss = foglio();

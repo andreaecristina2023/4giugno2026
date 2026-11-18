@@ -44,13 +44,15 @@ Quando cambia `apps-script/Casa.gs` (per esempio per l'album foto):
 2. Scegli `setup` → **Esegui**: Google chiede i permessi nuovi (per l'album, l'accesso a Drive). La chiave resta la stessa.
 3. **Esegui il deployment → Gestisci deployment → matita → Versione: Nuova versione → Esegui il deployment**. L'URL `/exec` non cambia.
 
+La cartella delle foto "A&C Album" viene creata accanto al foglio "Casa". Se l'album non va, esegui la funzione `verificaAlbum`: nel registro trovi il link alla cartella oppure il motivo dell'errore.
+
 ## Turni VVF
 
 Calendario → **Turni VVF**: scegli turno (A, B, C, D) e saltoturno (1–8). Il calendario usa la stessa sequenza a 32 giorni di FireOps (`SEQUENZA_TURNI`, riferimento 26/01/2026), verificata identica su 2025–2028: sigla maiuscola = diurno, minuscola = notte (es. B6 / b6). I turni del tuo saltoturno sono segnati come salto. Ogni giorno mostra chi è in servizio (diurno sopra, notte sotto, il tuo turno sottolineato). Toccando un giorno lo cambi (ferie, straordinario, addestramento, corso, presidio rurale, boschiva AIB, cambio turno) con orario e nota. Il turno di oggi e chi è in servizio compaiono nella schermata Oggi e in entrambi i widget.
 
 ## Voci
 
-Ripeti e avviso hanno le unità di misura: minuti, ore, giorni, settimane, mesi, anni (la ripetizione va da giorni ad anni). Le categorie Bollo auto/moto, Assicurazione e Revisione mostrano il campo **Targa** e propongono da sole la ripetizione (1 anno, revisione 2 anni). Ci sono anche le categorie Condominio e Viaggi.
+Ripeti e avviso hanno le unità di misura: minuti, ore, giorni, settimane, mesi, anni (la ripetizione va da giorni ad anni). Le categorie Bollo auto/moto, Assicurazione e Revisione mostrano il campo **Targa** e propongono da sole la ripetizione (1 anno, revisione 2 anni). Ci sono anche le categorie Condominio, Viaggi e Concerti.
 
 ## 3. Promemoria
 

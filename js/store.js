@@ -19,7 +19,7 @@ var Store = (function () {
     rifiuti: { attivo: true, zona: '', oraAvviso: '20:00', festivita: true, regole: [], eccezioni: [] },
     turni: { attivo: false, persona: 'Andrea', turno: 'B', saltoturno: '', diurno: '08:00-20:00', notte: '20:00-08:00', eccezioni: [] },
     persone: ['Andrea', 'Cristina'],
-    categorie: ['Casa', 'Bollette', 'Condominio', 'Bollo auto/moto', 'Assicurazione', 'Revisione', 'Auto', 'Viaggi', 'Salute', 'Tasse', 'Banca', 'Altro']
+    categorie: ['Casa', 'Bollette', 'Condominio', 'Bollo auto/moto', 'Assicurazione', 'Revisione', 'Auto', 'Viaggi', 'Concerti', 'Salute', 'Tasse', 'Banca', 'Altro']
   };
   // Eco-Calendario Alea di casa (foto del 18/11/2026): precaricato una volta se non ci sono giorni impostati
   var CALENDARIO_CASA = {
@@ -40,7 +40,7 @@ var Store = (function () {
 
   function precarica() {
     // categorie nuove (18/11/2026)
-    var nuove = ['Condominio', 'Bollo auto/moto', 'Assicurazione', 'Revisione', 'Viaggi'].filter(function (c) { return settings.categorie.indexOf(c) < 0; });
+    var nuove = ['Condominio', 'Bollo auto/moto', 'Assicurazione', 'Revisione', 'Viaggi', 'Concerti'].filter(function (c) { return settings.categorie.indexOf(c) < 0; });
     if (nuove.length) {
       var i = settings.categorie.indexOf('Salute'); if (i < 0) i = settings.categorie.length;
       Array.prototype.splice.apply(settings.categorie, [i, 0].concat(nuove));

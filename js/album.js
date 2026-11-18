@@ -5,6 +5,7 @@ var Album = (function () {
   var C = Casa;
   var ui = null; // { esc, toast, foglio, ridisegna }
   var foto = [];          // elenco dal foglio
+  var cartella = '';      // link alla cartella su Google Drive
   var mini = {};          // id → objectURL miniatura
   var stato = { carico: false, errore: '', caricamenti: 0, totale: 0 };
   var LISTA = 'aec.album.lista';
@@ -49,6 +50,7 @@ var Album = (function () {
     if (!Store.configurato()) { stato.errore = ''; return Promise.resolve(); }
     stato.carico = true;
     return Store.chiama('foto_lista').then(function (r) {
+      cartella = r.cartella || '';
       foto = (r.foto || []).sort(function (a, b) { return a.data < b.data ? 1 : a.data > b.data ? -1 : b.aggiornato - a.aggiornato; });
       try { localStorage.setItem(LISTA, JSON.stringify(foto)); } catch (e) { /* pieno */ }
       stato.errore = '';
@@ -228,7 +230,8 @@ var Album = (function () {
     var esc = ui.esc;
     var h = '';
     if (!Store.configurato()) return h + '<div class="vuoto">L\'album usa il Google Drive del foglio di casa: collega prima il foglio in <a href="#altro">Altro</a>.</div>';
-    h += '<div class="azioni" style="margin-bottom:6px"><label class="btn">Aggiungi foto<input type="file" accept="image/*" multiple data-album="file" class="sr"></label></div>';
+    h += '<div class="azioni" style="margin-bottom:6px"><label class="btn">Aggiungi foto<input type="file" accept="image/*" multiple data-album="file" class="sr"></label>' +
+      (cartella ? '<a class="btn secondario" href="' + esc(cartella) + '" target="_blank" rel="noopener">Cartella su Drive</a>' : '') + '</div>';
     if (stato.totale) h += '<p class="testo-muto">Caricamento ' + Math.min(stato.caricamenti + 1, stato.totale) + ' di ' + stato.totale + '…</p>';
     if (stato.errore) h += '<p class="testo-muto" style="color:var(--sangiovese)">' + esc(stato.errore) + '</p>';
     if (!foto.length) return h + (stato.carico ? '<p class="testo-muto">Carico l\'album…</p>' : '<div class="vuoto">Nessuna foto ancora. Le foto restano nel vostro Google Drive, nella cartella "A&amp;C Album".</div>');
