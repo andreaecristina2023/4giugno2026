@@ -544,15 +544,51 @@ var Viaggi = (function () {
     });
   }
   var sceltaHotel = null; // hotel in attesa di un tocco sulla mappa
+  var mioPunto = null;
+  // comandi della mappa: la mia posizione e schermo intero
+  function aggiungiComandi(m, contenitore) {
+    var Posizione = L.Control.extend({ options: { position: 'topleft' }, onAdd: function () {
+      var b = L.DomUtil.create('a', 'mappa-bottone'); b.href = '#'; b.title = 'La mia posizione'; b.setAttribute('aria-label', 'La mia posizione'); b.textContent = '⌖';
+      L.DomEvent.disableClickPropagation(b);
+      L.DomEvent.on(b, 'click', function (e) { L.DomEvent.preventDefault(e); mioPosizione(m); });
+      return b;
+    } });
+    var Schermo = L.Control.extend({ options: { position: 'topleft' }, onAdd: function () {
+      var b = L.DomUtil.create('a', 'mappa-bottone'); b.href = '#'; b.title = 'Schermo intero'; b.setAttribute('aria-label', 'Schermo intero'); b.textContent = '⛶';
+      L.DomEvent.disableClickPropagation(b);
+      L.DomEvent.on(b, 'click', function (e) {
+        L.DomEvent.preventDefault(e);
+        var sezione = contenitore.parentElement;
+        sezione.classList.toggle('mappa-piena');
+        b.textContent = sezione.classList.contains('mappa-piena') ? '✕' : '⛶';
+        setTimeout(function () { m.invalidateSize(); }, 50);
+      });
+      return b;
+    } });
+    m.addControl(new Posizione()); m.addControl(new Schermo());
+  }
+  function mioPosizione(m) {
+    if (!navigator.geolocation) { ui.toast('Posizione non disponibile su questo dispositivo'); return; }
+    navigator.geolocation.getCurrentPosition(function (pos) {
+      var ll = [pos.coords.latitude, pos.coords.longitude];
+      if (mioPunto) mioPunto.setLatLng(ll); else mioPunto = L.circleMarker(ll, { radius: 8, color: '#fff', weight: 3, fillColor: '#1E7F8C', fillOpacity: 1 }).addTo(m);
+      m.setView(ll, 15);
+    }, function () { ui.toast('Non riesco a leggere la posizione: controlla il permesso di localizzazione'); }, { enableHighAccuracy: true, timeout: 12000 });
+  }
   function disegnaMappa(id) {
     var el = document.getElementById('mappa-viaggio'), nota = document.getElementById('mappa-nota');
     if (!el || !nota || !window.L) return;
     if (mappaCorrente) { mappaCorrente.remove(); mappaCorrente = null; }
+    mioPunto = null;
     var v = Store.get(id), luoghi = v ? luoghiViaggio(v) : [];
     var m = L.map(el, { scrollWheelZoom: false }), punti = [], mancanti = [];
     mappaCorrente = m;
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap' }).addTo(m);
+    var mappaBase = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(m);
+    var mappaSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Immagini © Esri' });
+    L.control.layers({ 'Mappa': mappaBase, 'Satellite': mappaSat }, null, { position: 'topright' }).addTo(m);
+    aggiungiComandi(m, el);
     m.setView([44.5, 11.3], 4);
+    setTimeout(function () { if (mappaCorrente === m) m.invalidateSize(); }, 150);
     m.on('click', function (e) {
       if (sceltaHotel && sceltaHotel.viaggio === id) {
         var vv = JSON.parse(JSON.stringify(Store.get(id)));
@@ -571,7 +607,7 @@ var Viaggi = (function () {
       if (!el.isConnected || mappaCorrente !== m) return;
       L.marker(pos, { icon: icona(EMOJI_FISSI[l.tipo] || '📍', l.col) }).bindTooltip(l.etichetta).addTo(m);
       punti.push(pos);
-      m.fitBounds(punti, { padding: [24, 24] });
+      m.fitBounds(punti, { padding: [24, 24], maxZoom: 13 });
     }
     nota.textContent = luoghi.length ? 'Cerco i luoghi…' : '';
     luoghi.reduce(function (prima, l) {

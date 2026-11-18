@@ -19,6 +19,7 @@ var Store = (function () {
     rifiuti: { attivo: true, zona: '', oraAvviso: '20:00', festivita: true, regole: [], eccezioni: [] },
     turni: { attivo: false, persona: 'Andrea', turno: 'B', saltoturno: '', diurno: '08:00-20:00', notte: '20:00-08:00', eccezioni: [] },
     persone: ['Andrea', 'Cristina'],
+    anagrafica: { indirizzo: '', persone: { Andrea: { prefisso: '+39', telefono: '', email: '', cf: '' }, Cristina: { prefisso: '+39', telefono: '', email: '', cf: '' } }, documenti: '', altro: '' },
     categorie: ['Casa', 'Bollette', 'Condominio', 'Bollo auto/moto', 'Assicurazione', 'Revisione', 'Auto', 'Viaggi', 'Concerti', 'Salute', 'Tasse', 'Banca', 'Altro']
   };
   // Eco-Calendario Alea di casa (foto del 18/11/2026): precaricato una volta se non ci sono giorni impostati

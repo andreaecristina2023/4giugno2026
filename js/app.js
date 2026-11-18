@@ -377,11 +377,28 @@
   }
 
   // ---------- ALTRO ----------
+  var PREFISSI_DATI = ['+39', '+41', '+33', '+34', '+43', '+49', '+44', '+351', '+30', '+385', '+1', '+61', '+81'];
+  function datiPersonali(s) {
+    var a = (s.anagrafica) || {}, pp = a.persone || {};
+    function campo(nome, etic, val, tipo) { return '<label class="campo">' + etic + '<input type="' + (tipo || 'text') + '" name="' + nome + '" value="' + esc(val || '') + '"></label>'; }
+    function persona(nome) {
+      var p = pp[nome] || {};
+      return '<div class="campo"><span>' + esc(nome) + '</span><div class="due"><label class="campo">Prefisso<select name="' + nome + '_prefisso">' + PREFISSI_DATI.map(function (x) { return '<option' + ((p.prefisso || '+39') === x ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select></label>' +
+        '<label class="campo">Telefono<input type="tel" name="' + nome + '_telefono" value="' + esc(p.telefono || '') + '"></label></div>' +
+        campo(nome + '_email', 'Email', p.email, 'email') + campo(nome + '_cf', 'Codice fiscale', p.cf) + '</div>';
+    }
+    return '<h2>I miei dati</h2><form id="form-dati" class="sezione campi" style="display:grid;gap:12px">' +
+      campo('indirizzo', 'Indirizzo di casa', a.indirizzo) + persona('Andrea') + persona('Cristina') +
+      '<label class="campo">Documenti<span class="aiuto">Carta d\'identità, patente, tessera sanitaria: numero e scadenza.</span><textarea name="documenti" maxlength="2000">' + esc(a.documenti || '') + '</textarea></label>' +
+      '<label class="campo">Altro<span class="aiuto">Quello che ti serve spesso: codici, numeri utili, note.</span><textarea name="altro" maxlength="2000">' + esc(a.altro || '') + '</textarea></label>' +
+      '<div class="azioni"><button class="btn" type="submit">Salva i dati</button></div></form>';
+  }
   function vistaAltro() {
     var conf = Store.conf(), st = Store.stato(), s = Store.settings();
     var h = testata('Altro', 'Impostazioni e app');
     h += '<h2>Chi sta usando questo telefono</h2><div class="schede" role="group" aria-label="Persona">' + s.persone.map(function (p) { return '<button type="button" data-chi="' + esc(p) + '" aria-pressed="' + (conf.chi === p) + '">' + esc(p) + '</button>'; }).join('') + '</div>';
 
+    h += datiPersonali(s);
     h += '<h2>Condivisione tra i telefoni</h2><div class="sezione">';
     if (Store.configurato()) {
       h += '<p>Collegato al Google Sheet. ' + (st.ultimo ? 'Ultima sincronizzazione: ' + new Date(st.ultimo).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' }) + '.' : '') + '</p>';
@@ -506,6 +523,18 @@
     }
     render(); foglio.showModal();
   }
+
+  document.addEventListener('submit', function (e) {
+    if (!e.target || e.target.id !== 'form-dati') return;
+    e.preventDefault();
+    var f = e.target, v = function (n) { return (f.elements[n] ? f.elements[n].value : '').trim(); };
+    Store.setSettings({ anagrafica: {
+      indirizzo: v('indirizzo'), documenti: v('documenti'), altro: v('altro'),
+      persone: { Andrea: { prefisso: v('Andrea_prefisso'), telefono: v('Andrea_telefono'), email: v('Andrea_email'), cf: v('Andrea_cf').toUpperCase() },
+                 Cristina: { prefisso: v('Cristina_prefisso'), telefono: v('Cristina_telefono'), email: v('Cristina_email'), cf: v('Cristina_cf').toUpperCase() } }
+    } });
+    toast('Dati salvati');
+  });
 
   // ---------- routing e eventi ----------
   var VISTE = { oggi: vistaOggi, calendario: vistaCalendario, conti: vistaConti, rifiuti: vistaRifiuti, viaggi: vistaViaggi, viaggio: vistaViaggio, concerti: vistaConcerti, album: vistaAlbum, altro: vistaAltro };
