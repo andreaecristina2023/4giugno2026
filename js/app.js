@@ -378,20 +378,94 @@
 
   // ---------- ALTRO ----------
   var PREFISSI_DATI = ['+39', '+41', '+33', '+34', '+43', '+49', '+44', '+351', '+30', '+385', '+1', '+61', '+81'];
+  var casaMappa = null, casaPosizione = null, TIPI_DOCUMENTO = ['Carta d\'identità', 'Patente', 'Passaporto', 'Tessera sanitaria', 'Codice fiscale', 'Permesso di soggiorno', 'Altro'];
+  function casaDi(a) {
+    var c = a.casa || {};
+    if (!a.casa && a.indirizzo) c = { via: a.indirizzo };
+    return c;
+  }
+  function salvaAnagrafica(patch) { Store.setSettings({ anagrafica: Object.assign({}, Store.settings().anagrafica || {}, patch) }); }
   function datiPersonali(s) {
-    var a = (s.anagrafica) || {}, pp = a.persone || {};
+    var a = (s.anagrafica) || {}, pp = a.persone || {}, casa = casaDi(a), docs = a.documenti || [];
+    if (typeof docs === 'string') docs = [];
     function campo(nome, etic, val, tipo) { return '<label class="campo">' + etic + '<input type="' + (tipo || 'text') + '" name="' + nome + '" value="' + esc(val || '') + '"></label>'; }
     function persona(nome) {
       var p = pp[nome] || {};
       return '<div class="campo"><span>' + esc(nome) + '</span><div class="due"><label class="campo">Prefisso<select name="' + nome + '_prefisso">' + PREFISSI_DATI.map(function (x) { return '<option' + ((p.prefisso || '+39') === x ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select></label>' +
         '<label class="campo">Telefono<input type="tel" name="' + nome + '_telefono" value="' + esc(p.telefono || '') + '"></label></div>' +
-        campo(nome + '_email', 'Email', p.email, 'email') + campo(nome + '_cf', 'Codice fiscale', p.cf) + '</div>';
+        '<div class="due">' + campo(nome + '_email', 'Email', p.email, 'email') + campo(nome + '_cf', 'Codice fiscale', p.cf) + '</div></div>';
     }
-    return '<h2>I miei dati</h2><form id="form-dati" class="sezione campi" style="display:grid;gap:12px">' +
-      campo('indirizzo', 'Indirizzo di casa', a.indirizzo) + persona('Andrea') + persona('Cristina') +
-      '<label class="campo">Documenti<span class="aiuto">Carta d\'identità, patente, tessera sanitaria: numero e scadenza.</span><textarea name="documenti" maxlength="2000">' + esc(a.documenti || '') + '</textarea></label>' +
+    var h = '<h2>I miei dati</h2><form id="form-dati" class="sezione campi" style="display:grid;gap:12px">' +
+      '<div class="campo"><span>Indirizzo di casa</span><div class="casa-righe"><label class="campo">Via<input type="text" name="via" value="' + esc(casa.via || '') + '"></label><label class="campo">Civico<input type="text" name="civico" value="' + esc(casa.civico || '') + '"></label></div>' +
+      '<div class="casa-righe casa-righe-3"><label class="campo">Comune<input type="text" name="comune" value="' + esc(casa.comune || '') + '"></label><label class="campo">CAP<input type="text" name="cap" inputmode="numeric" maxlength="5" value="' + esc(casa.cap || '') + '"></label><label class="campo">Provincia<input type="text" name="provincia" maxlength="2" autocapitalize="characters" value="' + esc(casa.provincia || '') + '"></label></div>' +
+      '<div class="posizione-azioni"><button type="button" class="btn secondario piccolo" id="loc-casa">📍 Localizza l\'indirizzo</button></div>' +
+      '<div id="mappa-casa" class="mappa mappa-casa"></div><p id="casa-nota" class="testo-muto" style="margin:0;font-size:13px">Tocca la mappa per posizionare la casa, oppure usa «Localizza».</p></div>' +
+      persona('Andrea') + persona('Cristina') +
       '<label class="campo">Altro<span class="aiuto">Quello che ti serve spesso: codici, numeri utili, note.</span><textarea name="altro" maxlength="2000">' + esc(a.altro || '') + '</textarea></label>' +
       '<div class="azioni"><button class="btn" type="submit">Salva i dati</button></div></form>';
+    h += '<h2>Documenti <small>' + docs.length + '</small></h2><div class="sezione">' + docs.map(function (d) {
+      return '<button type="button" class="sotto-card doc-riga" data-doc-modifica="' + esc(d.id) + '"><span class="sc-titolo">' + esc(d.tipo || 'Documento') + (d.numero ? ' · ' + esc(d.numero) : '') + '</span>' +
+        (d.scadenza ? '<span class="sc-riga">Scade ' + esc(d.scadenza) + (d.rilasciatoDa ? ' · ' + esc(d.rilasciatoDa) : '') + '</span>' : (d.rilasciatoDa ? '<span class="sc-riga">' + esc(d.rilasciatoDa) + '</span>' : '')) + '</button>';
+    }).join('') + '<button type="button" class="btn secondario piccolo" data-doc-nuovo aria-label="Aggiungi documento">+ Aggiungi documento</button></div>';
+    setTimeout(initCasa, 0);
+    return h;
+  }
+  function indirizzoCasa(f) {
+    var g = function (n) { return (f.elements[n] ? f.elements[n].value : '').trim(); };
+    var via = [g('via'), g('civico')].filter(Boolean).join(' '), luogo = [g('cap'), g('comune')].filter(Boolean).join(' ');
+    return [via, luogo, g('provincia'), 'Italia'].filter(Boolean).join(', ');
+  }
+  function initCasa() {
+    var el = document.getElementById('mappa-casa'), nota = document.getElementById('casa-nota');
+    if (!el || !window.L) return;
+    if (casaMappa) { casaMappa.remove(); casaMappa = null; }
+    var casa = casaDi(Store.settings().anagrafica || {});
+    casaPosizione = (casa.lat != null && casa.lon != null) ? [casa.lat, casa.lon] : null;
+    var m = L.map(el, { scrollWheelZoom: false }), marcatore = null;
+    casaMappa = m;
+    var base = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(m);
+    var sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Immagini © Esri' });
+    L.control.layers({ 'Mappa': base, 'Satellite': sat }, null, { position: 'topright' }).addTo(m);
+    function metti(ll) {
+      casaPosizione = ll;
+      var icona = L.divIcon({ className: 'pin-luogo', html: '<span style="--c:#1E7F8C">🏠</span>', iconSize: [38, 38], iconAnchor: [19, 19] });
+      if (marcatore) marcatore.setLatLng(ll); else marcatore = L.marker(ll, { icon: icona }).addTo(m);
+    }
+    if (casaPosizione) { metti(casaPosizione); m.setView(casaPosizione, 16); } else m.setView([44.5, 11.3], 6);
+    m.on('click', function (e) { metti([e.latlng.lat, e.latlng.lng]); if (nota) nota.textContent = 'Casa segnata. Premi «Salva i dati» per conservarla.'; });
+    var loc = document.getElementById('loc-casa'), f = document.getElementById('form-dati');
+    if (loc && f) loc.onclick = function () {
+      var q = indirizzoCasa(f);
+      if (nota) nota.textContent = 'Cerco l\'indirizzo…';
+      fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(q), { headers: { 'Accept-Language': 'it' } })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (j && j[0]) { var ll = [+j[0].lat, +j[0].lon]; metti(ll); m.setView(ll, 16); if (nota) nota.textContent = 'Indirizzo trovato: controlla il punto sulla mappa.'; }
+          else if (nota) nota.textContent = 'Indirizzo non trovato: tocca la mappa per posizionare la casa.';
+        })
+        .catch(function () { if (nota) nota.textContent = 'Non riesco a cercare l\'indirizzo: tocca la mappa.'; });
+    };
+  }
+  function apriDocumento(id) {
+    var lista = ((Store.settings().anagrafica || {}).documenti || []), d = null;
+    if (id) d = lista.filter(function (x) { return x.id === id; })[0];
+    d = d ? JSON.parse(JSON.stringify(d)) : { id: '', tipo: TIPI_DOCUMENTO[0], numero: '', rilascio: '', scadenza: '', rilasciatoDa: '' };
+    foglio.innerHTML = '<form method="dialog" id="form-documento"><div class="maniglia"></div><h3 id="foglio-titolo">' + (id ? 'Modifica documento' : 'Nuovo documento') + '</h3><div class="campi">' +
+      '<label class="campo">Tipo<select name="tipo">' + TIPI_DOCUMENTO.map(function (t) { return '<option' + (d.tipo === t ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select></label>' +
+      '<label class="campo">Numero<input type="text" name="numero" maxlength="60" value="' + esc(d.numero) + '"></label>' +
+      '<div class="due"><label class="campo">Data di rilascio<input type="date" name="rilascio" value="' + esc(d.rilascio) + '"></label><label class="campo">Data di scadenza<input type="date" name="scadenza" value="' + esc(d.scadenza) + '"></label></div>' +
+      '<label class="campo">Rilasciato da<input type="text" name="rilasciatoDa" maxlength="120" value="' + esc(d.rilasciatoDa) + '" placeholder="Es. Comune di Bertinoro"></label>' +
+      '<div class="azioni"><button class="btn" type="submit">Salva</button><button class="btn secondario" type="button" data-chiudi>Annulla</button>' + (id ? '<button class="btn pericolo" type="button" data-elimina style="margin-left:auto">Elimina</button>' : '') + '</div></div></form>';
+    var f = $('#form-documento', foglio);
+    $('[data-chiudi]', f).onclick = function () { foglio.close(); };
+    if (id) $('[data-elimina]', f).onclick = function () { salvaAnagrafica({ documenti: lista.filter(function (x) { return x.id !== id; }) }); foglio.close(); toast('Documento eliminato'); };
+    f.onsubmit = function (e) {
+      e.preventDefault();
+      var nuovo = { id: d.id || C.nuovoId(), tipo: f.tipo.value, numero: f.numero.value.trim(), rilascio: f.rilascio.value, scadenza: f.scadenza.value, rilasciatoDa: f.rilasciatoDa.value.trim() };
+      var nuova = id ? lista.map(function (x) { return x.id === id ? nuovo : x; }) : lista.concat([nuovo]);
+      salvaAnagrafica({ documenti: nuova }); foglio.close(); toast(id ? 'Documento salvato' : 'Documento aggiunto');
+    };
+    foglio.showModal();
   }
   function vistaAltro() {
     var conf = Store.conf(), st = Store.stato(), s = Store.settings();
@@ -528,11 +602,12 @@
     if (!e.target || e.target.id !== 'form-dati') return;
     e.preventDefault();
     var f = e.target, v = function (n) { return (f.elements[n] ? f.elements[n].value : '').trim(); };
-    Store.setSettings({ anagrafica: {
-      indirizzo: v('indirizzo'), documenti: v('documenti'), altro: v('altro'),
-      persone: { Andrea: { prefisso: v('Andrea_prefisso'), telefono: v('Andrea_telefono'), email: v('Andrea_email'), cf: v('Andrea_cf').toUpperCase() },
-                 Cristina: { prefisso: v('Cristina_prefisso'), telefono: v('Cristina_telefono'), email: v('Cristina_email'), cf: v('Cristina_cf').toUpperCase() } }
-    } });
+    var attuale = Store.settings().anagrafica || {}, casaVecchia = casaDi(attuale);
+    var casa = { via: v('via'), civico: v('civico'), comune: v('comune'), cap: v('cap'), provincia: v('provincia').toUpperCase() };
+    var pos = casaPosizione || (casaVecchia.lat != null ? [casaVecchia.lat, casaVecchia.lon] : null);
+    if (pos) { casa.lat = pos[0]; casa.lon = pos[1]; }
+    salvaAnagrafica({ casa: casa, altro: v('altro'), persone: { Andrea: { prefisso: v('Andrea_prefisso'), telefono: v('Andrea_telefono'), email: v('Andrea_email'), cf: v('Andrea_cf').toUpperCase() },
+                 Cristina: { prefisso: v('Cristina_prefisso'), telefono: v('Cristina_telefono'), email: v('Cristina_email'), cf: v('Cristina_cf').toUpperCase() } } });
     toast('Dati salvati');
   });
 
@@ -586,6 +661,8 @@
     else if (d.azione === 'nuovo') apriVoce(null, Object.assign({}, d.data ? { data: d.data } : {}, d.tipo ? { tipo: d.tipo } : {}));
     else if (d.azione === 'aggiungi-regola') salvaRifiuti(function (cfg) { cfg.regole.push({ giorno: 1, frazioni: [], settimane: [], mesi: [] }); });
     else if (d.azione === 'nuova-eccezione') apriEccezione();
+    else if (d.docNuovo !== undefined) apriDocumento(null);
+    else if (d.docModifica) apriDocumento(d.docModifica);
     else if (d.azione === 'scollega') { Store.setConf({ url: '', chiave: '' }); toast('Scollegato: i dati restano su questo telefono'); }
     else if (d.azione === 'permesso') Native.permesso().then(function (p) { toast(p === 'granted' ? 'Notifiche attive' : 'Notifiche non concesse: abilitale dalle impostazioni del telefono'); });
     else if (d.azione === 'esporta') {
