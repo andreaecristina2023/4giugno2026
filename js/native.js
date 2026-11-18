@@ -80,7 +80,13 @@ var Native = (function () {
       if (x.tipo === 'rifiuti') {
         righe.push({ data: Casa.addGiorni(x.data, -1), testo: 'Fuori ' + Casa.nomiFrazioni(x.frazioni), colore: Casa.FRAZIONI[x.frazioni[0]].colore, rifiuti: true });
       } else if (!x.fatto) {
-        righe.push({ data: x.data, testo: (x.ora ? x.ora + ' ' : '') + x.item.titolo + (x.item.importo ? ' ' + Casa.euro(x.item.importo) : ''), colore: x.tipo === 'pagamento' ? '#7A1F3D' : x.tipo === 'appuntamento' ? '#1F4E5F' : '#B8901A' });
+        var testo = (x.ora ? x.ora + ' ' : '') + x.item.titolo + (x.item.importo && x.tipo !== 'concerto' ? ' ' + Casa.euro(x.item.importo) : '');
+        if (x.tipo === 'volo') testo = (x.ora ? x.ora + ' ' : '') + 'Volo ' + [x.volo.numero, [x.volo.da, x.volo.a].filter(Boolean).join('→')].filter(Boolean).join(' ');
+        else if (x.tipo === 'hotel') testo = 'Check-in ' + (x.hotel.nome || '');
+        else if (x.tipo === 'viaggio') testo = (x.ruolo === 'rientro' ? 'Rientro ' : 'Partenza ') + x.item.titolo;
+        else if (x.tipo === 'concerto') testo = (x.ora ? x.ora + ' ' : '') + '🎤 ' + x.item.titolo;
+        var col = { pagamento: '#7A1F3D', appuntamento: '#1F4E5F', viaggio: '#1E7F8C', volo: '#1E7F8C', hotel: '#1E7F8C', concerto: '#A3307A' }[x.tipo] || '#B8901A';
+        righe.push({ data: x.data, testo: testo, colore: col });
       }
     });
     var tcfg = (Store.settings() || {}).turni;
@@ -92,7 +98,7 @@ var Native = (function () {
     // in servizio (tutti i turni) per i prossimi 35 giorni: il widget mostra quello di oggi
     var servizio = {};
     if (tcfg && tcfg.attivo) for (var gs = da; gs <= Casa.addGiorni(da, 35); gs = Casa.addGiorni(gs, 1)) servizio[gs] = Casa.servizioDel(gs);
-    var json = JSON.stringify({ aggiornato: Date.now(), righe: righe.slice(0, 12), servizio: servizio });
+    var json = JSON.stringify({ aggiornato: Date.now(), righe: righe.slice(0, 12), servizio: servizio, mioTurno: (tcfg && tcfg.attivo && tcfg.turno) || '' });
     // widget solo rifiuti: giorni di ritiro delle prossime 3 settimane
     var giorni = (cfgRifiuti && cfgRifiuti.attivo !== false) ? Casa.calendarioRifiuti(cfgRifiuti, da, Casa.addGiorni(da, 21)).map(function (x) {
       return { data: x.data, nota: x.nota || '', frazioni: x.frazioni.map(function (f) { var fr = Casa.FRAZIONI[f] || { nome: f, colore: '#6B6F73' }; return { n: fr.nome.split(' ')[0], c: fr.colore }; }) };

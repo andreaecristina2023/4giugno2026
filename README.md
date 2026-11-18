@@ -13,8 +13,10 @@ Sito e app Android per la casa di Fratta Terme: bidoni della raccolta Alea, paga
 | Calendario | Mese con pallini colorati (bidoni, appuntamenti, pagamenti); scheda **Turni VVF** con il turnario 12/24 – 12/48 |
 | Conti | Da pagare, scaduti, pagati, spese ricorrenti con stima annua |
 | Rifiuti | Zona Alea, giorni di ritiro, recuperi per festività, variazioni |
+| Viaggi | Ogni viaggio con inizio/fine, voli, hotel e documenti (eVisa, passaporto…) con i file allegati; avvisa se un documento scade prima del rientro |
+| Concerti | Data, ora, cantante, luogo, prezzo e biglietti digitali (PDF o foto) da aprire anche senza rete |
 | Album | Foto di casa (carosello di foto a caso che scorre da solo + griglia per mese di scatto letto dai metadati EXIF, presentazione a schermo intero), salvate nel Google Drive (cartella "A&C Album") |
-| Altro | Chi usa il telefono, collegamento al foglio, QR code per l'altro telefono, notifiche, backup |
+| Impostazioni (⚙ in alto) | Chi usa il telefono, collegamento al foglio, QR code per l'altro telefono, notifiche, backup |
 
 Le festività seguono le regole dell'Eco-Calendario Alea: un ritiro che cade di festa si sposta al sabato prima (lun–mer) o al sabato dopo (gio–ven); se cade di sabato salta. Pasquetta è calcolata in automatico. Per i casi particolari annunciati da Alea c'è "Aggiungi una variazione".
 
@@ -44,7 +46,7 @@ Quando cambia `apps-script/Casa.gs` (per esempio per l'album foto):
 2. Scegli `setup` → **Esegui**: Google chiede i permessi nuovi (per l'album, l'accesso a Drive). La chiave resta la stessa.
 3. **Esegui il deployment → Gestisci deployment → matita → Versione: Nuova versione → Esegui il deployment**. L'URL `/exec` non cambia.
 
-La cartella delle foto "A&C Album" viene creata accanto al foglio "Casa". Se l'album non va, esegui la funzione `verificaAlbum`: nel registro trovi il link alla cartella oppure il motivo dell'errore.
+Le cartelle "A&C Album" (foto) e "A&C Allegati" (biglietti, documenti di viaggio) vengono create accanto al foglio "Casa". Se l'album non va, esegui la funzione `verificaAlbum`: nel registro trovi il link alla cartella oppure il motivo dell'errore.
 
 ## Turni VVF
 
@@ -58,7 +60,7 @@ Ripeti e avviso hanno le unità di misura: minuti, ore, giorni, settimane, mesi,
 
 **App Android** — le notifiche vere: la sera prima dei ritiri all'ora scelta (predefinita 20:00), i pagamenti 2 giorni prima e il giorno stesso alle 9, gli appuntamenti con l'anticipo scelto. L'app programma i prossimi 21 giorni ogni volta che la apri o che cambia qualcosa, quindi aprila almeno ogni tanto. Ci sono due **widget**: tieni premuto sulla home → Widget → A&C.
 - **A&C**: prossime cose da fare (bidoni, pagamenti, appuntamenti).
-- **A&C Rifiuti**: sfondo trasparente, una riga sola: scritta a sinistra e bidoni colorati di stasera (o del prossimo ritiro) a destra.
+- **A&C Rifiuti**: sfondo grigio semitrasparente; "Stasera fuori" sopra i bidoni colorati, a destra un elmetto con i turni VVF del giorno (calcolati nel widget, anche ad app chiusa).
 - **A&C Foto**: 12 foto a caso dall'album che cambiano da sole ogni 7 secondi; la scelta si rinnova ogni giorno e dopo ogni caricamento. È dichiarato anche per la schermata di blocco, ma Android lo permette solo su alcuni telefoni: sui Samsung la schermata di blocco accetta solo widget approvati da Samsung (o tramite Good Lock). La notifica delle 20 compare comunque sulla schermata di blocco.
 
 **Bot Telegram** (facoltativo, funziona anche ad app chiusa e per tutti e due):

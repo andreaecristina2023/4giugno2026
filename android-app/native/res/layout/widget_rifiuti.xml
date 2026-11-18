@@ -1,38 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Widget rifiuti compatto: una riga, testo a sinistra e bidoni a destra, sfondo trasparente -->
+<!-- Widget rifiuti: a sinistra "Stasera fuori" sopra i bidoni, a destra l'elmetto sopra i turni del giorno,
+     allineati con i nomi dei bidoni. Sfondo grigio semitrasparente. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/r_radice" android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="horizontal" android:gravity="center_vertical" android:background="@android:color/transparent"
-    android:paddingStart="6dp" android:paddingEnd="6dp" android:paddingTop="2dp" android:paddingBottom="2dp">
+    android:orientation="horizontal" android:gravity="center_vertical" android:background="@drawable/widget_rifiuti_sfondo"
+    android:paddingStart="12dp" android:paddingEnd="12dp" android:paddingTop="5dp" android:paddingBottom="5dp">
     <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical">
         <TextView android:id="@+id/r_quando" android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:text="Stasera fuori" android:textSize="15sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:maxLines="1" android:shadowColor="#CC000000" android:shadowRadius="4" android:shadowDx="0" android:shadowDy="1"/>
+            android:text="Stasera fuori" android:textSize="13sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:maxLines="1" android:paddingBottom="2dp" android:shadowColor="#CC000000" android:shadowRadius="4" android:shadowDx="0" android:shadowDy="1"/>
+        <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="horizontal">
+            <LinearLayout android:id="@+id/r_box1" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:orientation="vertical" android:gravity="center_horizontal" android:paddingEnd="8dp" android:visibility="gone">
+                <ImageView android:id="@+id/r_bin1" android:layout_width="26dp" android:layout_height="30dp" android:src="@drawable/bidone" android:scaleType="fitCenter" android:contentDescription="Bidone"/>
+                <TextView android:id="@+id/r_nome1" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:textSize="11sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:maxLines="1" android:shadowColor="#CC000000" android:shadowRadius="4" android:shadowDx="0" android:shadowDy="1"/>
+            </LinearLayout>
+            <LinearLayout android:id="@+id/r_box2" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:orientation="vertical" android:gravity="center_horizontal" android:paddingEnd="8dp" android:visibility="gone">
+                <ImageView android:id="@+id/r_bin2" android:layout_width="26dp" android:layout_height="30dp" android:src="@drawable/bidone" android:scaleType="fitCenter" android:contentDescription="Bidone"/>
+                <TextView android:id="@+id/r_nome2" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:textSize="11sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:maxLines="1" android:shadowColor="#CC000000" android:shadowRadius="4" android:shadowDx="0" android:shadowDy="1"/>
+            </LinearLayout>
+            <LinearLayout android:id="@+id/r_box3" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:orientation="vertical" android:gravity="center_horizontal" android:paddingEnd="8dp" android:visibility="gone">
+                <ImageView android:id="@+id/r_bin3" android:layout_width="26dp" android:layout_height="30dp" android:src="@drawable/bidone" android:scaleType="fitCenter" android:contentDescription="Bidone"/>
+                <TextView android:id="@+id/r_nome3" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:textSize="11sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:maxLines="1" android:shadowColor="#CC000000" android:shadowRadius="4" android:shadowDx="0" android:shadowDy="1"/>
+            </LinearLayout>
+        </LinearLayout>
         <TextView android:id="@+id/r_nota" android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:textSize="11sp" android:textColor="#FFFFFFFF" android:maxLines="1" android:visibility="gone" android:shadowColor="#CC000000" android:shadowRadius="4" android:shadowDx="0" android:shadowDy="1"/>
-        <TextView android:id="@+id/r_servizio" android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:textSize="11sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:maxLines="1" android:visibility="gone" android:shadowColor="#CC000000" android:shadowRadius="4" android:shadowDx="0" android:shadowDy="1"/>
+            android:textSize="10sp" android:textColor="#FFFFFFFF" android:maxLines="1" android:visibility="gone" android:shadowColor="#CC000000" android:shadowRadius="4" android:shadowDx="0" android:shadowDy="1"/>
     </LinearLayout>
-    <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
-        <LinearLayout android:id="@+id/r_box1" android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:orientation="vertical" android:gravity="center_horizontal" android:paddingStart="5dp" android:paddingEnd="5dp" android:visibility="gone">
-            <ImageView android:id="@+id/r_bin1" android:layout_width="28dp" android:layout_height="33dp" android:src="@drawable/bidone" android:scaleType="fitCenter" android:contentDescription="Bidone"/>
-            <TextView android:id="@+id/r_nome1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="1dp"
-                android:textSize="11sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:maxLines="1"
-                android:shadowColor="#CC000000" android:shadowRadius="4" android:shadowDx="0" android:shadowDy="1"/>
-        </LinearLayout>
-        <LinearLayout android:id="@+id/r_box2" android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:orientation="vertical" android:gravity="center_horizontal" android:paddingStart="5dp" android:paddingEnd="5dp" android:visibility="gone">
-            <ImageView android:id="@+id/r_bin2" android:layout_width="28dp" android:layout_height="33dp" android:src="@drawable/bidone" android:scaleType="fitCenter" android:contentDescription="Bidone"/>
-            <TextView android:id="@+id/r_nome2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="1dp"
-                android:textSize="11sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:maxLines="1"
-                android:shadowColor="#CC000000" android:shadowRadius="4" android:shadowDx="0" android:shadowDy="1"/>
-        </LinearLayout>
-        <LinearLayout android:id="@+id/r_box3" android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:orientation="vertical" android:gravity="center_horizontal" android:paddingStart="5dp" android:paddingEnd="5dp" android:visibility="gone">
-            <ImageView android:id="@+id/r_bin3" android:layout_width="28dp" android:layout_height="33dp" android:src="@drawable/bidone" android:scaleType="fitCenter" android:contentDescription="Bidone"/>
-            <TextView android:id="@+id/r_nome3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="1dp"
-                android:textSize="11sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:maxLines="1"
-                android:shadowColor="#CC000000" android:shadowRadius="4" android:shadowDx="0" android:shadowDy="1"/>
-        </LinearLayout>
+    <LinearLayout android:id="@+id/r_colonna_turno" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:orientation="vertical" android:gravity="center_horizontal" android:visibility="gone">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text=" "
+            android:textSize="13sp" android:textStyle="bold" android:paddingBottom="2dp" android:visibility="invisible"/>
+        <ImageView android:layout_width="36dp" android:layout_height="30dp" android:src="@drawable/elmetto" android:scaleType="fitCenter" android:contentDescription="Turno VVF"/>
+        <TextView android:id="@+id/r_servizio" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:textSize="11sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:maxLines="1" android:shadowColor="#CC000000" android:shadowRadius="4" android:shadowDx="0" android:shadowDy="1"/>
     </LinearLayout>
 </LinearLayout>

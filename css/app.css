@@ -179,8 +179,8 @@ dialog.foglio[open] { animation: sale .22s ease-out; }
 
 /* ---------- navigazione ---------- */
 nav.barra-nav { position: fixed; left: 0; right: 0; bottom: 0; background: var(--superficie); border-top: 1px solid var(--confine); padding-bottom: var(--safe-b); z-index: 5; }
-nav.barra-nav ul { list-style: none; margin: 0 auto; padding: 0; display: grid; grid-template-columns: repeat(6, 1fr); max-width: 640px; height: var(--nav-h); }
-nav.barra-nav a { display: grid; justify-items: center; align-content: center; gap: 3px; height: 100%; color: var(--muschio); text-decoration: none; font-size: 12px; font-weight: 700; }
+nav.barra-nav ul { list-style: none; margin: 0 auto; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); max-width: 640px; height: var(--nav-h); }
+nav.barra-nav a { display: grid; justify-items: center; align-content: center; gap: 3px; height: 100%; color: var(--muschio); text-decoration: none; font-size: 11px; font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; }
 nav.barra-nav a svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 nav.barra-nav a[aria-current="page"] { color: var(--sangiovese); }
 .fab { position: fixed; right: max(18px, calc(50vw - 302px)); bottom: calc(var(--nav-h) + var(--safe-b) + 16px); height: 58px; padding: 0 22px 0 18px; border-radius: 18px; border: 0; background: var(--azione); color: #fff; font-weight: 700; font-size: 17px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; box-shadow: 0 6px 18px rgba(122, 31, 61, .35); z-index: 6; }
@@ -261,3 +261,64 @@ label.chip:focus-within { outline: 3px solid var(--ardesia); outline-offset: 2px
 .car-punti i { width: 7px; height: 7px; border-radius: 4px; background: rgba(255,255,255,.5); transition: width .2s; }
 .car-punti i.on { background: #fff; width: 20px; }
 .car-play { position: absolute; top: 10px; right: 10px; width: 40px; height: 40px; border-radius: 50%; border: 0; background: rgba(0,0,0,.45); color: #fff; font-size: 13px; cursor: pointer; }
+
+/* ---------- testata: impostazioni ---------- */
+.testata-destra { display: flex; align-items: center; gap: 10px; }
+.ingranaggio { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; color: var(--muschio); }
+.ingranaggio svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------- in arrivo (Oggi) ---------- */
+.in-arrivo { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+.ia-card { display: grid; gap: 2px; padding: 12px 14px; border-radius: 14px; background: var(--superficie); border: 1px solid var(--confine); border-left: 5px solid var(--c); text-decoration: none; color: inherit; }
+.ia-tipo { font-size: 13px; color: var(--muschio); }
+.ia-titolo { font-family: var(--titolo); font-weight: 700; font-size: 17px; line-height: 1.2; }
+.ia-quando { font-size: 14px; font-weight: 700; color: var(--c); }
+
+/* ---------- viaggi ---------- */
+.card-viaggio { display: grid; gap: 4px; padding: 16px; margin-bottom: 10px; border-radius: 16px; background: var(--superficie); border: 1px solid var(--confine); border-left: 6px solid #1E7F8C; text-decoration: none; color: inherit; }
+.cv-alto { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.cv-titolo { font-family: var(--titolo); font-weight: 800; font-size: 22px; letter-spacing: -0.015em; line-height: 1.15; }
+.cv-quando { font-size: 13px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.cv-quando.futuro { background: #DDF0F1; color: #14606A; }
+.cv-quando.ora { background: #1E7F8C; color: #fff; }
+.cv-quando.passato { background: var(--confine); color: var(--muschio); }
+.cv-date { font-weight: 700; }
+.cv-conta { font-size: 14px; color: var(--muschio); }
+.cv-avviso { color: var(--sangiovese); }
+details.passati summary { list-style: none; cursor: pointer; }
+details.passati summary::-webkit-details-marker { display: none; }
+details.passati summary h2::after { content: ' ›'; color: var(--muschio); }
+details.passati[open] summary h2::after { content: ' ⌄'; }
+.indietro { display: inline-block; margin-bottom: 8px; font-weight: 700; color: var(--muschio); text-decoration: none; padding: 6px 0; }
+.testa-viaggio h1 { font-family: var(--titolo); font-weight: 800; font-size: 30px; letter-spacing: -0.02em; margin: 0; line-height: 1.1; }
+.testa-viaggio p { margin: 6px 0 0; color: var(--muschio); }
+.sotto-card { background: var(--superficie); border: 1px solid var(--confine); border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; display: grid; gap: 8px; position: relative; }
+.sc-corpo { display: grid; gap: 2px; text-align: left; background: none; border: 0; padding: 0; cursor: pointer; }
+.sc-titolo { font-weight: 700; font-size: 17px; }
+.sc-riga { font-size: 15px; }
+.sc-avviso { font-size: 14px; font-weight: 700; color: var(--sangiovese); }
+.sc-mappa { position: absolute; top: 12px; right: 14px; font-size: 14px; font-weight: 700; color: var(--ardesia); }
+.aggiungi-sotto { margin-bottom: 4px; }
+.allegati { display: flex; flex-wrap: wrap; gap: 6px; }
+.allegato { display: inline-flex; align-items: stretch; border: 1.5px solid var(--confine); border-radius: 10px; overflow: hidden; max-width: 100%; }
+.allegato button { background: var(--intonaco); border: 0; padding: 6px 10px; font-size: 14px; cursor: pointer; text-align: left; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.allegato button small { color: var(--muschio); }
+.allegato .togli { padding: 6px 9px; color: var(--muschio); border-left: 1.5px solid var(--confine); }
+.allega { display: inline-flex; align-items: center; padding: 6px 12px; border: 1.5px dashed var(--confine); border-radius: 10px; font-size: 14px; font-weight: 700; color: var(--ardesia); cursor: pointer; }
+.visore-doc { overflow: auto; display: grid; gap: 10px; align-content: start; justify-items: center; min-height: 0; }
+.visore-doc img, .visore-doc canvas { max-width: 100%; height: auto; background: #fff; border-radius: 6px; }
+.titolo-allegato { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+/* ---------- concerti ---------- */
+.card-concerto { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px; margin-bottom: 10px; border-radius: 16px; background: var(--superficie); border: 1px solid var(--confine); }
+.cc-data { display: grid; justify-items: center; line-height: 1; padding: 8px 0; border-radius: 12px; border: 0; background: #A3307A; color: #fff; cursor: pointer; }
+.cc-data b { font-family: var(--titolo); font-size: 26px; font-weight: 800; }
+.cc-data span { font-size: 13px; font-weight: 700; text-transform: lowercase; margin-top: 2px; }
+.cc-data small { font-size: 11px; opacity: .8; margin-top: 2px; }
+.cc-corpo { display: grid; gap: 3px; text-align: left; background: none; border: 0; padding: 0; cursor: pointer; min-width: 0; }
+.cc-artista { font-family: var(--titolo); font-weight: 800; font-size: 20px; line-height: 1.15; overflow-wrap: anywhere; }
+.cc-meta { font-size: 14px; color: var(--muschio); }
+.cc-biglietti { display: grid; justify-items: center; width: 54px; height: 54px; border-radius: 14px; border: 1.5px solid #A3307A; background: #F8E6F0; font-size: 22px; cursor: pointer; line-height: 1; padding-top: 7px; }
+.cc-biglietti small { font-size: 12px; font-weight: 700; color: #A3307A; }
+.cc-altri { margin: -4px 0 12px 76px; }
+.spunta.biglietto { font-size: 17px; border-color: #A3307A; }

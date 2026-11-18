@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Elmetto da pompiere stilizzato (disegno originale) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="36dp" android:height="30dp" android:viewportWidth="36" android:viewportHeight="30">
+    <!-- calotta -->
+    <path android:fillColor="#FFD7263D" android:pathData="M6,21C6,12.2 11.4,5 18,5s12,7.2 12,16z"/>
+    <!-- cresta -->
+    <path android:fillColor="#FFB81D33" android:pathData="M16.6,4.2h2.8v16.8h-2.8z"/>
+    <!-- visiera / tesa -->
+    <path android:fillColor="#FFE9ECE3" android:pathData="M2,21.5h32a1.5,1.5 0,0 1,1.5 1.5v0.6a1.8,1.8 0,0 1,-1.8 1.8H8.5C5,25.4 2,24 1.2,22.6 0.9,22 1.3,21.5 2,21.5z"/>
+    <!-- fregio -->
+    <path android:fillColor="#FFF2C14E" android:pathData="M18,10.5l1.4,2.9 3.1,0.4 -2.3,2.1 0.6,3.1L18,17.5l-2.8,1.5 0.6,-3.1 -2.3,-2.1 3.1,-0.4z"/>
+</vector>

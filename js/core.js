@@ -20,8 +20,11 @@ var Casa = (function () {
     appuntamento: { nome: 'Appuntamento', plurale: 'Appuntamenti' },
     pagamento:    { nome: 'Pagamento',    plurale: 'Pagamenti' },
     scadenza:     { nome: 'Scadenza',     plurale: 'Scadenze' },
-    promemoria:   { nome: 'Promemoria',   plurale: 'Promemoria' }
+    promemoria:   { nome: 'Promemoria',   plurale: 'Promemoria' },
+    viaggio:      { nome: 'Viaggio',      plurale: 'Viaggi' },
+    concerto:     { nome: 'Concerto',     plurale: 'Concerti' }
   };
+  var TIPI_BASE = ['appuntamento', 'pagamento', 'scadenza', 'promemoria'];
 
   // Unità di misura per ripetizioni e avvisi. Valori salvati come testo "N unità" (es. "2 mesi").
   var UNITA = {
@@ -65,7 +68,7 @@ var Casa = (function () {
   function anticipoMinuti(item) {
     var d = leggiDurata(item.avviso);
     if (d) return minutiDurata(d);
-    return { appuntamento: 60, pagamento: 2880, scadenza: 2880, promemoria: 0 }[item.tipo] || 0;
+    return { appuntamento: 60, pagamento: 2880, scadenza: 2880, promemoria: 0, concerto: 1440, viaggio: 1440 }[item.tipo] || 0;
   }
 
   // ---------- date (sempre "YYYY-MM-DD", fuso locale) ----------
@@ -264,6 +267,13 @@ var Casa = (function () {
   function agenda(items, cfgRifiuti, da, a, rif) {
     var r = rif || oggi(), out = [];
     (items || []).forEach(function (it) {
+      if (it.tipo === 'viaggio' && !it.eliminato) {
+        if (it.data >= da && it.data <= a) out.push({ data: it.data, ora: '', tipo: 'viaggio', ruolo: 'partenza', item: it, fatto: false, scaduto: false });
+        if (it.fine && it.fine !== it.data && it.fine >= da && it.fine <= a) out.push({ data: it.fine, ora: '', tipo: 'viaggio', ruolo: 'rientro', item: it, fatto: false, scaduto: false });
+        (it.voli || []).forEach(function (v) { if (v.data && v.data >= da && v.data <= a) out.push({ data: v.data, ora: v.ora || '', tipo: 'volo', volo: v, item: it, fatto: false, scaduto: false }); });
+        (it.hotel || []).forEach(function (h) { if (h.checkin && h.checkin >= da && h.checkin <= a) out.push({ data: h.checkin, ora: h.oraCheckin || '', tipo: 'hotel', hotel: h, item: it, fatto: false, scaduto: false }); });
+        return;
+      }
       occorrenze(it, da, a).forEach(function (d) {
         var f = fatto(it, d);
         out.push({ data: d, ora: it.ora || '', tipo: it.tipo, item: it, fatto: f, scaduto: !f && chiudibile(it) && d < r });
@@ -313,6 +323,22 @@ var Casa = (function () {
     agenda(items, null, da, addGiorni(a, 400)).forEach(function (x) {
       if (x.fatto) return;
       var it = x.item, ant = anticipoMinuti(it), d = leggiDurata(it.avviso);
+      if (x.tipo === 'volo') {
+        var v = x.volo, qv = menoMinuti(x.data, v.ora || '09:00', 180);
+        if (dentro(qv)) out.push({ quando: qv, titolo: 'Volo ' + [v.compagnia, v.numero].filter(Boolean).join(' ') + ' alle ' + (v.ora || '?'), testo: [[v.da, v.a].filter(Boolean).join(' → '), v.pnr ? 'PNR ' + v.pnr : ''].filter(Boolean).join(' · '), chiave: 'v' + it.id + (v.id || v.data + v.ora) });
+        return;
+      }
+      if (x.tipo === 'hotel' || (x.tipo === 'viaggio' && x.ruolo !== 'partenza')) return;
+      if (x.tipo === 'viaggio') {
+        var qp0 = menoMinuti(x.data, '09:00', ant);
+        if (dentro(qp0)) out.push({ quando: qp0, titolo: 'Si parte: ' + it.titolo, testo: 'Controlla documenti e biglietti nella sezione Viaggi', chiave: 'vi' + it.id });
+        return;
+      }
+      if (x.tipo === 'concerto') {
+        var qc = menoMinuti(x.data, x.ora || '21:00', ant);
+        if (dentro(qc)) out.push({ quando: qc, titolo: 'Concerto: ' + it.titolo, testo: etichettaGiorno(x.data) + (x.ora ? ' alle ' + x.ora : '') + (it.luogo ? ' · ' + it.luogo : ''), chiave: 'c' + it.id });
+        return;
+      }
       var dett = [];
       if (it.importo) dett.push(euro(it.importo));
       if (it.targa) dett.push(it.targa);
@@ -338,7 +364,7 @@ var Casa = (function () {
   function euro(n) { return '€ ' + Number(n || 0).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 
   return {
-    GIORNI: GIORNI, GIORNI_LUNGHI: GIORNI_LUNGHI, MESI: MESI, FRAZIONI: FRAZIONI, TIPI: TIPI, UNITA: UNITA, UNITA_RIPETI: UNITA_RIPETI, UNITA_AVVISO: UNITA_AVVISO,
+    GIORNI: GIORNI, GIORNI_LUNGHI: GIORNI_LUNGHI, MESI: MESI, FRAZIONI: FRAZIONI, TIPI: TIPI, TIPI_BASE: TIPI_BASE, UNITA: UNITA, UNITA_RIPETI: UNITA_RIPETI, UNITA_AVVISO: UNITA_AVVISO,
     STATI_TURNO: STATI_TURNO, turnoDel: turnoDel, testoTurno: testoTurno, turniDelGiorno: turniDelGiorno, servizioDel: servizioDel,
     leggiDurata: leggiDurata, testoDurata: testoDurata, nomeRipeti: nomeRipeti, volteAnno: volteAnno, anticipoMinuti: anticipoMinuti,
     iso: iso, parse: parse, oggi: oggi, addGiorni: addGiorni, addMesi: addMesi, diffGiorni: diffGiorni,

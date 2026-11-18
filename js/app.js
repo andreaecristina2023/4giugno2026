@@ -5,7 +5,7 @@
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var vista = $('#vista'), foglio = $('#foglio');
   var REPO = 'https://github.com/andreaecristina2023/4giugno2026';
-  var COLORE_TIPO = { appuntamento: 'var(--ardesia)', pagamento: 'var(--sangiovese)', scadenza: 'var(--albana)', promemoria: 'var(--muschio)' };
+  var COLORE_TIPO = { appuntamento: 'var(--ardesia)', pagamento: 'var(--sangiovese)', scadenza: 'var(--albana)', promemoria: 'var(--muschio)', viaggio: '#1E7F8C', volo: '#1E7F8C', hotel: '#1E7F8C', concerto: '#A3307A' };
   var ZONE = {
     'centro': { nome: 'Centro', pdf: 'https://www.alea-ambiente.it/wp-content/uploads/2025/12/bertinoro_centro.pdf' },
     'cintura': { nome: 'Cintura urbana', pdf: 'https://www.alea-ambiente.it/wp-content/uploads/2025/12/bertinoro_cintura.pdf' },
@@ -55,12 +55,31 @@
       '<a class="corpo-riga" href="#rifiuti" style="text-decoration:none;color:inherit"><span class="titolo">Ritiro ' + esc(C.nomiFrazioni(x.frazioni)) + '</span><span class="meta">Fuori la sera prima' + (x.nota ? ' · ' + esc(x.nota) : '') + '</span></a>' +
       '<span class="destra">' + bidoni(x.frazioni, true) + '</span></li>';
   }
+  function rigaSpeciale(x) {
+    var it = x.item, titolo = '', meta = [], href = '#viaggio/' + encodeURIComponent(it.id), destra = '';
+    if (x.tipo === 'viaggio') { titolo = (x.ruolo === 'rientro' ? 'Rientro: ' : 'Partenza: ') + it.titolo; meta.push(Viaggi.intervallo(it.data, it.fine)); }
+    else if (x.tipo === 'volo') {
+      var v = x.volo; titolo = 'Volo ' + [v.compagnia, v.numero].filter(Boolean).join(' ') + (v.da || v.a ? ' · ' + [v.da, v.a].filter(Boolean).join(' → ') : '');
+      if (v.ora) meta.push(v.ora + (v.arrivo ? ' → ' + v.arrivo : '')); if (v.pnr) meta.push('PNR ' + v.pnr); meta.push(it.titolo);
+    } else if (x.tipo === 'hotel') { titolo = 'Check-in: ' + (x.hotel.nome || 'hotel'); if (x.hotel.indirizzo) meta.push(x.hotel.indirizzo); meta.push(it.titolo); }
+    else if (x.tipo === 'concerto') {
+      titolo = it.titolo; if (x.ora) meta.push(x.ora); if (it.luogo) meta.push(it.luogo); href = '';
+      var n = (it.biglietti || []).length;
+      if (n) destra = '<button type="button" class="spunta biglietto" data-apri-allegato="' + esc(it.biglietti[0].id) + '" data-nome="' + esc(it.biglietti[0].nome) + '" data-mime="' + esc(it.biglietti[0].mime || '') + '" aria-label="Apri il biglietto">🎟</button>';
+      meta.push('Concerto');
+    }
+    var corpo = '<span class="titolo">' + esc(titolo) + '</span><span class="meta">' + esc(meta.join(' · ')) + '</span>';
+    return '<li class="riga" style="--c:' + COLORE_TIPO[x.tipo] + '"><span class="barra"></span>' +
+      (href ? '<a class="corpo-riga" href="' + href + '" style="text-decoration:none;color:inherit">' + corpo + '</a>' : '<button class="corpo-riga" type="button" data-modifica-concerto="' + esc(it.id) + '">' + corpo + '</button>') +
+      '<span class="destra">' + destra + '</span></li>';
+  }
+  function riga(x) { return x.tipo === 'rifiuti' ? rigaRifiuti(x) : (x.tipo === 'viaggio' || x.tipo === 'volo' || x.tipo === 'hotel' || x.tipo === 'concerto') ? rigaSpeciale(x) : rigaVoce(x); }
   function elencoPerGiorno(lista, oggi) {
     var gruppi = {}, ordine = [];
     lista.forEach(function (x) { if (!gruppi[x.data]) { gruppi[x.data] = []; ordine.push(x.data); } gruppi[x.data].push(x); });
     return ordine.map(function (d) {
       return '<section class="giorno' + (d === oggi ? ' oggi' : '') + '"><h3 class="etichetta"><span>' + esc(C.etichettaGiorno(d, oggi)) + '</span></h3><ul class="righe">' +
-        gruppi[d].map(function (x) { return x.tipo === 'rifiuti' ? rigaRifiuti(x) : rigaVoce(x); }).join('') + '</ul></section>';
+        gruppi[d].map(riga).join('') + '</ul></section>';
     }).join('');
   }
   function testata(titolo, sotto) {
@@ -69,7 +88,8 @@
     var pend = Store.pendenti();
     if (s === 'errore' && pend) lab = pend + ' modifiche in attesa';
     return '<header class="testata"><div><h1>' + esc(titolo) + '</h1>' + (sotto ? '<div class="sotto">' + esc(sotto) + '</div>' : '') + '</div>' +
-      '<button class="sync" type="button" data-s="' + esc(s) + '" data-azione="sync" title="' + esc(st.errore || '') + '">' + esc(lab) + '</button></header>';
+      '<span class="testata-destra"><button class="sync" type="button" data-s="' + esc(s) + '" data-azione="sync" title="' + esc(st.errore || '') + '">' + esc(lab) + '</button>' +
+      (rotta() !== 'altro' ? '<a class="ingranaggio" href="#altro" aria-label="Impostazioni"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>' : '') + '</span></header>';
   }
 
   // ---------- OGGI ----------
@@ -100,6 +120,11 @@
       if (prossimo) h += '<div class="niente">' + bidoni(prossimo.frazioni, true) + '<p class="dettaglio">Prossima volta: ' + esc(C.etichettaGiorno(C.addGiorni(prossimo.data, -1), oggi).toLowerCase()) + ' sera, ' + esc(C.nomiFrazioni(prossimo.frazioni)) + '</p></div>';
     }
     h += '</section>';
+
+    var pross = Viaggi.prossimi();
+    if (pross.length) h += '<div class="in-arrivo">' + pross.map(function (p) {
+      return '<a class="ia-card" href="' + p.href + '" style="--c:' + COLORE_TIPO[p.tipo] + '"><span class="ia-tipo">' + (p.tipo === 'viaggio' ? '✈ Prossimo viaggio' : '🎤 Prossimo concerto') + '</span><span class="ia-titolo">' + esc(p.item.titolo) + '</span><span class="ia-quando">' + esc(p.quando) + '</span></a>';
+    }).join('') + '</div>';
 
     var arr = C.arretrati(voci(), oggi, 120);
     if (arr.length) {
@@ -150,7 +175,7 @@
     var sel = perGiorno[ui.giornoCal] || [];
     var tSel = C.turnoDel(tcfg, ui.giornoCal);
     h += '<h2>' + esc(C.etichettaGiorno(ui.giornoCal, oggi)) + (C.eFestivo(ui.giornoCal) ? ' <small>festivo</small>' : '') + (tSel ? ' <small>' + esc(tcfg.persona || '') + ': ' + esc(C.testoTurno(tSel).toLowerCase()) + '</small>' : '') + '</h2>';
-    h += sel.length ? '<ul class="righe">' + sel.map(function (x) { return x.tipo === 'rifiuti' ? rigaRifiuti(x) : rigaVoce(x); }).join('') + '</ul>'
+    h += sel.length ? '<ul class="righe">' + sel.map(riga).join('') + '</ul>'
       : '<div class="vuoto">Niente in programma.<br><button class="btn piccolo" type="button" data-azione="nuovo" data-data="' + ui.giornoCal + '">Aggiungi in questo giorno</button></div>';
     vista.innerHTML = h;
   }
@@ -325,6 +350,11 @@
   }
   function toggle(arr, v) { var i = arr.indexOf(v); if (i >= 0) arr.splice(i, 1); else arr.push(v); arr.sort(function (a, b) { return a > b ? 1 : -1; }); return arr; }
 
+  // ---------- VIAGGI e CONCERTI ----------
+  function vistaViaggi() { var n = voci().filter(function (v) { return v.tipo === 'viaggio'; }).length; vista.innerHTML = testata('Viaggi', n ? n + (n === 1 ? ' viaggio' : ' viaggi') : 'Voli, hotel e documenti') + Viaggi.htmlElenco(); }
+  function vistaViaggio() { var m = location.hash.match(/^#viaggio\/(.+)$/); vista.innerHTML = Viaggi.htmlDettaglio(m ? decodeURIComponent(m[1]) : ''); }
+  function vistaConcerti() { vista.innerHTML = testata('Concerti', 'Date, cantanti e biglietti') + Viaggi.htmlConcerti(); }
+
   // ---------- ALBUM ----------
   var albumAggiornato = 0;
   function vistaAlbum() {
@@ -378,7 +408,7 @@
       var predef = { appuntamento: '1 ora', pagamento: '2 giorni', scadenza: '2 giorni', promemoria: 'nessun anticipo' }[it.tipo];
       var veicolo = conImporto && (CAT_VEICOLO.indexOf(it.categoria) >= 0 || it.targa);
       foglio.innerHTML = '<form method="dialog" id="form-voce"><div class="maniglia"></div><h3 id="foglio-titolo">' + (id ? 'Modifica' : 'Nuova voce') + '</h3><div class="campi">' +
-        '<div class="tipi" role="group" aria-label="Tipo">' + Object.keys(C.TIPI).map(function (t) { return '<button type="button" data-tipo="' + t + '" style="--c:' + COLORE_TIPO[t] + '" aria-pressed="' + (it.tipo === t) + '">' + C.TIPI[t].nome + '</button>'; }).join('') + '</div>' +
+        '<div class="tipi" role="group" aria-label="Tipo">' + C.TIPI_BASE.map(function (t) { return '<button type="button" data-tipo="' + t + '" style="--c:' + COLORE_TIPO[t] + '" aria-pressed="' + (it.tipo === t) + '">' + C.TIPI[t].nome + '</button>'; }).join('') + '</div>' +
         '<label class="campo">Titolo<input type="text" name="titolo" required maxlength="120" value="' + esc(it.titolo) + '" placeholder="' + { appuntamento: 'Es. Dentista Cristina', pagamento: 'Es. Spese condominiali', scadenza: 'Es. Revisione Panda', promemoria: 'Es. Cambiare filtro caldaia' }[it.tipo] + '"></label>' +
         '<div class="due"><label class="campo">' + (conImporto ? 'Scadenza' : 'Data') + '<input type="date" name="data" required value="' + esc(it.data) + '"></label><label class="campo">Ora<input type="time" name="ora" value="' + esc(it.ora) + '"></label></div>' +
         (conImporto ? '<div class="due"><label class="campo">Importo €<input type="number" name="importo" inputmode="decimal" step="0.01" min="0" value="' + esc(it.importo) + '"></label><label class="campo">Categoria<select name="categoria"><option value=""></option>' + s.categorie.map(function (c) { return '<option' + (it.categoria === c ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('') + '</select></label></div>' : '') +
@@ -446,13 +476,14 @@
   }
 
   // ---------- routing e eventi ----------
-  var VISTE = { oggi: vistaOggi, calendario: vistaCalendario, conti: vistaConti, rifiuti: vistaRifiuti, album: vistaAlbum, altro: vistaAltro };
-  function rotta() { var r = location.hash.replace('#', ''); return VISTE[r] ? r : 'oggi'; }
+  var VISTE = { oggi: vistaOggi, calendario: vistaCalendario, conti: vistaConti, rifiuti: vistaRifiuti, viaggi: vistaViaggi, viaggio: vistaViaggio, concerti: vistaConcerti, album: vistaAlbum, altro: vistaAltro };
+  function rotta() { var r = location.hash.replace('#', '').split('/')[0]; return VISTE[r] ? r : 'oggi'; }
   function disegna() {
     var r = rotta(), y = window.scrollY;
     VISTE[r]();
-    $('#fab').style.display = (r === 'altro' || r === 'album') ? 'none' : '';
-    document.querySelectorAll('nav.barra-nav a').forEach(function (a) { if (a.dataset.r === r) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+    $('#fab').style.display = (r === 'altro' || r === 'album' || r === 'viaggio') ? 'none' : '';
+    var rNav = r === 'viaggio' ? 'viaggi' : r;
+    document.querySelectorAll('nav.barra-nav a').forEach(function (a) { if (a.dataset.r === rNav) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
     window.scrollTo(0, y);
     Native.aggiorna(voci(), rifiuti());
   }
@@ -460,11 +491,15 @@
   Store.on(disegna);
 
   Album.init({ esc: esc, toast: toast, foglio: foglio, ridisegna: function () { if (rotta() === 'album' && !foglio.open) disegna(); } });
+  Viaggi.init({ esc: esc, toast: toast, foglio: foglio });
   $('#fab').onclick = function () {
+    if (rotta() === 'viaggi') { Viaggi.apriViaggio(null); return; }
+    if (rotta() === 'concerti') { Viaggi.apriConcerto(null); return; }
     if (rotta() === 'album') { var inp = $('input[data-album=file]'); if (inp) inp.click(); else location.hash = 'altro'; return; } apriVoce(null, rotta() === 'calendario' ? { data: ui.giornoCal } : rotta() === 'conti' ? { tipo: 'pagamento' } : null); };
   foglio.addEventListener('click', function (e) { if (e.target === foglio) foglio.close(); });
 
   vista.addEventListener('click', function (e) {
+    if (Viaggi.click(e)) return;
     var t = e.target.closest('button, a'); if (!t) return;
     var d = t.dataset;
     if (d.foto) { Album.apri(d.foto); return; }
@@ -499,6 +534,7 @@
     }
   });
   vista.addEventListener('change', function (e) {
+    if (Viaggi.change(e)) return;
     var t = e.target, d = t.dataset;
     if (d.rif === 'festivi') {
       var lista = t.value.split(/[,;\s]+/).map(function (x) { var m = x.match(/^(\d{1,2})[\/.\-](\d{1,2})$/); return m && +m[2] >= 1 && +m[2] <= 12 && +m[1] >= 1 && +m[1] <= 31 ? C.pad(+m[2]) + '-' + C.pad(+m[1]) : null; }).filter(Boolean);

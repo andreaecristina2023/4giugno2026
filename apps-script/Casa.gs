@@ -34,6 +34,7 @@ function setup() {
   fo.getRange(1, 1, 1, COLONNE_FOTO.length).setValues([COLONNE_FOTO]).setFontWeight('bold');
   fo.setFrozenRows(1);
   fo.getRange('A:J').setNumberFormat('@');
+  try { cartellaAllegati(); } catch (e) { /* segnalato sotto con la cartella foto */ }
   var cartellaFoto = null, erroreCartella = '';
   try { cartellaFoto = cartellaAlbum(); } catch (e) { erroreCartella = e.message + ' — riesegui setup e spunta "Seleziona tutto" nei permessi'; } // crea la cartella delle foto su Drive (e chiede il permesso la prima volta)
   var imp = ss.getSheetByName(FOGLIO_IMP) || ss.insertSheet(FOGLIO_IMP);
@@ -71,6 +72,9 @@ function doPost(e) {
     else if (req.azione === 'foto_grande') out = { ok: true, grande: datiFoto([req.id], 'file')[req.id] || null };
     else if (req.azione === 'foto_modifica') out = modificaFoto(req.id, { didascalia: req.didascalia, data: req.data });
     else if (req.azione === 'foto_elimina') out = modificaFoto(req.id, { eliminato: true });
+    else if (req.azione === 'allegato_carica') out = caricaAllegato(req);
+    else if (req.azione === 'allegato_scarica') out = scaricaAllegato(req.id);
+    else if (req.azione === 'allegato_elimina') out = eliminaAllegato(req.id);
     else throw new Error('Azione sconosciuta');
   } catch (err) {
     out = { ok: false, errore: String(err.message || err) };
@@ -264,6 +268,44 @@ function modificaFoto(id, cambi) {
   } finally { lock.releaseLock(); }
 }
 
+
+// ---------------- allegati (biglietti, eVisa, conferme) su Google Drive ----------------
+function cartellaAllegati() {
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty('CARTELLA_ALLEGATI');
+  if (id) { try { var c = DriveApp.getFolderById(id); if (!c.isTrashed()) return c; } catch (e) { /* la ricreo */ } }
+  var padre = null;
+  try { var it = DriveApp.getFileById(foglio().getId()).getParents(); if (it.hasNext()) padre = it.next(); } catch (e) { padre = null; }
+  var esistenti = (padre || DriveApp.getRootFolder()).getFoldersByName('A&C Allegati');
+  var cartella = esistenti.hasNext() ? esistenti.next() : (padre ? padre.createFolder('A&C Allegati') : DriveApp.createFolder('A&C Allegati'));
+  props.setProperty('CARTELLA_ALLEGATI', cartella.getId());
+  return cartella;
+}
+
+function allegatoNellaCartella(id) {
+  var f = DriveApp.getFileById(id), dir = cartellaAllegati().getId(), it = f.getParents();
+  while (it.hasNext()) if (it.next().getId() === dir) return f;
+  throw new Error('Allegato non trovato');
+}
+
+function caricaAllegato(req) {
+  if (!req.dati) throw new Error('File mancante');
+  var nome = String(req.nome || 'allegato').replace(/[\\/:*?"<>|]/g, '_').slice(0, 120);
+  var blob = Utilities.newBlob(Utilities.base64Decode(req.dati), req.mime || 'application/octet-stream', nome);
+  var f = cartellaAllegati().createFile(blob);
+  return { ok: true, allegato: { id: f.getId(), nome: f.getName(), mime: req.mime || blob.getContentType(), dimensione: f.getSize() } };
+}
+
+function scaricaAllegato(id) {
+  var f = allegatoNellaCartella(id);
+  return { ok: true, dati: Utilities.base64Encode(f.getBlob().getBytes()), mime: f.getMimeType(), nome: f.getName() };
+}
+
+function eliminaAllegato(id) {
+  try { allegatoNellaCartella(id).setTrashed(true); } catch (e) { /* già eliminato */ }
+  return { ok: true };
+}
+
 // ---------------- bot Telegram (facoltativo) ----------------
 // 1. Su Telegram scrivi a @BotFather → /newbot → copia il token.
 // 2. Progetto Apps Script → Impostazioni progetto → Proprietà script: aggiungi TELEGRAM_TOKEN = <token>.
@@ -366,8 +408,11 @@ var Casa = (function () {
     appuntamento: { nome: 'Appuntamento', plurale: 'Appuntamenti' },
     pagamento:    { nome: 'Pagamento',    plurale: 'Pagamenti' },
     scadenza:     { nome: 'Scadenza',     plurale: 'Scadenze' },
-    promemoria:   { nome: 'Promemoria',   plurale: 'Promemoria' }
+    promemoria:   { nome: 'Promemoria',   plurale: 'Promemoria' },
+    viaggio:      { nome: 'Viaggio',      plurale: 'Viaggi' },
+    concerto:     { nome: 'Concerto',     plurale: 'Concerti' }
   };
+  var TIPI_BASE = ['appuntamento', 'pagamento', 'scadenza', 'promemoria'];
 
   // Unità di misura per ripetizioni e avvisi. Valori salvati come testo "N unità" (es. "2 mesi").
   var UNITA = {
@@ -411,7 +456,7 @@ var Casa = (function () {
   function anticipoMinuti(item) {
     var d = leggiDurata(item.avviso);
     if (d) return minutiDurata(d);
-    return { appuntamento: 60, pagamento: 2880, scadenza: 2880, promemoria: 0 }[item.tipo] || 0;
+    return { appuntamento: 60, pagamento: 2880, scadenza: 2880, promemoria: 0, concerto: 1440, viaggio: 1440 }[item.tipo] || 0;
   }
 
   // ---------- date (sempre "YYYY-MM-DD", fuso locale) ----------
@@ -610,6 +655,13 @@ var Casa = (function () {
   function agenda(items, cfgRifiuti, da, a, rif) {
     var r = rif || oggi(), out = [];
     (items || []).forEach(function (it) {
+      if (it.tipo === 'viaggio' && !it.eliminato) {
+        if (it.data >= da && it.data <= a) out.push({ data: it.data, ora: '', tipo: 'viaggio', ruolo: 'partenza', item: it, fatto: false, scaduto: false });
+        if (it.fine && it.fine !== it.data && it.fine >= da && it.fine <= a) out.push({ data: it.fine, ora: '', tipo: 'viaggio', ruolo: 'rientro', item: it, fatto: false, scaduto: false });
+        (it.voli || []).forEach(function (v) { if (v.data && v.data >= da && v.data <= a) out.push({ data: v.data, ora: v.ora || '', tipo: 'volo', volo: v, item: it, fatto: false, scaduto: false }); });
+        (it.hotel || []).forEach(function (h) { if (h.checkin && h.checkin >= da && h.checkin <= a) out.push({ data: h.checkin, ora: h.oraCheckin || '', tipo: 'hotel', hotel: h, item: it, fatto: false, scaduto: false }); });
+        return;
+      }
       occorrenze(it, da, a).forEach(function (d) {
         var f = fatto(it, d);
         out.push({ data: d, ora: it.ora || '', tipo: it.tipo, item: it, fatto: f, scaduto: !f && chiudibile(it) && d < r });
@@ -659,6 +711,22 @@ var Casa = (function () {
     agenda(items, null, da, addGiorni(a, 400)).forEach(function (x) {
       if (x.fatto) return;
       var it = x.item, ant = anticipoMinuti(it), d = leggiDurata(it.avviso);
+      if (x.tipo === 'volo') {
+        var v = x.volo, qv = menoMinuti(x.data, v.ora || '09:00', 180);
+        if (dentro(qv)) out.push({ quando: qv, titolo: 'Volo ' + [v.compagnia, v.numero].filter(Boolean).join(' ') + ' alle ' + (v.ora || '?'), testo: [[v.da, v.a].filter(Boolean).join(' → '), v.pnr ? 'PNR ' + v.pnr : ''].filter(Boolean).join(' · '), chiave: 'v' + it.id + (v.id || v.data + v.ora) });
+        return;
+      }
+      if (x.tipo === 'hotel' || (x.tipo === 'viaggio' && x.ruolo !== 'partenza')) return;
+      if (x.tipo === 'viaggio') {
+        var qp0 = menoMinuti(x.data, '09:00', ant);
+        if (dentro(qp0)) out.push({ quando: qp0, titolo: 'Si parte: ' + it.titolo, testo: 'Controlla documenti e biglietti nella sezione Viaggi', chiave: 'vi' + it.id });
+        return;
+      }
+      if (x.tipo === 'concerto') {
+        var qc = menoMinuti(x.data, x.ora || '21:00', ant);
+        if (dentro(qc)) out.push({ quando: qc, titolo: 'Concerto: ' + it.titolo, testo: etichettaGiorno(x.data) + (x.ora ? ' alle ' + x.ora : '') + (it.luogo ? ' · ' + it.luogo : ''), chiave: 'c' + it.id });
+        return;
+      }
       var dett = [];
       if (it.importo) dett.push(euro(it.importo));
       if (it.targa) dett.push(it.targa);
@@ -684,7 +752,7 @@ var Casa = (function () {
   function euro(n) { return '€ ' + Number(n || 0).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 
   return {
-    GIORNI: GIORNI, GIORNI_LUNGHI: GIORNI_LUNGHI, MESI: MESI, FRAZIONI: FRAZIONI, TIPI: TIPI, UNITA: UNITA, UNITA_RIPETI: UNITA_RIPETI, UNITA_AVVISO: UNITA_AVVISO,
+    GIORNI: GIORNI, GIORNI_LUNGHI: GIORNI_LUNGHI, MESI: MESI, FRAZIONI: FRAZIONI, TIPI: TIPI, TIPI_BASE: TIPI_BASE, UNITA: UNITA, UNITA_RIPETI: UNITA_RIPETI, UNITA_AVVISO: UNITA_AVVISO,
     STATI_TURNO: STATI_TURNO, turnoDel: turnoDel, testoTurno: testoTurno, turniDelGiorno: turniDelGiorno, servizioDel: servizioDel,
     leggiDurata: leggiDurata, testoDurata: testoDurata, nomeRipeti: nomeRipeti, volteAnno: volteAnno, anticipoMinuti: anticipoMinuti,
     iso: iso, parse: parse, oggi: oggi, addGiorni: addGiorni, addMesi: addMesi, diffGiorni: diffGiorni,
