@@ -14,10 +14,13 @@
 var COLONNE = ['id', 'tipo', 'titolo', 'data', 'ora', 'ricorrenza', 'fine', 'importo', 'categoria', 'chi', 'avviso', 'note', 'fatti', 'creatoDa', 'aggiornato', 'eliminato'];
 var FOGLIO_VOCI = 'Voci';
 var FOGLIO_IMP = 'Impostazioni';
+// Foglio "Casa" su Drive: usato quando lo script non è creato dentro il foglio
+var ID_FOGLIO = '1QkPFNUH__sHU81sqVxK3ieL82WNRTdN4fb0MECGTV5M';
+function foglio() { return SpreadsheetApp.getActiveSpreadsheet() || SpreadsheetApp.openById(ID_FOGLIO); }
 
 // ---------------- installazione ----------------
 function setup() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = foglio();
   var v = ss.getSheetByName(FOGLIO_VOCI) || ss.insertSheet(FOGLIO_VOCI);
   v.getRange(1, 1, 1, COLONNE.length).setValues([COLONNE]).setFontWeight('bold');
   v.setFrozenRows(1);
@@ -86,7 +89,7 @@ function testo(v, tipo) {
 }
 
 function leggiVoci() {
-  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(FOGLIO_VOCI);
+  var sh = foglio().getSheetByName(FOGLIO_VOCI);
   var righe = sh.getDataRange().getValues();
   var intest = righe.shift() || COLONNE;
   var mappa = {}, sistemate = false;
@@ -111,7 +114,7 @@ function leggiVoci() {
 }
 
 function scriviVoci(mappa) {
-  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(FOGLIO_VOCI);
+  var sh = foglio().getSheetByName(FOGLIO_VOCI);
   // le voci eliminate da più di 60 giorni spariscono davvero
   var limite = Date.now() - 60 * 86400000;
   var lista = Object.keys(mappa).map(function (k) { return mappa[k]; })
@@ -130,11 +133,11 @@ function scriviVoci(mappa) {
 }
 
 function leggiImpostazioni() {
-  var v = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(FOGLIO_IMP).getRange('B2').getValue();
+  var v = foglio().getSheetByName(FOGLIO_IMP).getRange('B2').getValue();
   try { return v ? JSON.parse(v) : null; } catch (e) { return null; }
 }
 function scriviImpostazioni(o) {
-  SpreadsheetApp.getActiveSpreadsheet().getSheetByName(FOGLIO_IMP).getRange('B2').setValue(JSON.stringify(o));
+  foglio().getSheetByName(FOGLIO_IMP).getRange('B2').setValue(JSON.stringify(o));
 }
 
 // ---------------- bot Telegram (facoltativo) ----------------
