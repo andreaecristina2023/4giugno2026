@@ -1,32 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Mascotte originale A&C: idrante rosso con occhi e sorriso. Disegnata da zero. -->
+<!-- Mascotte originale A&C: idrante rosso snello con occhi e sorriso. Disegnata da zero. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="48dp"
     android:height="48dp"
     android:viewportWidth="100"
     android:viewportHeight="100">
-    <!-- disegno centrato verticalmente nel riquadro (contenuto da y 30 a y 96) -->
-    <group android:translateY="-13">
-    <group android:pivotX="50" android:pivotY="63" android:scaleX="1.3" android:scaleY="1.3" android:translateY="-13">
-    <!-- bocchettoni laterali -->
-    <path android:fillColor="#B51F33" android:pathData="M20,54 h12 v12 h-12 a3,3 0 0 1 -3,-3 v-6 a3,3 0 0 1 3,-3 z" />
-    <path android:fillColor="#B51F33" android:pathData="M68,54 h12 a3,3 0 0 1 3,3 v6 a3,3 0 0 1 -3,3 h-12 z" />
-    <!-- corpo -->
-    <path android:fillColor="#D7263D" android:pathData="M30,44 h40 a10,10 0 0 1 10,10 v30 a6,6 0 0 1 -6,6 h-48 a6,6 0 0 1 -6,-6 v-30 a10,10 0 0 1 10,-10 z" />
-    <!-- fascia gialla -->
-    <path android:fillColor="#F5C542" android:pathData="M26,64 h48 v4 h-48 z" />
-    <!-- testa -->
-    <path android:fillColor="#B51F33" android:pathData="M34,30 h32 a4,4 0 0 1 4,4 v10 h-40 v-10 a4,4 0 0 1 4,-4 z" />
     <!-- base -->
-    <path android:fillColor="#8E1A28" android:pathData="M24,88 h52 a4,4 0 0 1 4,4 v2 h-60 v-2 a4,4 0 0 1 4,-4 z" />
-    <!-- occhi bianchi -->
-    <path android:fillColor="#FFFFFF" android:pathData="M37,54 a5,5 0 1 0 10,0 a5,5 0 1 0 -10,0 z" />
-    <path android:fillColor="#FFFFFF" android:pathData="M53,54 a5,5 0 1 0 10,0 a5,5 0 1 0 -10,0 z" />
-    <!-- pupille -->
-    <path android:fillColor="#1B1B1B" android:pathData="M40.5,55 a2.5,2.5 0 1 0 5,0 a2.5,2.5 0 1 0 -5,0 z" />
-    <path android:fillColor="#1B1B1B" android:pathData="M56.5,55 a2.5,2.5 0 1 0 5,0 a2.5,2.5 0 1 0 -5,0 z" />
+    <path android:fillColor="#8E1A28" android:pathData="M34,84 h32 a2,2 0 0 1 2,2 v4 a2,2 0 0 1 -2,2 h-32 a2,2 0 0 1 -2,-2 v-4 a2,2 0 0 1 2,-2 z" />
+    <!-- bocchettoni laterali -->
+    <path android:fillColor="#B51F33" android:pathData="M31,52 h10 v8 h-10 a2,2 0 0 1 -2,-2 v-4 a2,2 0 0 1 2,-2 z" />
+    <path android:fillColor="#B51F33" android:pathData="M69,52 h-10 v8 h10 a2,2 0 0 0 2,-2 v-4 a2,2 0 0 0 -2,-2 z" />
+    <!-- corpo -->
+    <path android:fillColor="#D7263D" android:pathData="M41,38 h18 a3,3 0 0 1 3,3 v43 h-24 v-43 a3,3 0 0 1 3,-3 z" />
+    <!-- cupola -->
+    <path android:fillColor="#B51F33" android:pathData="M40,38 Q40,24 50,24 Q60,24 60,38 z" />
+    <!-- fascia gialla -->
+    <path android:fillColor="#F5C542" android:pathData="M40,62 h20 v4 h-20 z" />
+    <!-- occhi -->
+    <path android:fillColor="#FFFFFF" android:pathData="M43.2,50 a2.8,2.8 0 1 0 5.6,0 a2.8,2.8 0 1 0 -5.6,0 z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M51.2,50 a2.8,2.8 0 1 0 5.6,0 a2.8,2.8 0 1 0 -5.6,0 z" />
+    <path android:fillColor="#1B1B1B" android:pathData="M44.6,50.4 a1.4,1.4 0 1 0 2.8,0 a1.4,1.4 0 1 0 -2.8,0 z" />
+    <path android:fillColor="#1B1B1B" android:pathData="M52.6,50.4 a1.4,1.4 0 1 0 2.8,0 a1.4,1.4 0 1 0 -2.8,0 z" />
     <!-- sorriso -->
-    <path android:strokeColor="#1B1B1B" android:strokeWidth="2.5" android:strokeLineCap="round" android:fillColor="#00000000" android:pathData="M42,70 Q50,77 58,70" />
-    </group>
-    </group>
+    <path android:strokeColor="#1B1B1B" android:strokeWidth="2" android:strokeLineCap="round" android:fillColor="#00000000" android:pathData="M45,72 Q50,76 55,72" />
 </vector>
