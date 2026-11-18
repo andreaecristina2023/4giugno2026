@@ -83,6 +83,7 @@
       sotto += ' · ' + (turni().persona ? turni().persona + ': ' : '') + C.testoTurno(tOggi).toLowerCase();
       var tDom = C.turnoDel(turni(), C.addGiorni(oggi, 1));
       if (tDom && C.STATI_TURNO[tDom.stato].lavoro) sotto += ', domani ' + C.testoTurno(tDom).toLowerCase();
+      sotto += ' · in servizio ' + C.servizioDel(oggi);
     }
     var h = testata('A&C', sotto);
 
@@ -176,15 +177,18 @@
     for (var d = inizio; d <= fine; d = C.addGiorni(d, 1)) {
       var tt = C.turnoDel(t, d), st = C.STATI_TURNO[tt.stato] || C.STATI_TURNO.altro;
       var cls = 'cella' + (d.slice(0, 7) !== ui.meseCal ? ' fuori' : '') + (d === oggi ? ' oggi' : '') + (st.lavoro || tt.stato === 'salto' || tt.stato === 'ferie' ? ' piena' : '') + (tt.modificato ? ' modificata' : '');
-      var sig = tt.sigla ? (tt.fascia === 'notte' ? tt.sigla.toLowerCase() : tt.sigla) : st.breve;
-      h += '<button class="' + cls + '" type="button" data-turno-giorno="' + d + '" style="--c:' + st.colore + '" aria-label="' + esc(C.etichettaGiorno(d, oggi) + ': ' + C.testoTurno(tt) + (tt.sigla ? ' ' + tt.sigla : '')) + '"><span class="n">' + C.parse(d).getDate() + '</span><span class="sigla">' + esc(sig) + '</span></button>';
+      var sv = C.turniDelGiorno(d), L = String(t.turno).toUpperCase();
+      var gio = '<b' + (sv.giorno.charAt(0) === L ? ' class="mio"' : '') + '>' + esc(sv.giorno) + '</b>';
+      var not = '<i' + (sv.notte.charAt(0) === L ? ' class="mio"' : '') + '>' + esc(sv.notte.toLowerCase()) + '</i>';
+      var badgeE = (tt.modificato || tt.stato === 'salto') ? '<span class="badge-turno" style="--c:' + st.colore + '">' + esc(st.breve) + '</span>' : '';
+      h += '<button class="' + cls + '" type="button" data-turno-giorno="' + d + '" style="--c:' + st.colore + '" aria-label="' + esc(C.etichettaGiorno(d, oggi) + ': ' + C.testoTurno(tt) + '. In servizio diurno ' + sv.giorno + ', notte ' + sv.notte) + '">' + badgeE + '<span class="n">' + C.parse(d).getDate() + '</span><span class="servizio">' + gio + not + '</span></button>';
     }
     h += '</div>';
     var tg0 = C.turniDelGiorno(oggi);
-    h += '<p class="testo-muto" style="margin:10px 0 0">Oggi in servizio: diurno <b>' + esc(tg0.giorno) + '</b>, notte <b>' + esc(tg0.notte.toLowerCase()) + '</b> (come FireOps). Maiuscolo = diurno, minuscolo = notte.</p>';
-    h += '<div class="legenda">' + ['diurno', 'notte', 'smonto', 'riposo', 'salto', 'ferie'].map(function (k) { return '<span><i style="--c:' + C.STATI_TURNO[k].colore + '"></i>' + C.STATI_TURNO[k].nome + '</span>'; }).join('') + '</div>';
+    h += '<p class="testo-muto" style="margin:10px 0 0">Oggi in servizio: diurno <b>' + esc(tg0.giorno) + '</b>, notte <b>' + esc(tg0.notte.toLowerCase()) + '</b> (come FireOps). In ogni giorno: sopra il diurno, sotto la notte; il tuo turno è sottolineato.</p>';
+    h += '<div class="legenda">' + ['diurno', 'notte', 'smonto', 'riposo', 'salto', 'ferie', 'addestramento', 'corso', 'presidio', 'boschiva'].map(function (k) { return '<span><i style="--c:' + C.STATI_TURNO[k].colore + '"></i>' + C.STATI_TURNO[k].nome + '</span>'; }).join('') + '</div>';
     h += '<div class="totali" style="margin-top:14px"><div class="totale"><div class="valore">' + (conta.diurno || 0) + ' + ' + (conta.notte || 0) + '</div><div class="cosa">Diurni + notti a ' + C.MESI[m0.getMonth()] + '</div></div>' +
-      '<div class="totale"><div class="valore">' + Math.round(ore) + ' h</div><div class="cosa">Ore di turno' + (conta.salto ? ' · ' + conta.salto + ' salt' + (conta.salto === 1 ? 'o' : 'i') : '') + (conta.ferie ? ' · ' + conta.ferie + ' ferie' : '') + '</div></div></div>';
+      '<div class="totale"><div class="valore">' + Math.round(ore) + ' h</div><div class="cosa">Ore di servizio' + ['salto', 'ferie', 'addestramento', 'corso', 'presidio', 'boschiva', 'straordinario'].filter(function (k) { return conta[k]; }).map(function (k) { return ' · ' + conta[k] + ' ' + C.STATI_TURNO[k].nome.toLowerCase(); }).join('') + '</div></div></div>';
     var prossimi = [];
     for (var q = oggi; prossimi.length < 4 && q <= C.addGiorni(oggi, 40); q = C.addGiorni(q, 1)) { var tq = C.turnoDel(t, q); if (C.STATI_TURNO[tq.stato].lavoro) prossimi.push(tq); }
     h += '<h2>Prossimi turni <small>turno ' + esc(t.turno) + (t.saltoturno ? ', saltoturno ' + esc(t.saltoturno) : '') + '</small></h2><ul class="righe">' + prossimi.map(function (x) {
@@ -203,12 +207,12 @@
   }
   function apriGiornoTurno(data) {
     var t = turni(), tt = C.turnoDel(t, data), ecc = (t.eccezioni || []).filter(function (e) { return e.data === data; })[0];
-    var scelte = [['', 'Come da turno (' + C.STATI_TURNO[tt.base].nome.toLowerCase() + (tt.sigla ? ' ' + (tt.fascia === 'notte' ? tt.sigla.toLowerCase() : tt.sigla) : '') + ')'], ['ferie', 'Ferie'], ['salto', 'Salto'], ['straordinario', 'Straordinario'], ['diurno', 'Diurno (cambio)'], ['notte', 'Notte (cambio)'], ['riposo', 'Riposo (cambio)'], ['altro', 'Altro']];
+    var scelte = [['', 'Come da turno (' + C.STATI_TURNO[tt.base].nome.toLowerCase() + (tt.sigla ? ' ' + (tt.fascia === 'notte' ? tt.sigla.toLowerCase() : tt.sigla) : '') + ')'], ['ferie', 'Ferie'], ['salto', 'Salto'], ['straordinario', 'Straordinario'], ['addestramento', 'Addestramento'], ['corso', 'Corso'], ['presidio', 'Presidio rurale'], ['boschiva', 'Boschiva (AIB)'], ['diurno', 'Diurno (cambio)'], ['notte', 'Notte (cambio)'], ['riposo', 'Riposo (cambio)'], ['altro', 'Altro']];
     var tg = C.turniDelGiorno(data);
     foglio.innerHTML = '<form method="dialog" id="form-giorno-turno"><div class="maniglia"></div><h3 id="foglio-titolo">' + esc(C.etichettaGiorno(data)) + ' · ' + esc(C.testoTurno(tt)) + '</h3><div class="campi">' +
       '<p class="testo-muto" style="margin:0">In servizio: notte uscente ' + esc(tg.uscente.toLowerCase()) + ', diurno <b>' + esc(tg.giorno) + '</b>, notte <b>' + esc(tg.notte.toLowerCase()) + '</b></p>' +
       '<div class="campo">Cambia questo giorno<div style="display:flex;flex-wrap:wrap;gap:8px">' + scelte.map(function (c) { return '<label class="chip"><input type="radio" name="stato" value="' + c[0] + '"' + (((ecc && ecc.stato) || '') === c[0] ? ' checked' : '') + ' class="sr">' + c[1] + '</label>'; }).join('') + '</div></div>' +
-      '<label class="campo">Orario<span class="aiuto">Solo per straordinario, es. 08:00-14:00</span><input type="text" name="orario" value="' + esc((ecc && ecc.orario) || '') + '"></label>' +
+      '<label class="campo">Orario<span class="aiuto">Facoltativo, es. 08:00-14:00 (per straordinario, addestramento, corso, presidio, boschiva)</span><input type="text" name="orario" value="' + esc((ecc && ecc.orario) || '') + '"></label>' +
       '<label class="campo">Nota<input type="text" name="nota" maxlength="120" value="' + esc((ecc && ecc.nota) || '') + '" placeholder="Es. cambio con Marco"></label>' +
       '<div class="azioni"><button class="btn" type="submit">Salva</button><button class="btn secondario" type="button" data-chiudi>Annulla</button></div></div></form>';
     var f = $('#form-giorno-turno', foglio);

@@ -198,6 +198,10 @@ var Casa = (function () {
     salto:         { nome: 'Salto turno',   breve: 'X', colore: '#C2338F', lavoro: false },
     ferie:         { nome: 'Ferie',         breve: 'F', colore: '#4BA3C7', lavoro: false },
     straordinario: { nome: 'Straordinario', breve: '+', colore: '#B5452F', lavoro: true },
+    addestramento: { nome: 'Addestramento', breve: 'ADD', colore: '#5E8C31', lavoro: true },
+    corso:         { nome: 'Corso',         breve: 'CRS', colore: '#7D4FA8', lavoro: true },
+    presidio:      { nome: 'Presidio rurale', breve: 'PR', colore: '#9C5B2E', lavoro: true },
+    boschiva:      { nome: 'Boschiva (AIB)', breve: 'AIB', colore: '#2F6B3A', lavoro: true },
     altro:         { nome: 'Altro',         breve: '•', colore: '#7A6F9B', lavoro: false }
   };
   function turniDelGiorno(s) {
@@ -208,19 +212,21 @@ var Casa = (function () {
     var L = String(cfg.turno || '').toUpperCase(), t = turniDelGiorno(s), salto = String(cfg.saltoturno || '');
     var mio = function (sig) { return sig.charAt(0) === L; };
     var eSalto = function (sig) { return salto && sig.slice(1) === salto; };
+    // sigle in servizio nel giorno (tutti i turni), come nel turnario di FireOps
     if (mio(t.giorno)) return { stato: eSalto(t.giorno) ? 'salto' : 'diurno', sigla: t.giorno, fascia: 'diurno' };
     if (mio(t.notte)) return { stato: eSalto(t.notte) ? 'salto' : 'notte', sigla: t.notte, fascia: 'notte' };
     var ieri = turniDelGiorno(addGiorni(s, -1));
     if (mio(ieri.notte)) return { stato: eSalto(ieri.notte) ? 'riposo' : 'smonto', sigla: '' };
     return { stato: 'riposo', sigla: '' };
   }
+  function servizioDel(s) { var t = turniDelGiorno(s); return t.giorno + ' / ' + t.notte.toLowerCase(); }
   function turnoDel(cfg, s) {
     if (!cfg || !cfg.attivo || !cfg.turno) return null;
     var b = turnoBase(cfg, s), out = { data: s, stato: b.stato, base: b.stato, sigla: b.sigla, fascia: b.fascia || '', nota: b.stato === 'salto' ? 'Saltoturno ' + cfg.saltoturno : '' };
     var ecc = (cfg.eccezioni || []).filter(function (e) { return e.data === s; })[0];
     if (ecc) { out.stato = ecc.stato; out.nota = ecc.nota || ''; out.modificato = true; }
     var orari = { diurno: cfg.diurno || '08:00-20:00', notte: cfg.notte || '20:00-08:00' };
-    out.orario = orari[out.stato] || (out.stato === 'straordinario' && ecc && ecc.orario) || '';
+    out.orario = (ecc && ecc.orario) || orari[out.stato] || '';
     return out;
   }
   function oreBrevi(o) { return String(o || '').split('-').map(function (x) { var p = x.split(':'); return +p[0] + (p[1] && p[1] !== '00' ? ':' + p[1] : ''); }).join('–'); }
@@ -333,7 +339,7 @@ var Casa = (function () {
 
   return {
     GIORNI: GIORNI, GIORNI_LUNGHI: GIORNI_LUNGHI, MESI: MESI, FRAZIONI: FRAZIONI, TIPI: TIPI, UNITA: UNITA, UNITA_RIPETI: UNITA_RIPETI, UNITA_AVVISO: UNITA_AVVISO,
-    STATI_TURNO: STATI_TURNO, turnoDel: turnoDel, testoTurno: testoTurno, turniDelGiorno: turniDelGiorno,
+    STATI_TURNO: STATI_TURNO, turnoDel: turnoDel, testoTurno: testoTurno, turniDelGiorno: turniDelGiorno, servizioDel: servizioDel,
     leggiDurata: leggiDurata, testoDurata: testoDurata, nomeRipeti: nomeRipeti, volteAnno: volteAnno, anticipoMinuti: anticipoMinuti,
     iso: iso, parse: parse, oggi: oggi, addGiorni: addGiorni, addMesi: addMesi, diffGiorni: diffGiorni,
     giornoSett: giornoSett, settimanaDelMese: settimanaDelMese, etichettaGiorno: etichettaGiorno, dataBreve: dataBreve,

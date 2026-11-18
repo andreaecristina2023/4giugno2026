@@ -89,7 +89,10 @@ var Native = (function () {
       if (tt && (Casa.STATI_TURNO[tt.stato].lavoro || tt.stato === 'salto' || tt.stato === 'ferie')) righe.push({ data: g, testo: Casa.testoTurno(tt) + (tt.nota ? ' · ' + tt.nota : ''), colore: Casa.STATI_TURNO[tt.stato].colore, turno: true });
     }
     righe = righe.filter(function (r) { return r.data >= da; }).sort(function (p, q) { return p.data < q.data ? -1 : p.data > q.data ? 1 : (p.turno ? -1 : q.turno ? 1 : (q.rifiuti ? 1 : -1)); });
-    var json = JSON.stringify({ aggiornato: Date.now(), righe: righe.slice(0, 12) });
+    // in servizio (tutti i turni) per i prossimi 35 giorni: il widget mostra quello di oggi
+    var servizio = {};
+    if (tcfg && tcfg.attivo) for (var gs = da; gs <= Casa.addGiorni(da, 35); gs = Casa.addGiorni(gs, 1)) servizio[gs] = Casa.servizioDel(gs);
+    var json = JSON.stringify({ aggiornato: Date.now(), righe: righe.slice(0, 12), servizio: servizio });
     // widget solo rifiuti: giorni di ritiro delle prossime 3 settimane
     var giorni = (cfgRifiuti && cfgRifiuti.attivo !== false) ? Casa.calendarioRifiuti(cfgRifiuti, da, Casa.addGiorni(da, 21)).map(function (x) {
       return { data: x.data, nota: x.nota || '', frazioni: x.frazioni.map(function (f) { var fr = Casa.FRAZIONI[f] || { nome: f, colore: '#6B6F73' }; return { n: fr.nome.split(' ')[0], c: fr.colore }; }) };

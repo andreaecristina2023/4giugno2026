@@ -107,6 +107,16 @@ public class RifiutiWidget extends AppWidgetProvider {
             nota = "Apri l'app per aggiornare";
         }
         for (int i = mostrati; i < BOX.length; i++) v.setViewVisibility(BOX[i], View.GONE);
+        String serv = "";
+        try {
+            String js = context.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE).getString("widget", null);
+            JSONObject mappa = js == null ? null : new JSONObject(js).optJSONObject("servizio");
+            serv = mappa == null ? "" : mappa.optString(oggi, "");
+        } catch (Exception e) {
+            serv = "";
+        }
+        v.setTextViewText(R.id.r_servizio, serv.isEmpty() ? "" : "In servizio " + serv);
+        v.setViewVisibility(R.id.r_servizio, serv.isEmpty() ? View.GONE : View.VISIBLE);
         v.setTextViewText(R.id.r_nota, nota);
         v.setViewVisibility(R.id.r_nota, nota.isEmpty() ? View.GONE : View.VISIBLE);
         manager.updateAppWidget(widgetId, v);

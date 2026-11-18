@@ -69,7 +69,16 @@ public class CasaWidget extends AppWidgetProvider {
 
         Calendar c = Calendar.getInstance();
         String oggi = iso(c);
-        v.setTextViewText(R.id.widget_titolo, "A&C · " + GIORNI[c.get(Calendar.DAY_OF_WEEK) - 1] + " " + c.get(Calendar.DAY_OF_MONTH) + " " + MESI[c.get(Calendar.MONTH)]);
+        String titolo = "A&C · " + GIORNI[c.get(Calendar.DAY_OF_WEEK) - 1] + " " + c.get(Calendar.DAY_OF_MONTH) + " " + MESI[c.get(Calendar.MONTH)];
+        try {
+            String js = context.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE).getString("widget", null);
+            JSONObject serv = js == null ? null : new JSONObject(js).optJSONObject("servizio");
+            String oggiServ = serv == null ? "" : serv.optString(oggi, "");
+            if (!oggiServ.isEmpty()) titolo += " · " + oggiServ;
+        } catch (Exception e) {
+            // senza dati dei turni resta il titolo semplice
+        }
+        v.setTextViewText(R.id.widget_titolo, titolo);
         c.add(Calendar.DAY_OF_MONTH, 1);
         String domani = iso(c);
 
