@@ -243,17 +243,28 @@
     foglio.innerHTML = '<form method="dialog" id="form-giorno-turno"><div class="maniglia"></div><h3 id="foglio-titolo">' + esc(C.etichettaGiorno(data)) + ' · ' + esc(C.testoTurno(tt)) + '</h3><div class="campi">' +
       '<p class="testo-muto" style="margin:0">In servizio: notte uscente ' + esc(tg.uscente.toLowerCase()) + ', diurno <b>' + esc(tg.giorno) + '</b>, notte <b>' + esc(tg.notte.toLowerCase()) + '</b></p>' +
       '<div class="campo">Cambia questo giorno<div style="display:flex;flex-wrap:wrap;gap:8px">' + scelte.map(function (c) { return '<label class="chip"><input type="radio" name="stato" value="' + c[0] + '"' + (((ecc && ecc.stato) || '') === c[0] ? ' checked' : '') + ' class="sr">' + c[1] + '</label>'; }).join('') + '</div></div>' +
+      '<div id="ferie-extra" class="campo" style="display:' + ((ecc && ecc.stato === 'ferie') ? '' : 'none') + '"><span>Ferie</span><span class="aiuto">Segna i turni di servizio (diurni e notturni) dalla data indicata; i giorni di riposo restano liberi.</span><div class="due"><label class="campo">Dal<input type="date" name="dal" value="' + esc(data) + '"></label><label class="campo">Quanti turni<input type="number" name="quanti" min="1" max="60" inputmode="numeric" value="1"></label></div></div>' +
       '<label class="campo">Orario<span class="aiuto">Facoltativo, es. 08:00-14:00 (per straordinario, addestramento, corso, presidio, boschiva)</span><input type="text" name="orario" value="' + esc((ecc && ecc.orario) || '') + '"></label>' +
       '<label class="campo">Nota<input type="text" name="nota" maxlength="120" value="' + esc((ecc && ecc.nota) || '') + '" placeholder="Es. cambio con Marco"></label>' +
       '<div class="azioni"><button class="btn" type="submit">Salva</button><button class="btn secondario" type="button" data-chiudi>Annulla</button></div></div></form>';
     var f = $('#form-giorno-turno', foglio);
     $('[data-chiudi]', f).onclick = function () { foglio.close(); };
+    f.querySelectorAll('input[name=stato]').forEach(function (r) { r.onchange = function () { $('#ferie-extra', f).style.display = (r.value === 'ferie' && r.checked) ? '' : 'none'; }; });
     f.onsubmit = function (e) {
       e.preventDefault();
       var stato = (f.querySelector('input[name=stato]:checked') || {}).value || '';
       var cfg = JSON.parse(JSON.stringify(turni()));
       cfg.eccezioni = (cfg.eccezioni || []).filter(function (x) { return x.data !== data; });
-      if (stato) cfg.eccezioni.push({ data: data, stato: stato, nota: f.nota.value.trim(), orario: f.orario.value.trim() });
+      if (stato === 'ferie') {
+        // ferie: conta i turni di servizio (diurni e notturni) a partire dalla data indicata
+        var dal = f.dal.value || data, n = Math.max(1, Math.min(60, parseInt(f.quanti.value, 10) || 1)), giorni = [];
+        for (var i = 0; giorni.length < n && i < 400; i++) {
+          var g = C.addGiorni(dal, i), tg2 = C.turnoDel(cfg, g);
+          if (tg2 && C.STATI_TURNO[tg2.base] && C.STATI_TURNO[tg2.base].lavoro) giorni.push(g);
+        }
+        cfg.eccezioni = cfg.eccezioni.filter(function (x) { return giorni.indexOf(x.data) < 0; });
+        giorni.forEach(function (g) { cfg.eccezioni.push({ data: g, stato: 'ferie', nota: f.nota.value.trim(), orario: '' }); });
+      } else if (stato) cfg.eccezioni.push({ data: data, stato: stato, nota: f.nota.value.trim(), orario: f.orario.value.trim() });
       cfg.eccezioni = cfg.eccezioni.filter(function (x) { return x.data >= C.addGiorni(C.oggi(), -400); });
       Store.setSettings({ turni: cfg }); foglio.close(); toast(stato ? 'Giorno modificato' : 'Torna come da turno');
     };
