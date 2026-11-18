@@ -311,19 +311,20 @@ var Viaggi = (function () {
       confermaElimina: 'Eliminare il viaggio con voli, hotel e documenti? (gli allegati restano su Drive)'
     });
   }
-  function apriSotto(idViaggio, sez, idSotto) {
+  function apriSotto(idViaggio, sez, idSotto, preset) {
     var v = JSON.parse(JSON.stringify(Store.get(idViaggio))), def = SEZIONI[sez];
     var s = idSotto ? (v[sez] || []).filter(function (x) { return x.id === idSotto; })[0] : null;
-    var dati = s || (sez === 'voli' ? { data: v.data, dataArrivo: v.data } : sez === 'hotel' ? { checkin: v.data, checkout: v.fine } : { tipo: 'eVisa' });
+    var dati = s || preset || (sez === 'voli' ? { data: v.data, dataArrivo: v.data } : sez === 'hotel' ? { checkin: v.data, checkout: v.fine } : { tipo: 'eVisa' });
     var tappeIn = sez === 'voli' ? (dati.tappe || []).map(function (t) { return Object.assign({}, t); }) : null;
     var tappeAttive = tappeIn;
     function righeTappe(f) {
       var box = f.querySelector('#tappe-lista'); if (!box) return;
       box.innerHTML = tappeAttive.map(function (t, i) {
         var campo = function (k, tipo, ph, etic) { return '<input type="' + tipo + '" data-tappa="' + i + '" data-k="' + k + '" value="' + ui.esc(t[k] || '') + '"' + (ph ? ' placeholder="' + ph + '"' : '') + ' aria-label="' + etic + ' tappa ' + (i + 1) + '">'; };
-        return '<div class="tappa-riga"><div class="tappa-testa">' + campo('numero', 'text', 'Volo', 'Volo') + campo('da', 'text', 'Da', 'Partenza') + campo('a', 'text', 'A', 'Arrivo') +
+        return '<div class="tappa-riga"><div class="tappa-testa">' + campo('compagnia', 'text', 'Compagnia', 'Compagnia') + campo('numero', 'text', 'Volo', 'Volo') + campo('da', 'text', 'Da', 'Partenza') + campo('a', 'text', 'A', 'Arrivo') +
           '<button type="button" class="btn secondario piccolo" data-togli-tappa="' + i + '" aria-label="Togli tappa">−</button></div>' +
-          '<div class="tappa-date">' + campo('data', 'date', '', 'Data partenza') + campo('ora', 'time', '', 'Ora partenza') + campo('dataArrivo', 'date', '', 'Data arrivo') + campo('arrivo', 'time', '', 'Ora arrivo') + '</div></div>';
+          '<div class="tappa-date">' + campo('data', 'date', '', 'Data partenza') + campo('ora', 'time', '', 'Ora partenza') + campo('dataArrivo', 'date', '', 'Data arrivo') + campo('arrivo', 'time', '', 'Ora arrivo') + '</div>' +
+          '<div class="tappa-date tappa-due">' + campo('pnr', 'text', 'PNR', 'Codice prenotazione') + campo('posto', 'text', 'Posti', 'Posti') + '</div></div>';
       }).join('');
       box.querySelectorAll('[data-tappa]').forEach(function (inp) { inp.oninput = function () { tappeAttive[+inp.dataset.tappa][inp.dataset.k] = inp.value.trim(); }; });
       box.querySelectorAll('[data-togli-tappa]').forEach(function (b) { b.onclick = function () { tappeAttive.splice(+b.dataset.togliTappa, 1); righeTappe(f); }; });
@@ -358,14 +359,20 @@ var Viaggi = (function () {
       leggiExtra: function (f) { var la = parseFloat(f.elements.lat.value), lo = parseFloat(f.elements.lon.value); return { lat: isNaN(la) ? undefined : la, lon: isNaN(lo) ? undefined : lo }; }
     };
     var opzVoli = sez === 'voli' ? {
-      extraHtml: '<div class="campo tappe-campo"><span>Tappe successive</span><span class="aiuto">Per voli con scali o cambi: ogni tappa è un volo in più dello stesso viaggio.</span><div id="tappe-lista"></div><button type="button" class="btn secondario piccolo" id="aggiungi-tappa">+ Aggiungi tappa</button></div>',
+      extraHtml: '<div class="campo tappe-campo"><span>Tappe successive</span><span class="aiuto">Per voli con scali o cambi: ogni tappa è un volo in più dello stesso viaggio.</span><div id="tappe-lista"></div><div class="tappe-azioni"><button type="button" class="btn secondario piccolo" id="aggiungi-tappa">+ Aggiungi tappa</button><button type="button" class="btn secondario piccolo" id="ar-volo" title="Crea il volo di ritorno con le tratte invertite">⇄ A/R</button></div></div>',
       dopo: function (f) {
-        var arBtn = document.createElement('button');
-        arBtn.type = 'button'; arBtn.className = 'btn secondario piccolo'; arBtn.id = 'ar-volo'; arBtn.textContent = '⇄ A/R';
-        arBtn.title = 'Scambia partenza e arrivo per il volo di ritorno';
-        arBtn.onclick = function () { var da = f.elements.da.value; f.elements.da.value = f.elements.a.value; f.elements.a.value = da; };
-        f.elements.a.closest('label').insertAdjacentElement('afterend', arBtn);
         f.querySelector('#aggiungi-tappa').onclick = function () { tappeAttive.push({ numero: '', da: '', a: '', ora: '' }); righeTappe(f); };
+        f.querySelector('#ar-volo').onclick = function () {
+          // ritorno: tratte invertite in ordine inverso, orari e date da reimpostare
+          var legs = [{ da: f.elements.da.value.trim(), a: f.elements.a.value.trim() }].concat(tappeAttive.map(function (t) { return { da: t.da || '', a: t.a || '' }; }));
+          var ritorno = legs.slice().reverse().map(function (l) { return { da: l.a, a: l.da }; });
+          var comp = f.elements.compagnia.value.trim();
+          var vuota = function (r) { return { compagnia: comp, numero: '', da: r.da, a: r.a, data: '', ora: '', dataArrivo: '', arrivo: '', pnr: '', posto: '' }; };
+          var pre = vuota(ritorno[0]); pre.note = ''; pre.tappe = ritorno.slice(1).map(vuota);
+          ui.foglio.close();
+          apriSotto(idViaggio, 'voli', null, pre);
+          ui.toast('Volo di ritorno: inserisci date e orari');
+        };
         righeTappe(f);
       },
       leggiExtra: function () { return { tappe: tappeAttive.filter(function (t) { return t.da || t.a || t.numero; }) }; }
