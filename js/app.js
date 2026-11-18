@@ -329,6 +329,7 @@
   var albumAggiornato = 0;
   function vistaAlbum() {
     vista.innerHTML = testata('Album', Album.numero() ? Album.numero() + ' foto' : 'Le vostre foto') + Album.html();
+    Album.monta();
     if (Date.now() - albumAggiornato > 60000) { albumAggiornato = Date.now(); Album.aggiorna(); }
   }
 

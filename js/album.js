@@ -8,6 +8,10 @@ var Album = (function () {
   var mini = {};          // id → objectURL miniatura
   var stato = { carico: false, errore: '', caricamenti: 0, totale: 0 };
   var LISTA = 'aec.album.lista';
+  var grandi = {};        // id → objectURL foto grande (carosello e visore)
+  var lenta = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var car = { indice: 0, attivo: !lenta, pausaFino: 0, timer: null };
+  var presenta = null;    // presentazione a schermo intero
 
   // ---------- cache IndexedDB ----------
   var dbP = null;
@@ -116,6 +120,74 @@ var Album = (function () {
     });
   }
 
+  function grandeUrl(id) {
+    if (grandi[id]) return Promise.resolve(grandi[id]);
+    return leggiCache('grande', id).then(function (b) {
+      if (b) return b;
+      return Store.chiama('foto_grande', { id: id }).then(function (r) { if (!r.grande) return null; var bl = b64aBlob(r.grande); scriviCache('grande', id, bl); return bl; });
+    }).then(function (b) { if (!b) return null; grandi[id] = URL.createObjectURL(b); return grandi[id]; }).catch(function () { return null; });
+  }
+
+  // ---------- carosello ----------
+  var N_CAROSELLO = 15;
+  function htmlCarosello() {
+    var esc = ui.esc, lista = foto.slice(0, N_CAROSELLO);
+    if (!lista.length) return '';
+    if (car.indice >= lista.length) car.indice = 0;
+    return '<section class="carosello" aria-roledescription="carosello" aria-label="Foto più recenti"><div class="car-pista">' +
+      lista.map(function (f, k) {
+        var src = grandi[f.id] || mini[f.id];
+        return '<button type="button" class="car-slide" data-foto="' + esc(f.id) + '" aria-label="Foto ' + (k + 1) + ' di ' + lista.length + (f.didascalia ? ': ' + esc(f.didascalia) : '') + '">' +
+          (src ? '<img src="' + src + '" alt="">' : '<span class="segnaposto"></span>') +
+          '<span class="car-dida">' + (f.didascalia ? esc(f.didascalia) + '<br>' : '') + '<small>' + esc(C.etichettaGiorno(f.data)) + '</small></span></button>';
+      }).join('') + '</div>' +
+      '<div class="car-punti" aria-hidden="true">' + lista.map(function (f, k) { return '<i' + (k === car.indice ? ' class="on"' : '') + '></i>'; }).join('') + '</div>' +
+      '<button type="button" class="car-play" data-car="play" aria-label="' + (car.attivo ? 'Ferma lo scorrimento' : 'Avvia lo scorrimento') + '">' + (car.attivo ? '❚❚' : '▶') + '</button></section>';
+  }
+  function pista() { return document.querySelector('.car-pista'); }
+  function vaiA(k, liscio) {
+    var p = pista(); if (!p) return;
+    car.indice = k;
+    p.scrollTo({ left: k * p.clientWidth, behavior: liscio ? 'smooth' : 'auto' });
+    caricaVicine();
+  }
+  function caricaVicine() {
+    var lista = foto.slice(0, N_CAROSELLO);
+    [car.indice, (car.indice + 1) % lista.length].forEach(function (k) {
+      var f = lista[k]; if (!f || grandi[f.id]) return;
+      grandeUrl(f.id).then(function (u) {
+        var im = u && document.querySelector('.car-slide[data-foto="' + f.id + '"] img');
+        if (im) im.src = u;
+      });
+    });
+  }
+  function monta() {
+    var p = pista(); if (!p) return;
+    vaiA(car.indice, false);
+    var attesa = null;
+    p.addEventListener('scroll', function () {
+      clearTimeout(attesa);
+      attesa = setTimeout(function () {
+        var k = Math.round(p.scrollLeft / Math.max(1, p.clientWidth));
+        if (k !== car.indice) { car.indice = k; caricaVicine(); }
+        document.querySelectorAll('.car-punti i').forEach(function (d, j) { d.className = j === car.indice ? 'on' : ''; });
+      }, 80);
+    }, { passive: true });
+    ['touchstart', 'pointerdown'].forEach(function (ev) { p.addEventListener(ev, function () { car.pausaFino = Date.now() + 8000; }, { passive: true }); });
+    var bt = document.querySelector('.car-play');
+    if (bt) bt.onclick = function () {
+      car.attivo = !car.attivo;
+      bt.textContent = car.attivo ? '❚❚' : '▶';
+      bt.setAttribute('aria-label', car.attivo ? 'Ferma lo scorrimento' : 'Avvia lo scorrimento');
+    };
+    if (!car.timer) car.timer = setInterval(function () {
+      var q = pista(), n = Math.min(foto.length, N_CAROSELLO);
+      if (!q || !car.attivo || n < 2 || Date.now() < car.pausaFino || ui.foglio.open || document.visibilityState !== 'visible') return;
+      vaiA((car.indice + 1) % n, true);
+      document.querySelectorAll('.car-punti i').forEach(function (d, j) { d.className = j === car.indice ? 'on' : ''; });
+    }, 4500);
+  }
+
   // ---------- vista ----------
   function html() {
     var esc = ui.esc;
@@ -125,6 +197,7 @@ var Album = (function () {
     if (stato.totale) h += '<p class="testo-muto">Caricamento ' + Math.min(stato.caricamenti + 1, stato.totale) + ' di ' + stato.totale + '…</p>';
     if (stato.errore) h += '<p class="testo-muto" style="color:var(--sangiovese)">' + esc(stato.errore) + '</p>';
     if (!foto.length) return h + (stato.carico ? '<p class="testo-muto">Carico l\'album…</p>' : '<div class="vuoto">Nessuna foto ancora. Le foto restano nel vostro Google Drive, nella cartella "A&amp;C Album".</div>');
+    h += htmlCarosello();
     var gruppi = {}, ordine = [];
     foto.forEach(function (f) { var k = (f.data || '').slice(0, 7); if (!gruppi[k]) { gruppi[k] = []; ordine.push(k); } gruppi[k].push(f); });
     ordine.forEach(function (k) {
@@ -145,21 +218,29 @@ var Album = (function () {
     fg.classList.add('visore');
     fg.innerHTML = '<div class="visore-corpo"><div class="visore-barra"><button class="btn icona chiaro" type="button" data-v="chiudi" aria-label="Chiudi">✕</button>' +
       '<span>' + esc(C.etichettaGiorno(f.data)) + (f.caricataDa ? ' · ' + esc(f.caricataDa) : '') + '</span>' +
-      '<button class="btn icona chiaro" type="button" data-v="elimina" aria-label="Elimina foto">🗑</button></div>' +
-      '<div class="visore-img">' + (mini[id] ? '<img src="' + mini[id] + '" alt="" id="img-visore">' : '<img alt="" id="img-visore">') +
+      '<span style="display:flex;gap:8px"><button class="btn icona chiaro" type="button" data-v="presenta" aria-label="' + (presenta ? 'Ferma la presentazione' : 'Avvia la presentazione') + '">' + (presenta ? '❚❚' : '▶') + '</button>' +
+      '<button class="btn icona chiaro" type="button" data-v="elimina" aria-label="Elimina foto">🗑</button></span></div>' +
+      '<div class="visore-img">' + ((grandi[id] || mini[id]) ? '<img src="' + (grandi[id] || mini[id]) + '" alt="" id="img-visore">' : '<img alt="" id="img-visore">') +
       (i > 0 ? '<button class="freccia sx" type="button" data-v="prec" aria-label="Foto precedente">‹</button>' : '') +
       (i < foto.length - 1 ? '<button class="freccia dx" type="button" data-v="succ" aria-label="Foto successiva">›</button>' : '') + '</div>' +
       '<form class="visore-didascalia" data-v="form"><input type="text" name="didascalia" maxlength="300" placeholder="Aggiungi una didascalia" value="' + esc(f.didascalia || '') + '"><button class="btn piccolo" type="submit">Salva</button></form></div>';
     if (!fg.open) fg.showModal();
     // foto grande: dalla cache o dallo script
-    leggiCache('grande', id).then(function (b) {
-      if (b) return b;
-      return Store.chiama('foto_grande', { id: id }).then(function (r) { if (!r.grande) return null; var bl = b64aBlob(r.grande); scriviCache('grande', id, bl); return bl; });
-    }).then(function (b) { var im = document.getElementById('img-visore'); if (b && im && fg.open) im.src = URL.createObjectURL(b); }).catch(function () {});
+    grandeUrl(id).then(function (u) { var im = document.getElementById('img-visore'); if (u && im && fg.open) im.src = u; });
+    if (foto[i + 1]) grandeUrl(foto[i + 1].id); // prepara la successiva
     fg.onclick = function (e) {
       var t = e.target.closest('[data-v]'); if (!t) return;
       var v = t.dataset.v;
       if (v === 'chiudi') chiudi();
+      else if (v === 'presenta') {
+        if (presenta) { clearInterval(presenta); presenta = null; }
+        else presenta = setInterval(function () {
+          if (!fg.open) { clearInterval(presenta); presenta = null; return; }
+          var j = foto.findIndex(function (x) { return x.id === id; });
+          id = foto[(j + 1) % foto.length].id; apri(id);
+        }, 4000);
+        t.textContent = presenta ? '❚❚' : '▶';
+      }
       else if (v === 'prec') apri(foto[i - 1].id);
       else if (v === 'succ') apri(foto[i + 1].id);
       else if (v === 'elimina') {
@@ -185,11 +266,11 @@ var Album = (function () {
       if (dx > 60 && i > 0) apri(foto[i - 1].id); else if (dx < -60 && i < foto.length - 1) apri(foto[i + 1].id);
     }, { passive: true });
   }
-  function chiudi() { var fg = ui.foglio; fg.close(); fg.classList.remove('visore'); fg.onclick = null; ui.ridisegna(); }
+  function chiudi() { if (presenta) { clearInterval(presenta); presenta = null; } var fg = ui.foglio; fg.close(); fg.classList.remove('visore'); fg.onclick = null; ui.ridisegna(); }
 
   return {
     init: function (u) { ui = u; ui.foglio.addEventListener('close', function () { ui.foglio.classList.remove('visore'); }); },
-    html: html, aggiorna: aggiorna, carica: carica, apri: apri,
+    html: html, monta: monta, aggiorna: aggiorna, carica: carica, apri: apri,
     numero: function () { return foto.length; }
   };
 })();

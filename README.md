@@ -13,7 +13,7 @@ Sito e app Android per la casa di Fratta Terme: bidoni della raccolta Alea, paga
 | Calendario | Mese con pallini colorati (bidoni, appuntamenti, pagamenti); scheda **Turni VVF** con il turnario 12/24 – 12/48 |
 | Conti | Da pagare, scaduti, pagati, spese ricorrenti con stima annua |
 | Rifiuti | Zona Alea, giorni di ritiro, recuperi per festività, variazioni |
-| Album | Foto di casa, salvate nel Google Drive (cartella "A&C Album") |
+| Album | Foto di casa (carosello che scorre da solo + griglia per mese, presentazione a schermo intero), salvate nel Google Drive (cartella "A&C Album") |
 | Altro | Chi usa il telefono, collegamento al foglio, QR code per l'altro telefono, notifiche, backup |
 
 Le festività seguono le regole dell'Eco-Calendario Alea: un ritiro che cade di festa si sposta al sabato prima (lun–mer) o al sabato dopo (gio–ven); se cade di sabato salta. Pasquetta è calcolata in automatico. Per i casi particolari annunciati da Alea c'è "Aggiungi una variazione".

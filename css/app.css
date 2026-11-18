@@ -246,3 +246,16 @@ label.chip:focus-within { outline: 3px solid var(--ardesia); outline-offset: 2px
 .griglia:not(.turni) .cella.tinta-turno.oggi .n { background: #D7263D; color: #fff; box-shadow: 0 0 0 2px #fff; }
 .griglia:not(.turni) .cella.tinta-turno.fuori { opacity: .45; }
 .griglia:not(.turni) .cella.tinta-turno .punti i { box-shadow: 0 0 0 1.5px #fff; }
+
+/* ---------- carosello album ---------- */
+.carosello { position: relative; margin: 6px 0 4px; border-radius: 20px; overflow: hidden; background: #0E1310; }
+.car-pista { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; }
+.car-pista::-webkit-scrollbar { display: none; }
+.car-slide { flex: 0 0 100%; scroll-snap-align: center; aspect-ratio: 4 / 3; border: 0; padding: 0; background: #0E1310; position: relative; cursor: pointer; overflow: hidden; }
+.car-slide img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.car-dida { position: absolute; left: 0; right: 0; bottom: 0; padding: 36px 16px 30px; background: linear-gradient(transparent, rgba(0,0,0,.65)); color: #fff; font-weight: 700; font-size: 16px; text-align: left; line-height: 1.3; }
+.car-dida small { font-weight: 400; font-size: 13px; opacity: .85; }
+.car-punti { position: absolute; bottom: 12px; left: 0; right: 0; display: flex; justify-content: center; gap: 6px; pointer-events: none; }
+.car-punti i { width: 7px; height: 7px; border-radius: 4px; background: rgba(255,255,255,.5); transition: width .2s; }
+.car-punti i.on { background: #fff; width: 20px; }
+.car-play { position: absolute; top: 10px; right: 10px; width: 40px; height: 40px; border-radius: 50%; border: 0; background: rgba(0,0,0,.45); color: #fff; font-size: 13px; cursor: pointer; }
