@@ -119,7 +119,7 @@
   function servizioCella(tcfg, d) {
     if (!tcfg || !tcfg.attivo) return '';
     var sv = C.turniDelGiorno(d), L = String(tcfg.turno || '').toUpperCase();
-    return '<span class="servizio"><b' + (sv.giorno.charAt(0) === L ? ' class="mio"' : '') + '>' + esc(sv.giorno) + '</b><i' + (sv.notte.charAt(0) === L ? ' class="mio"' : '') + '>' + esc(sv.notte.toLowerCase()) + '</i></span>';
+    return '<span class="servizio"><b' + (sv.giorno.charAt(0) === L ? ' class="mio"' : '') + '>' + esc(sv.giorno) + '</b>/<i' + (sv.notte.charAt(0) === L ? ' class="mio"' : '') + '>' + esc(sv.notte.toLowerCase()) + '</i></span>';
   }
   function vistaCalendario() {
     if (ui.calModo === 'turni') return vistaTurni();
@@ -189,7 +189,7 @@
     }
     h += '</div>';
     var tg0 = C.turniDelGiorno(oggi);
-    h += '<p class="testo-muto" style="margin:10px 0 0">Oggi in servizio: diurno <b>' + esc(tg0.giorno) + '</b>, notte <b>' + esc(tg0.notte.toLowerCase()) + '</b> (come FireOps). In ogni giorno: sopra il diurno, sotto la notte; il tuo turno è sottolineato.</p>';
+    h += '<p class="testo-muto" style="margin:10px 0 0">Oggi in servizio: diurno <b>' + esc(tg0.giorno) + '</b>, notte <b>' + esc(tg0.notte.toLowerCase()) + '</b> (come FireOps). In ogni giorno: diurno/notte; il tuo turno è sottolineato.</p>';
     h += '<div class="legenda">' + ['diurno', 'notte', 'smonto', 'riposo', 'salto', 'ferie', 'addestramento', 'corso', 'presidio', 'boschiva'].map(function (k) { return '<span><i style="--c:' + C.STATI_TURNO[k].colore + '"></i>' + C.STATI_TURNO[k].nome + '</span>'; }).join('') + '</div>';
     h += '<div class="totali" style="margin-top:14px"><div class="totale"><div class="valore">' + (conta.diurno || 0) + ' + ' + (conta.notte || 0) + '</div><div class="cosa">Diurni + notti a ' + C.MESI[m0.getMonth()] + '</div></div>' +
       '<div class="totale"><div class="valore">' + Math.round(ore) + ' h</div><div class="cosa">Ore di servizio' + ['salto', 'ferie', 'addestramento', 'corso', 'presidio', 'boschiva', 'straordinario'].filter(function (k) { return conta[k]; }).map(function (k) { return ' · ' + conta[k] + ' ' + C.STATI_TURNO[k].nome.toLowerCase(); }).join('') + '</div></div></div>';
