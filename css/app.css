@@ -100,7 +100,7 @@ h2 small { font-family: var(--testo); font-weight: 400; font-size: 15px; color: 
 /* ---------- calendario ---------- */
 .mese-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .mese-nav h2 { margin: 0; text-transform: capitalize; }
-.griglia { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.griglia { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
 .griglia .intest { text-align: center; font-size: 13px; color: var(--muschio); padding-bottom: 4px; }
 .cella { aspect-ratio: 1 / 1.05; border: 0; border-radius: 12px; background: var(--superficie); display: grid; grid-template-rows: 1fr auto; justify-items: center; padding: 6px 2px 7px; cursor: pointer; }
 .cella.fuori { background: transparent; color: var(--muschio); opacity: .55; }

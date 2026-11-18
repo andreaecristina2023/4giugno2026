@@ -158,8 +158,8 @@
   function vistaTurni() {
     var oggi = C.oggi(), t = turni();
     var h = testata('Calendario') + schedeCalendario();
-    if (!t.attivo || !t.riferimento) {
-      h += '<div class="sezione campi"><p style="margin:0">Il turnario segue il 12/24 – 12/48: diurno, notte, smonto, riposo. Dimmi il tuo turno e un giorno in cui fai il diurno, il resto lo calcola l\'app.</p>' +
+    if (!t.attivo) {
+      h += '<div class="sezione campi"><p style="margin:0">Turnario 12/24 – 12/48 calcolato con la stessa sequenza a 32 giorni di FireOps: scegli turno e saltoturno.</p>' +
         '<form id="form-turni" class="campi">' + campiTurni(t) + '<div class="azioni"><button class="btn" type="submit">Attiva il turnario</button></div></form></div>';
       vista.innerHTML = h; return;
     }
@@ -176,15 +176,18 @@
     for (var d = inizio; d <= fine; d = C.addGiorni(d, 1)) {
       var tt = C.turnoDel(t, d), st = C.STATI_TURNO[tt.stato] || C.STATI_TURNO.altro;
       var cls = 'cella' + (d.slice(0, 7) !== ui.meseCal ? ' fuori' : '') + (d === oggi ? ' oggi' : '') + (st.lavoro || tt.stato === 'salto' || tt.stato === 'ferie' ? ' piena' : '') + (tt.modificato ? ' modificata' : '');
-      h += '<button class="' + cls + '" type="button" data-turno-giorno="' + d + '" style="--c:' + st.colore + '" aria-label="' + esc(C.etichettaGiorno(d, oggi) + ': ' + C.testoTurno(tt)) + '"><span class="n">' + C.parse(d).getDate() + '</span><span class="sigla">' + st.breve + '</span></button>';
+      var sig = tt.sigla ? (tt.fascia === 'notte' ? tt.sigla.toLowerCase() : tt.sigla) : st.breve;
+      h += '<button class="' + cls + '" type="button" data-turno-giorno="' + d + '" style="--c:' + st.colore + '" aria-label="' + esc(C.etichettaGiorno(d, oggi) + ': ' + C.testoTurno(tt) + (tt.sigla ? ' ' + tt.sigla : '')) + '"><span class="n">' + C.parse(d).getDate() + '</span><span class="sigla">' + esc(sig) + '</span></button>';
     }
     h += '</div>';
+    var tg0 = C.turniDelGiorno(oggi);
+    h += '<p class="testo-muto" style="margin:10px 0 0">Oggi in servizio: diurno <b>' + esc(tg0.giorno) + '</b>, notte <b>' + esc(tg0.notte.toLowerCase()) + '</b> (come FireOps). Maiuscolo = diurno, minuscolo = notte.</p>';
     h += '<div class="legenda">' + ['diurno', 'notte', 'smonto', 'riposo', 'salto', 'ferie'].map(function (k) { return '<span><i style="--c:' + C.STATI_TURNO[k].colore + '"></i>' + C.STATI_TURNO[k].nome + '</span>'; }).join('') + '</div>';
     h += '<div class="totali" style="margin-top:14px"><div class="totale"><div class="valore">' + (conta.diurno || 0) + ' + ' + (conta.notte || 0) + '</div><div class="cosa">Diurni + notti a ' + C.MESI[m0.getMonth()] + '</div></div>' +
       '<div class="totale"><div class="valore">' + Math.round(ore) + ' h</div><div class="cosa">Ore di turno' + (conta.salto ? ' · ' + conta.salto + ' salt' + (conta.salto === 1 ? 'o' : 'i') : '') + (conta.ferie ? ' · ' + conta.ferie + ' ferie' : '') + '</div></div></div>';
     var prossimi = [];
     for (var q = oggi; prossimi.length < 4 && q <= C.addGiorni(oggi, 40); q = C.addGiorni(q, 1)) { var tq = C.turnoDel(t, q); if (C.STATI_TURNO[tq.stato].lavoro) prossimi.push(tq); }
-    h += '<h2>Prossimi turni <small>turno ' + esc(t.turno) + '</small></h2><ul class="righe">' + prossimi.map(function (x) {
+    h += '<h2>Prossimi turni <small>turno ' + esc(t.turno) + (t.saltoturno ? ', saltoturno ' + esc(t.saltoturno) : '') + '</small></h2><ul class="righe">' + prossimi.map(function (x) {
       return '<li class="riga" style="--c:' + C.STATI_TURNO[x.stato].colore + '"><span class="barra"></span><button class="corpo-riga" type="button" data-turno-giorno="' + x.data + '"><span class="titolo">' + esc(C.testoTurno(x)) + '</span><span class="meta">' + esc(C.etichettaGiorno(x.data, oggi)) + (x.nota ? ' · ' + esc(x.nota) : '') + '</span></button><span class="destra"></span></li>';
     }).join('') + '</ul>';
     h += '<details class="sezione" style="margin-top:18px"><summary style="cursor:pointer;font-weight:700">Impostazioni del turno</summary><form id="form-turni" class="campi" style="margin-top:12px">' + campiTurni(t) +
@@ -194,15 +197,16 @@
   function campiTurni(t) {
     var s = Store.settings();
     return '<div class="campo">Il tuo turno<div class="riga-reg" style="display:flex;gap:8px">' + ['A', 'B', 'C', 'D'].map(function (x) { return '<label class="chip"><input type="radio" name="turno" value="' + x + '"' + (t.turno === x ? ' checked' : '') + ' class="sr">' + x + '</label>'; }).join('') + '</div></div>' +
-      '<label class="campo">Un giorno in cui fai il diurno<span class="aiuto">Uno qualsiasi, passato o futuro: da lì l\'app calcola notte, smonto e riposo.</span><input type="date" name="riferimento" required value="' + esc(t.riferimento || '') + '"></label>' +
+      '<label class="campo">Saltoturno<span class="aiuto">Il numero del tuo gruppo di salto (1–8): quei turni vengono segnati come salto.</span><select name="saltoturno"><option value="">Non indicato</option>' + [1, 2, 3, 4, 5, 6, 7, 8].map(function (n) { return '<option value="' + n + '"' + (String(t.saltoturno || '') === String(n) ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select></label>' +
       '<div class="due"><label class="campo">Diurno<input type="text" name="diurno" value="' + esc(t.diurno || '08:00-20:00') + '" placeholder="08:00-20:00"></label><label class="campo">Notte<input type="text" name="notte" value="' + esc(t.notte || '20:00-08:00') + '" placeholder="20:00-08:00"></label></div>' +
-      '<div class="due"><label class="campo">Primo salto<span class="aiuto">Facoltativo</span><input type="date" name="saltoDa" value="' + esc((t.salto || {}).da || '') + '"></label><label class="campo">Ripeti ogni<span class="aiuto">giorni</span><input type="number" name="saltoOgni" min="0" max="400" inputmode="numeric" value="' + esc((t.salto || {}).ogni || '') + '"></label></div>' +
       '<label class="campo">Di chi è il turno<select name="persona">' + s.persone.map(function (p) { return '<option' + (t.persona === p ? ' selected' : '') + '>' + esc(p) + '</option>'; }).join('') + '</select></label>';
   }
   function apriGiornoTurno(data) {
     var t = turni(), tt = C.turnoDel(t, data), ecc = (t.eccezioni || []).filter(function (e) { return e.data === data; })[0];
-    var scelte = [['', 'Come da turno (' + C.STATI_TURNO[tt.base].nome.toLowerCase() + ')'], ['ferie', 'Ferie'], ['salto', 'Salto'], ['straordinario', 'Straordinario'], ['diurno', 'Diurno (cambio)'], ['notte', 'Notte (cambio)'], ['riposo', 'Riposo (cambio)'], ['altro', 'Altro']];
+    var scelte = [['', 'Come da turno (' + C.STATI_TURNO[tt.base].nome.toLowerCase() + (tt.sigla ? ' ' + (tt.fascia === 'notte' ? tt.sigla.toLowerCase() : tt.sigla) : '') + ')'], ['ferie', 'Ferie'], ['salto', 'Salto'], ['straordinario', 'Straordinario'], ['diurno', 'Diurno (cambio)'], ['notte', 'Notte (cambio)'], ['riposo', 'Riposo (cambio)'], ['altro', 'Altro']];
+    var tg = C.turniDelGiorno(data);
     foglio.innerHTML = '<form method="dialog" id="form-giorno-turno"><div class="maniglia"></div><h3 id="foglio-titolo">' + esc(C.etichettaGiorno(data)) + ' · ' + esc(C.testoTurno(tt)) + '</h3><div class="campi">' +
+      '<p class="testo-muto" style="margin:0">In servizio: notte uscente ' + esc(tg.uscente.toLowerCase()) + ', diurno <b>' + esc(tg.giorno) + '</b>, notte <b>' + esc(tg.notte.toLowerCase()) + '</b></p>' +
       '<div class="campo">Cambia questo giorno<div style="display:flex;flex-wrap:wrap;gap:8px">' + scelte.map(function (c) { return '<label class="chip"><input type="radio" name="stato" value="' + c[0] + '"' + (((ecc && ecc.stato) || '') === c[0] ? ' checked' : '') + ' class="sr">' + c[1] + '</label>'; }).join('') + '</div></div>' +
       '<label class="campo">Orario<span class="aiuto">Solo per straordinario, es. 08:00-14:00</span><input type="text" name="orario" value="' + esc((ecc && ecc.orario) || '') + '"></label>' +
       '<label class="campo">Nota<input type="text" name="nota" maxlength="120" value="' + esc((ecc && ecc.nota) || '') + '" placeholder="Es. cambio con Marco"></label>' +
@@ -527,9 +531,9 @@
       var f = e.target, cfg = JSON.parse(JSON.stringify(turni()));
       var orario = function (v, def) { v = v.trim().replace(/\./g, ':').replace(/\s/g, ''); var m = v.match(/^(\d{1,2})(?::(\d{2}))?-(\d{1,2})(?::(\d{2}))?$/); return m ? C.pad(+m[1]) + ':' + (m[2] || '00') + '-' + C.pad(+m[3]) + ':' + (m[4] || '00') : def; };
       cfg.turno = (f.querySelector('input[name=turno]:checked') || {}).value || cfg.turno;
-      cfg.riferimento = f.riferimento.value; cfg.persona = f.persona.value;
+      cfg.saltoturno = f.saltoturno.value ? +f.saltoturno.value : ''; cfg.persona = f.persona.value;
+      delete cfg.riferimento; delete cfg.salto;
       cfg.diurno = orario(f.diurno.value, '08:00-20:00'); cfg.notte = orario(f.notte.value, '20:00-08:00');
-      cfg.salto = { da: f.saltoDa.value, ogni: +f.saltoOgni.value || 0 };
       cfg.attivo = true;
       Store.setSettings({ turni: cfg }); toast('Turnario salvato'); return;
     }

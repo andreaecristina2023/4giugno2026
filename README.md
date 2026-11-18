@@ -46,7 +46,7 @@ Quando cambia `apps-script/Casa.gs` (per esempio per l'album foto):
 
 ## Turni VVF
 
-Calendario → **Turni VVF**: scegli il turno (A, B, C, D) e un giorno qualsiasi in cui fai il diurno; l'app calcola diurno, notte, smonto e riposo. Facoltativi: orari, salto turno (primo salto + ogni quanti giorni). Toccando un giorno lo cambi (ferie, salto, straordinario, cambio turno) con una nota. Il turno di oggi compare nella schermata Oggi e nel widget A&C.
+Calendario → **Turni VVF**: scegli turno (A, B, C, D) e saltoturno (1–8). Il calendario usa la stessa sequenza a 32 giorni di FireOps (`SEQUENZA_TURNI`, riferimento 26/01/2026), verificata identica su 2025–2028: sigla maiuscola = diurno, minuscola = notte (es. B6 / b6). I turni del tuo saltoturno sono segnati come salto. Toccando un giorno lo cambi (ferie, straordinario, cambio turno) con una nota. Il turno di oggi compare nella schermata Oggi e nel widget A&C.
 
 ## Voci
 

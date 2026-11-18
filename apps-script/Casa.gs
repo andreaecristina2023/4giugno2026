@@ -506,29 +506,39 @@ var Casa = (function () {
   }
 
   // ---------- turnario VVF (12/24 - 12/48) ----------
-  // cfg = { attivo, persona, turno:'B', riferimento:'YYYY-MM-DD' (un giorno di DIURNO del proprio turno),
-  //         diurno:'08:00-20:00', notte:'20:00-08:00', salto:{ da:'YYYY-MM-DD', ogni:N giorni }, eccezioni:[{data, stato, nota}] }
+  // Stessa sequenza a 32 giorni di FireOps (fireops-core.js, SEQUENZA_TURNI): per ogni giorno tre fasce
+  // [notte uscente 00-08, diurno 08-20, notte 20-08]; la sigla è squadra + saltoturno (es. "B6").
+  // Riferimento: 26/01/2026 = inizio ciclo.
+  var SEQUENZA_TURNI = ["A4", "C4", "B4", "B4", "D4", "C4", "C4", "A5", "D4", "D4", "B5", "A5", "A5", "C5", "B5", "B5", "D5", "C5", "C5", "A6", "D5", "D5", "B6", "A6", "A6", "C6", "B6", "B6", "D6", "C6", "C6", "A7", "D6", "D6", "B7", "A7", "A7", "C7", "B7", "B7", "D7", "C7", "C7", "A8", "D7", "D7", "B8", "A8", "A8", "C8", "B8", "B8", "D8", "C8", "C8", "A1", "D8", "D8", "B1", "A1", "A1", "C1", "B1", "B1", "D1", "C1", "C1", "A2", "D1", "D1", "B2", "A2", "A2", "C2", "B2", "B2", "D2", "C2", "C2", "A3", "D2", "D2", "B3", "A3", "A3", "C3", "B3", "B3", "D3", "C3", "C3", "A4", "D3", "D3", "B4", "A4"];
+  var RIF_CICLO = '2026-01-26';
+  // cfg = { attivo, persona, turno:'A'..'D', saltoturno:1..8 ('' = non indicato), diurno:'08:00-20:00', notte:'20:00-08:00', eccezioni:[{data, stato, nota, orario}] }
   var STATI_TURNO = {
     diurno:        { nome: 'Diurno',        breve: 'G', colore: '#C98A12', lavoro: true },
     notte:         { nome: 'Notte',         breve: 'N', colore: '#2C3E73', lavoro: true },
     smonto:        { nome: 'Smonto',        breve: 'S', colore: '#8C96A8', lavoro: false },
     riposo:        { nome: 'Riposo',        breve: 'R', colore: '#9AA59C', lavoro: false },
-    salto:         { nome: 'Salto',         breve: 'X', colore: '#3E8E6A', lavoro: false },
+    salto:         { nome: 'Salto turno',   breve: 'X', colore: '#C2338F', lavoro: false },
     ferie:         { nome: 'Ferie',         breve: 'F', colore: '#4BA3C7', lavoro: false },
     straordinario: { nome: 'Straordinario', breve: '+', colore: '#B5452F', lavoro: true },
     altro:         { nome: 'Altro',         breve: '•', colore: '#7A6F9B', lavoro: false }
   };
-  var CICLO = ['diurno', 'notte', 'smonto', 'riposo'];
+  function turniDelGiorno(s) {
+    var k = ((diffGiorni(RIF_CICLO, s) % 32) + 32) % 32;
+    return { uscente: SEQUENZA_TURNI[3 * k], giorno: SEQUENZA_TURNI[3 * k + 1], notte: SEQUENZA_TURNI[3 * k + 2] };
+  }
   function turnoBase(cfg, s) {
-    if (!cfg || !cfg.riferimento) return null;
-    var k = ((diffGiorni(cfg.riferimento, s) % 4) + 4) % 4;
-    return CICLO[k];
+    var L = String(cfg.turno || '').toUpperCase(), t = turniDelGiorno(s), salto = String(cfg.saltoturno || '');
+    var mio = function (sig) { return sig.charAt(0) === L; };
+    var eSalto = function (sig) { return salto && sig.slice(1) === salto; };
+    if (mio(t.giorno)) return { stato: eSalto(t.giorno) ? 'salto' : 'diurno', sigla: t.giorno, fascia: 'diurno' };
+    if (mio(t.notte)) return { stato: eSalto(t.notte) ? 'salto' : 'notte', sigla: t.notte, fascia: 'notte' };
+    var ieri = turniDelGiorno(addGiorni(s, -1));
+    if (mio(ieri.notte)) return { stato: eSalto(ieri.notte) ? 'riposo' : 'smonto', sigla: '' };
+    return { stato: 'riposo', sigla: '' };
   }
   function turnoDel(cfg, s) {
-    if (!cfg || cfg.attivo === false || !cfg.riferimento) return null;
-    var base = turnoBase(cfg, s), out = { data: s, stato: base, base: base, nota: '' };
-    var sl = cfg.salto || {};
-    if (sl.da && +sl.ogni > 0 && s >= sl.da && diffGiorni(sl.da, s) % +sl.ogni === 0) { out.stato = 'salto'; out.nota = 'Salto turno'; }
+    if (!cfg || !cfg.attivo || !cfg.turno) return null;
+    var b = turnoBase(cfg, s), out = { data: s, stato: b.stato, base: b.stato, sigla: b.sigla, fascia: b.fascia || '', nota: b.stato === 'salto' ? 'Saltoturno ' + cfg.saltoturno : '' };
     var ecc = (cfg.eccezioni || []).filter(function (e) { return e.data === s; })[0];
     if (ecc) { out.stato = ecc.stato; out.nota = ecc.nota || ''; out.modificato = true; }
     var orari = { diurno: cfg.diurno || '08:00-20:00', notte: cfg.notte || '20:00-08:00' };
@@ -645,7 +655,7 @@ var Casa = (function () {
 
   return {
     GIORNI: GIORNI, GIORNI_LUNGHI: GIORNI_LUNGHI, MESI: MESI, FRAZIONI: FRAZIONI, TIPI: TIPI, UNITA: UNITA, UNITA_RIPETI: UNITA_RIPETI, UNITA_AVVISO: UNITA_AVVISO,
-    STATI_TURNO: STATI_TURNO, turnoDel: turnoDel, testoTurno: testoTurno,
+    STATI_TURNO: STATI_TURNO, turnoDel: turnoDel, testoTurno: testoTurno, turniDelGiorno: turniDelGiorno,
     leggiDurata: leggiDurata, testoDurata: testoDurata, nomeRipeti: nomeRipeti, volteAnno: volteAnno, anticipoMinuti: anticipoMinuti,
     iso: iso, parse: parse, oggi: oggi, addGiorni: addGiorni, addMesi: addMesi, diffGiorni: diffGiorni,
     giornoSett: giornoSett, settimanaDelMese: settimanaDelMese, etichettaGiorno: etichettaGiorno, dataBreve: dataBreve,
