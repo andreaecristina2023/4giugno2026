@@ -183,6 +183,43 @@ var Casa = (function () {
     return out;
   }
 
+  // ---------- turnario VVF (12/24 - 12/48) ----------
+  // cfg = { attivo, persona, turno:'B', riferimento:'YYYY-MM-DD' (un giorno di DIURNO del proprio turno),
+  //         diurno:'08:00-20:00', notte:'20:00-08:00', salto:{ da:'YYYY-MM-DD', ogni:N giorni }, eccezioni:[{data, stato, nota}] }
+  var STATI_TURNO = {
+    diurno:        { nome: 'Diurno',        breve: 'G', colore: '#C98A12', lavoro: true },
+    notte:         { nome: 'Notte',         breve: 'N', colore: '#2C3E73', lavoro: true },
+    smonto:        { nome: 'Smonto',        breve: 'S', colore: '#8C96A8', lavoro: false },
+    riposo:        { nome: 'Riposo',        breve: 'R', colore: '#9AA59C', lavoro: false },
+    salto:         { nome: 'Salto',         breve: 'X', colore: '#3E8E6A', lavoro: false },
+    ferie:         { nome: 'Ferie',         breve: 'F', colore: '#4BA3C7', lavoro: false },
+    straordinario: { nome: 'Straordinario', breve: '+', colore: '#B5452F', lavoro: true },
+    altro:         { nome: 'Altro',         breve: '•', colore: '#7A6F9B', lavoro: false }
+  };
+  var CICLO = ['diurno', 'notte', 'smonto', 'riposo'];
+  function turnoBase(cfg, s) {
+    if (!cfg || !cfg.riferimento) return null;
+    var k = ((diffGiorni(cfg.riferimento, s) % 4) + 4) % 4;
+    return CICLO[k];
+  }
+  function turnoDel(cfg, s) {
+    if (!cfg || cfg.attivo === false || !cfg.riferimento) return null;
+    var base = turnoBase(cfg, s), out = { data: s, stato: base, base: base, nota: '' };
+    var sl = cfg.salto || {};
+    if (sl.da && +sl.ogni > 0 && s >= sl.da && diffGiorni(sl.da, s) % +sl.ogni === 0) { out.stato = 'salto'; out.nota = 'Salto turno'; }
+    var ecc = (cfg.eccezioni || []).filter(function (e) { return e.data === s; })[0];
+    if (ecc) { out.stato = ecc.stato; out.nota = ecc.nota || ''; out.modificato = true; }
+    var orari = { diurno: cfg.diurno || '08:00-20:00', notte: cfg.notte || '20:00-08:00' };
+    out.orario = orari[out.stato] || (out.stato === 'straordinario' && ecc && ecc.orario) || '';
+    return out;
+  }
+  function oreBrevi(o) { return String(o || '').split('-').map(function (x) { var p = x.split(':'); return +p[0] + (p[1] && p[1] !== '00' ? ':' + p[1] : ''); }).join('–'); }
+  function testoTurno(t) {
+    if (!t) return '';
+    var st = STATI_TURNO[t.stato] || STATI_TURNO.altro;
+    return st.nome + (t.orario ? ' ' + oreBrevi(t.orario) : '');
+  }
+
   // ---------- voci (appuntamenti, pagamenti, scadenze, promemoria) ----------
   function occorrenze(item, da, a) {
     if (!item || item.eliminato || !item.data) return [];
@@ -286,6 +323,7 @@ var Casa = (function () {
 
   return {
     GIORNI: GIORNI, GIORNI_LUNGHI: GIORNI_LUNGHI, MESI: MESI, FRAZIONI: FRAZIONI, TIPI: TIPI, UNITA: UNITA, UNITA_RIPETI: UNITA_RIPETI, UNITA_AVVISO: UNITA_AVVISO,
+    STATI_TURNO: STATI_TURNO, turnoDel: turnoDel, testoTurno: testoTurno,
     leggiDurata: leggiDurata, testoDurata: testoDurata, nomeRipeti: nomeRipeti, volteAnno: volteAnno, anticipoMinuti: anticipoMinuti,
     iso: iso, parse: parse, oggi: oggi, addGiorni: addGiorni, addMesi: addMesi, diffGiorni: diffGiorni,
     giornoSett: giornoSett, settimanaDelMese: settimanaDelMese, etichettaGiorno: etichettaGiorno, dataBreve: dataBreve,

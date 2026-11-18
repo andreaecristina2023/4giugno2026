@@ -217,3 +217,19 @@ dialog.foglio.visore { max-width: 100vw; width: 100vw; height: 100vh; max-height
 .qr-video { position: relative; border-radius: 18px; overflow: hidden; background: #000; aspect-ratio: 1; max-width: 360px; margin: 0 auto 12px; }
 .qr-video video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .mirino { position: absolute; inset: 18%; border: 3px solid rgba(255,255,255,.85); border-radius: 18px; box-shadow: 0 0 0 999px rgba(0,0,0,.35); }
+
+/* ---------- turni ---------- */
+.cella { position: relative; }
+.badge-turno { position: absolute; top: 3px; right: 4px; font-size: 10px; font-weight: 700; line-height: 1; color: #fff; background: var(--c); border-radius: 4px; padding: 2px 3px; }
+.griglia.turni .cella { grid-template-rows: 1fr auto; }
+.griglia.turni .cella.piena { background: var(--c); color: #fff; }
+.griglia.turni .cella.piena .n { color: #fff; }
+.griglia.turni .cella.oggi .n { background: #fff; color: var(--inchiostro); }
+.griglia.turni .cella.modificata { outline: 2px dashed var(--inchiostro); outline-offset: -3px; }
+.griglia.turni .sigla { font-family: var(--titolo); font-weight: 800; font-size: 13px; opacity: .9; }
+.griglia.turni .cella:not(.piena) .sigla { color: var(--muschio); }
+.legenda { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-size: 14px; color: var(--muschio); }
+.legenda i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; background: var(--c); margin-right: 5px; vertical-align: -1px; }
+label.chip { position: relative; }
+label.chip:has(input:checked) { border-color: var(--inchiostro); background: var(--inchiostro); color: var(--intonaco); }
+label.chip:focus-within { outline: 3px solid var(--ardesia); outline-offset: 2px; }

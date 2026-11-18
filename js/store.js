@@ -17,6 +17,7 @@ var Store = (function () {
   var DEFAULT_SETTINGS = {
     aggiornato: 0,
     rifiuti: { attivo: true, zona: '', oraAvviso: '20:00', festivita: true, regole: [], eccezioni: [] },
+    turni: { attivo: false, persona: 'Andrea', turno: 'B', riferimento: '', diurno: '08:00-20:00', notte: '20:00-08:00', salto: { da: '', ogni: 0 }, eccezioni: [] },
     persone: ['Andrea', 'Cristina'],
     categorie: ['Casa', 'Bollette', 'Condominio', 'Bollo auto/moto', 'Assicurazione', 'Revisione', 'Auto', 'Salute', 'Tasse', 'Banca', 'Altro']
   };

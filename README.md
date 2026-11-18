@@ -10,7 +10,7 @@ Sito e app Android per la casa di Fratta Terme: bidoni della raccolta Alea, paga
 | Sezione | A cosa serve |
 |---|---|
 | Oggi | Quali bidoni portare fuori stasera, voci scadute, prossimi 7 giorni |
-| Calendario | Mese con pallini colorati (bidoni, appuntamenti, pagamenti) |
+| Calendario | Mese con pallini colorati (bidoni, appuntamenti, pagamenti); scheda **Turni VVF** con il turnario 12/24 – 12/48 |
 | Conti | Da pagare, scaduti, pagati, spese ricorrenti con stima annua |
 | Rifiuti | Zona Alea, giorni di ritiro, recuperi per festività, variazioni |
 | Album | Foto di casa, salvate nel Google Drive (cartella "A&C Album") |
@@ -43,6 +43,10 @@ Quando cambia `apps-script/Casa.gs` (per esempio per l'album foto):
 1. Apri lo script (script.google.com, progetto della casa), seleziona tutto il codice e incolla la versione nuova di [`Casa.gs`](https://raw.githubusercontent.com/andreaecristina2023/4giugno2026/main/apps-script/Casa.gs). Salva.
 2. Scegli `setup` → **Esegui**: Google chiede i permessi nuovi (per l'album, l'accesso a Drive). La chiave resta la stessa.
 3. **Esegui il deployment → Gestisci deployment → matita → Versione: Nuova versione → Esegui il deployment**. L'URL `/exec` non cambia.
+
+## Turni VVF
+
+Calendario → **Turni VVF**: scegli il turno (A, B, C, D) e un giorno qualsiasi in cui fai il diurno; l'app calcola diurno, notte, smonto e riposo. Facoltativi: orari, salto turno (primo salto + ogni quanti giorni). Toccando un giorno lo cambi (ferie, salto, straordinario, cambio turno) con una nota. Il turno di oggi compare nella schermata Oggi e nel widget A&C.
 
 ## Voci
 
