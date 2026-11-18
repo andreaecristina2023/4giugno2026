@@ -13,7 +13,7 @@ Sito e app Android per la casa di Fratta Terme: bidoni della raccolta Alea, paga
 | Calendario | Mese con pallini colorati (bidoni, appuntamenti, pagamenti); scheda **Turni VVF** con il turnario 12/24 – 12/48 |
 | Conti | Da pagare, scaduti, pagati, spese ricorrenti con stima annua |
 | Rifiuti | Zona Alea, giorni di ritiro, recuperi per festività, variazioni |
-| Album | Foto di casa (carosello che scorre da solo + griglia per mese, presentazione a schermo intero), salvate nel Google Drive (cartella "A&C Album") |
+| Album | Foto di casa (carosello di foto a caso che scorre da solo + griglia per mese, presentazione a schermo intero), salvate nel Google Drive (cartella "A&C Album") |
 | Altro | Chi usa il telefono, collegamento al foglio, QR code per l'altro telefono, notifiche, backup |
 
 Le festività seguono le regole dell'Eco-Calendario Alea: un ritiro che cade di festa si sposta al sabato prima (lun–mer) o al sabato dopo (gio–ven); se cade di sabato salta. Pasquetta è calcolata in automatico. Per i casi particolari annunciati da Alea c'è "Aggiungi una variazione".
@@ -50,13 +50,14 @@ Calendario → **Turni VVF**: scegli turno (A, B, C, D) e saltoturno (1–8). Il
 
 ## Voci
 
-Ripeti e avviso hanno le unità di misura: minuti, ore, giorni, settimane, mesi, anni (la ripetizione va da giorni ad anni). Le categorie Bollo auto/moto, Assicurazione e Revisione mostrano il campo **Targa** e propongono da sole la ripetizione (1 anno, revisione 2 anni). C'è anche la categoria Condominio.
+Ripeti e avviso hanno le unità di misura: minuti, ore, giorni, settimane, mesi, anni (la ripetizione va da giorni ad anni). Le categorie Bollo auto/moto, Assicurazione e Revisione mostrano il campo **Targa** e propongono da sole la ripetizione (1 anno, revisione 2 anni). Ci sono anche le categorie Condominio e Viaggi.
 
 ## 3. Promemoria
 
 **App Android** — le notifiche vere: la sera prima dei ritiri all'ora scelta (predefinita 20:00), i pagamenti 2 giorni prima e il giorno stesso alle 9, gli appuntamenti con l'anticipo scelto. L'app programma i prossimi 21 giorni ogni volta che la apri o che cambia qualcosa, quindi aprila almeno ogni tanto. Ci sono due **widget**: tieni premuto sulla home → Widget → A&C.
 - **A&C**: prossime cose da fare (bidoni, pagamenti, appuntamenti).
-- **A&C Rifiuti**: sfondo trasparente, solo i bidoni colorati di stasera (o del prossimo ritiro). È dichiarato anche per la schermata di blocco, ma Android lo permette solo su alcuni telefoni: sui Samsung la schermata di blocco accetta solo widget approvati da Samsung (o tramite Good Lock). La notifica delle 20 compare comunque sulla schermata di blocco.
+- **A&C Rifiuti**: sfondo trasparente, una riga sola: scritta a sinistra e bidoni colorati di stasera (o del prossimo ritiro) a destra.
+- **A&C Foto**: 12 foto a caso dall'album che cambiano da sole ogni 7 secondi; la scelta si rinnova ogni giorno e dopo ogni caricamento. È dichiarato anche per la schermata di blocco, ma Android lo permette solo su alcuni telefoni: sui Samsung la schermata di blocco accetta solo widget approvati da Samsung (o tramite Good Lock). La notifica delle 20 compare comunque sulla schermata di blocco.
 
 **Bot Telegram** (facoltativo, funziona anche ad app chiusa e per tutti e due):
 

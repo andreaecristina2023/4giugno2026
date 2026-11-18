@@ -112,9 +112,24 @@ var Native = (function () {
     try { new Notification('A&C · Stasera fuori: ' + Casa.nomiFrazioni(dom.frazioni), { body: 'Ritiro domani mattina', icon: 'icons/icon-192.png' }); localStorage.setItem(chiave, '1'); } catch (e) { /* alcuni browser richiedono il service worker */ }
   }
 
+  // Widget "A&C Foto": 12 foto a caso, rinnovate una volta al giorno (o dopo un caricamento)
+  var fotoInCorso = false;
+  function aggiornaFoto(forza) {
+    if (!isApp || fotoInCorso || !window.Album || !Album.numero() || !Store.configurato()) return Promise.resolve();
+    var chiave = 'aec.widgetFoto', oggi = Casa.oggi();
+    try { if (!forza && localStorage.getItem(chiave) === oggi) return Promise.resolve(); } catch (e) { /* niente */ }
+    fotoInCorso = true;
+    return Album.perWidget(12).then(function (lista) {
+      if (!lista.length) return null;
+      return lista.reduce(function (p, x) { return p.then(function () { return Widget.salvaFoto(x); }); }, Promise.resolve())
+        .then(function () { return Widget.impostaFoto({ nomi: lista.map(function (x) { return x.nome; }) }); })
+        .then(function () { try { localStorage.setItem(chiave, oggi); } catch (e) { /* niente */ } });
+    }).catch(function (e) { console.warn('Widget foto non aggiornato', e); }).then(function () { fotoInCorso = false; });
+  }
+
   function aggiorna(items, cfgRifiuti) {
     return Promise.all([programma(items, cfgRifiuti), aggiornaWidget(items, cfgRifiuti)]).then(function (r) { avvisoBrowser(items, cfgRifiuti); return r[0]; });
   }
 
-  return { isApp: isApp, permesso: permesso, aggiorna: aggiorna, creaCanale: creaCanale };
+  return { isApp: isApp, permesso: permesso, aggiorna: aggiorna, creaCanale: creaCanale, aggiornaFoto: aggiornaFoto };
 })();

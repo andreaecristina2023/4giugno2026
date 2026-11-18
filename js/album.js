@@ -52,6 +52,7 @@ var Album = (function () {
       foto = (r.foto || []).sort(function (a, b) { return a.data < b.data ? 1 : a.data > b.data ? -1 : b.aggiornato - a.aggiornato; });
       try { localStorage.setItem(LISTA, JSON.stringify(foto)); } catch (e) { /* pieno */ }
       stato.errore = '';
+      if (window.Native && Native.aggiornaFoto) setTimeout(function () { Native.aggiornaFoto(); }, 1500);
       return caricaMini();
     }).catch(function (e) { stato.errore = e.message === 'Failed to fetch' ? 'Senza rete: vedi le foto già scaricate.' : e.message; })
       .then(function () { stato.carico = false; ui.ridisegna(); });
@@ -116,6 +117,7 @@ var Album = (function () {
       });
     }, Promise.resolve()).then(function () {
       ui.toast(stato.caricamenti === 1 ? 'Foto caricata' : stato.caricamenti + ' foto caricate');
+      if (window.Native && Native.aggiornaFoto) Native.aggiornaFoto(true);
       stato.caricamenti = 0; stato.totale = 0; ui.ridisegna();
     });
   }
@@ -128,13 +130,46 @@ var Album = (function () {
     }).then(function (b) { if (!b) return null; grandi[id] = URL.createObjectURL(b); return grandi[id]; }).catch(function () { return null; });
   }
 
+  // ---------- foto per il widget Android "A&C Foto" ----------
+  function blobPer(id) {
+    return leggiCache('grande', id).then(function (b) {
+      if (b) return b;
+      return Store.chiama('foto_grande', { id: id }).then(function (r) { if (!r.grande) return null; var bl = b64aBlob(r.grande); scriviCache('grande', id, bl); return bl; }).catch(function () { return null; });
+    }).then(function (b) { return b || leggiCache('mini', id); });
+  }
+  function perWidget(n) {
+    return mescola(foto).slice(0, n).reduce(function (p, f) {
+      return p.then(function (acc) {
+        return blobPer(f.id).then(function (b) {
+          if (!b) return acc;
+          return caricaImmagine(b).then(function (img) { acc.push({ nome: f.id, dati: riduci(img, 900, 0.8).b64 }); return acc; }).catch(function () { return acc; });
+        });
+      });
+    }, Promise.resolve([]));
+  }
+
   // ---------- carosello ----------
   var N_CAROSELLO = 15;
+  // foto scelte a caso, una volta per apertura dell'app (non cambiano a ogni ridisegno)
+  var scelta = { firma: '', lista: [] };
+  function mescola(arr) { arr = arr.slice(); for (var i = arr.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = arr[i]; arr[i] = arr[j]; arr[j] = t; } return arr; }
+  function fotoCarosello() {
+    var firma = foto.map(function (f) { return f.id; }).sort().join(',');
+    if (firma !== scelta.firma) {
+      var vecchie = scelta.lista.filter(function (f) { return firma.indexOf(f.id) >= 0; }).map(function (f) { return f.id; });
+      var perId = {}; foto.forEach(function (f) { perId[f.id] = f; });
+      // tiene quelle già in giro (con i dati aggiornati) e aggiunge a caso le altre
+      var lista = vecchie.map(function (id) { return perId[id]; }).filter(Boolean);
+      mescola(foto.filter(function (f) { return vecchie.indexOf(f.id) < 0; })).forEach(function (f) { if (lista.length < N_CAROSELLO) lista.push(f); });
+      scelta = { firma: firma, lista: scelta.lista.length ? lista : mescola(foto).slice(0, N_CAROSELLO) };
+    }
+    return scelta.lista;
+  }
   function htmlCarosello() {
-    var esc = ui.esc, lista = foto.slice(0, N_CAROSELLO);
+    var esc = ui.esc, lista = fotoCarosello();
     if (!lista.length) return '';
     if (car.indice >= lista.length) car.indice = 0;
-    return '<section class="carosello" aria-roledescription="carosello" aria-label="Foto più recenti"><div class="car-pista">' +
+    return '<section class="carosello" aria-roledescription="carosello" aria-label="Foto a caso dall\'album"><div class="car-pista">' +
       lista.map(function (f, k) {
         var src = grandi[f.id] || mini[f.id];
         return '<button type="button" class="car-slide" data-foto="' + esc(f.id) + '" aria-label="Foto ' + (k + 1) + ' di ' + lista.length + (f.didascalia ? ': ' + esc(f.didascalia) : '') + '">' +
@@ -152,7 +187,7 @@ var Album = (function () {
     caricaVicine();
   }
   function caricaVicine() {
-    var lista = foto.slice(0, N_CAROSELLO);
+    var lista = fotoCarosello();
     [car.indice, (car.indice + 1) % lista.length].forEach(function (k) {
       var f = lista[k]; if (!f || grandi[f.id]) return;
       grandeUrl(f.id).then(function (u) {
@@ -270,7 +305,7 @@ var Album = (function () {
 
   return {
     init: function (u) { ui = u; ui.foglio.addEventListener('close', function () { ui.foglio.classList.remove('visore'); }); },
-    html: html, monta: monta, aggiorna: aggiorna, carica: carica, apri: apri,
+    html: html, monta: monta, aggiorna: aggiorna, carica: carica, apri: apri, perWidget: perWidget,
     numero: function () { return foto.length; }
   };
 })();

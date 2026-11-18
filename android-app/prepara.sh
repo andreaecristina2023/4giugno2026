@@ -38,6 +38,13 @@ if 'CasaWidget' not in s:
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_rifiuti_info" />
         </receiver>
+        <receiver android:name=".FotoWidget" android:exported="false" android:label="A&amp;C Foto">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_foto_info" />
+        </receiver>
+        <service android:name=".FotoWidgetService" android:exported="false" android:permission="android.permission.BIND_REMOTEVIEWS" />
     </application>'''
     s = s.replace('</application>', ricevitore, 1)
 permessi = [

@@ -628,6 +628,8 @@
   }
   disegna();
   Store.sync();
+  // nell'app: carico l'elenco dell'album all'avvio, così il widget foto si aggiorna anche senza aprire l'album
+  if (Native.isApp && Store.configurato()) setTimeout(function () { Album.aggiorna(); }, 4000);
   setInterval(function () { if (document.visibilityState === 'visible') Store.sync(); }, 5 * 60 * 1000);
   // ridisegna al cambio di giorno (app aperta a mezzanotte)
   var giorno = C.oggi();
