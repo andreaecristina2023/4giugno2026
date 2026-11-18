@@ -235,6 +235,7 @@ var Viaggi = (function () {
   }
 
   // ---------- moduli (foglio a scorrimento) ----------
+  var COLORI_ETICHETTA = ['', '#2F6DB5', '#2E8B57', '#E3B505', '#D7263D', '#8A5A2B', '#7D4FA8', '#C2338F', '#1E7F8C'];
   function campoHtml(c, val) {
     var esc = ui.esc, nome = c[0], et = c[1], tipo = c[2], extra = c[3];
     if (tipo === 'textarea') return '<label class="campo">' + et + '<textarea name="' + nome + '" maxlength="2000">' + esc(val || '') + '</textarea></label>';
@@ -242,6 +243,7 @@ var Viaggi = (function () {
       var op = tipo === 'persone' ? [''].concat(Store.settings().persone) : extra;
       return '<label class="campo">' + et + '<select name="' + nome + '">' + op.map(function (o) { return '<option value="' + esc(o) + '"' + (o === (val || '') ? ' selected' : '') + '>' + (o ? esc(o) : 'Tutti e due') + '</option>'; }).join('') + '</select></label>';
     }
+    if (tipo === 'colore') return '<fieldset class="campo colore-campo"><legend>' + et + '</legend><div class="colori">' + COLORI_ETICHETTA.map(function (c) { return '<label class="colore-pallino" style="--c:' + (c || '#8A9A90') + '"><input type="radio" name="' + nome + '" value="' + c + '"' + ((val || '') === c ? ' checked' : '') + '><span>' + (c ? '' : 'Auto') + '</span></label>'; }).join('') + '</div></fieldset>';
     var num = tipo === 'number' ? ' step="0.01" min="0" inputmode="decimal"' : '';
     return '<label class="campo">' + et + '<input type="' + tipo + '" name="' + nome + '" value="' + esc(val == null ? '' : val) + '"' + num + (extra === true ? ' required' : '') + (typeof extra === 'string' ? ' placeholder="' + esc(extra) + '"' : '') + '></label>';
   }
@@ -273,7 +275,7 @@ var Viaggi = (function () {
     return f;
   }
 
-  var CAMPI_VIAGGIO = [['titolo', 'Destinazione', 'text', true], ['data', 'Partenza', 'date', true], ['fine', 'Rientro', 'date'], ['chi', 'Chi parte', 'persone'], ['note', 'Note', 'textarea']];
+  var CAMPI_VIAGGIO = [['titolo', 'Destinazione', 'text', true], ['data', 'Partenza', 'date', true], ['fine', 'Rientro', 'date'], ['chi', 'Chi parte', 'persone'], ['colore', 'Colore etichetta', 'colore'], ['note', 'Note', 'textarea']];
   function apriViaggio(id) {
     var v = id ? JSON.parse(JSON.stringify(Store.get(id))) : { tipo: 'viaggio', titolo: '', data: C.oggi(), fine: '', voli: [], hotel: [], documenti: [] };
     modulo(id ? 'Modifica viaggio' : 'Nuovo viaggio', CAMPI_VIAGGIO, v, {
@@ -311,7 +313,7 @@ var Viaggi = (function () {
 
   // ---------- CONCERTI ----------
   var CAMPI_CONCERTO = [['titolo', 'Cantante o band', 'text', true], ['data', 'Data', 'date', true], ['ora', 'Ora', 'time'], ['luogo', 'Luogo', 'text', 'Es. Autodromo di Imola'],
-    ['importo', 'Prezzo totale €', 'number'], ['chi', 'Chi va', 'persone'], ['note', 'Note', 'textarea']];
+    ['importo', 'Prezzo totale €', 'number'], ['chi', 'Chi va', 'persone'], ['prenotazione', 'Numero di prenotazione', 'text'], ['colore', 'Colore etichetta', 'colore'], ['note', 'Note', 'textarea']];
   function apriConcerto(id) {
     var c = id ? JSON.parse(JSON.stringify(Store.get(id))) : { id: C.nuovoId(), tipo: 'concerto', titolo: '', data: C.oggi(), ora: '21:00', biglietti: [] };
     var nuovi = []; // allegati caricati in questa finestra (da cancellare se si annulla un concerto nuovo)
@@ -355,7 +357,7 @@ var Viaggi = (function () {
       var d = C.parse(c.data), n = (c.biglietti || []).length, q = quanto(c.data, c.data);
       return '<div class="card-concerto"><button type="button" class="cc-data" data-modifica-concerto="' + esc(c.id) + '"><b>' + d.getDate() + '</b><span>' + C.MESI[d.getMonth()].slice(0, 3) + '</span><small>' + d.getFullYear() + '</small></button>' +
         '<button type="button" class="cc-corpo" data-modifica-concerto="' + esc(c.id) + '"><span class="cc-artista">' + esc(c.titolo) + '</span>' +
-        '<span class="cc-meta">' + esc([C.GIORNI_LUNGHI[d.getDay()], c.ora, c.luogo].filter(Boolean).join(' · ')) + '</span>' +
+        '<span class="cc-meta">' + esc([C.GIORNI_LUNGHI[d.getDay()], c.ora, c.luogo, c.prenotazione ? 'Prenotazione ' + c.prenotazione : ''].filter(Boolean).join(' · ')) + '</span>' +
         '<span class="cc-meta">' + (c.data >= oggi ? '<span class="cv-quando ' + q.classe + '">' + (c.data === oggi ? 'Stasera' : q.testo) + '</span>' : '') + (c.importo ? ' ' + C.euro(c.importo) : '') + (c.chi ? ' · ' + esc(c.chi) : '') + '</span></button>' +
         (n ? '<button type="button" class="cc-biglietti" data-apri-allegato="' + esc(c.biglietti[0].id) + '" data-nome="' + esc(c.biglietti[0].nome) + '" data-mime="' + esc(c.biglietti[0].mime || '') + '">🎟<small>' + n + '</small></button>' : '') + '</div>' +
         (n > 1 ? '<div class="cc-altri">' + htmlAllegati(c.biglietti, c.id + '||', 'Allega').replace(/<label class="allega">[\s\S]*<\/label>/, '') + '</div>' : '');

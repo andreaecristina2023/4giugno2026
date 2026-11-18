@@ -71,7 +71,7 @@
       meta.push('Concerto');
     }
     var corpo = '<span class="titolo">' + esc(titolo) + '</span><span class="meta">' + esc(meta.join(' · ')) + '</span>';
-    return '<li class="riga" style="--c:' + COLORE_TIPO[x.tipo] + '"><span class="barra"></span>' +
+    return '<li class="riga" style="--c:' + (it.colore || COLORE_TIPO[x.tipo]) + '"><span class="barra"></span>' +
       (href ? '<a class="corpo-riga" href="' + href + '" style="text-decoration:none;color:inherit">' + corpo + '</a>' : '<button class="corpo-riga" type="button" data-modifica-concerto="' + esc(it.id) + '">' + corpo + '</button>') +
       '<span class="destra">' + destra + '</span></li>';
   }
