@@ -26,7 +26,7 @@ p = 'android/app/src/main/AndroidManifest.xml'
 s = open(p, encoding='utf-8').read()
 if 'CasaWidget' not in s:
     ricevitore = '''
-        <receiver android:name=".CasaWidget" android:exported="false" android:label="Casa">
+        <receiver android:name=".CasaWidget" android:exported="false" android:label="A&amp;C">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>

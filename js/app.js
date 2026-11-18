@@ -76,7 +76,7 @@
     var cfg = rifiuti();
     var domani = C.addGiorni(oggi, 1);
     var ritDomani = C.ritiri(cfg, domani), ritOggi = C.ritiri(cfg, oggi);
-    var h = testata('Casa', C.etichettaGiorno(oggi, '1900-01-01'));
+    var h = testata('A&C', C.etichettaGiorno(oggi, '1900-01-01'));
 
     h += '<section class="stasera" aria-labelledby="stasera-t">';
     if (!cfg.regole.length) {
@@ -361,7 +361,7 @@
     else if (d.azione === 'permesso') Native.permesso().then(function (p) { toast(p === 'granted' ? 'Notifiche attive' : 'Notifiche non concesse: abilitale dalle impostazioni del telefono'); });
     else if (d.azione === 'esporta') {
       var blob = new Blob([Store.esporta()], { type: 'application/json' });
-      var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'casa-backup-' + C.oggi() + '.json'; a.click();
+      var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'AeC-backup-' + C.oggi() + '.json'; a.click();
       setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
     }
   });
@@ -370,7 +370,7 @@
     if (d.rif) salvaRifiuti(function (cfg) { cfg[d.rif] = d.rif === 'festivita' ? t.value === '1' : t.value; });
     else if (d.reg && d.campo === 'giorno') salvaRifiuti(function (cfg) { cfg.regole[+d.reg].giorno = +t.value; });
     else if (d.azione === 'importa' && t.files[0]) {
-      t.files[0].text().then(function (txt) { try { toast('Importate ' + Store.importa(txt) + ' voci'); } catch (err) { toast('File non valido: serve un backup esportato da Casa'); } });
+      t.files[0].text().then(function (txt) { try { toast('Importate ' + Store.importa(txt) + ' voci'); } catch (err) { toast('File non valido: serve un backup esportato da A&C'); } });
     }
   });
   var SITO = 'https://andreaecristina2023.github.io/4giugno2026/';
@@ -406,7 +406,7 @@
   });
   vista.addEventListener('click', function (e) {
     var t = e.target.closest('[data-azione]'); if (!t) return;
-    if (t.dataset.azione === 'condividi-link') navigator.share({ title: 'Casa', text: 'Apri questo link per collegare il telefono ai dati di casa', url: linkCollegamento() }).catch(function () {});
+    if (t.dataset.azione === 'condividi-link') navigator.share({ title: 'A&C', text: 'Apri questo link per collegare il telefono ai dati di casa', url: linkCollegamento() }).catch(function () {});
     else if (t.dataset.azione === 'copia-link') {
       var l = linkCollegamento();
       (navigator.clipboard ? navigator.clipboard.writeText(l) : Promise.reject()).then(function () { toast('Link copiato: incollalo su WhatsApp'); })

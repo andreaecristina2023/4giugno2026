@@ -1,6 +1,6 @@
 {
   "appId": "it.andreaecristina.casa",
-  "appName": "Casa",
+  "appName": "A&C",
   "webDir": "www",
   "android": { "allowMixedContent": false },
   "plugins": {

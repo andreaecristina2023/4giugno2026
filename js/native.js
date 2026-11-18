@@ -95,7 +95,7 @@ var Native = (function () {
     try { if (localStorage.getItem(chiave)) return; } catch (e) { return; }
     var dom = Casa.ritiri(cfgRifiuti, Casa.addGiorni(Casa.oggi(), 1));
     if (!dom.frazioni.length || new Date().getHours() < 17) return;
-    try { new Notification('Stasera fuori: ' + Casa.nomiFrazioni(dom.frazioni), { body: 'Ritiro domani mattina', icon: 'icons/icon-192.png' }); localStorage.setItem(chiave, '1'); } catch (e) { /* alcuni browser richiedono il service worker */ }
+    try { new Notification('A&C · Stasera fuori: ' + Casa.nomiFrazioni(dom.frazioni), { body: 'Ritiro domani mattina', icon: 'icons/icon-192.png' }); localStorage.setItem(chiave, '1'); } catch (e) { /* alcuni browser richiedono il service worker */ }
   }
 
   function aggiorna(items, cfgRifiuti) {

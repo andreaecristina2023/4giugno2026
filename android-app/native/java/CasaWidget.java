@@ -69,7 +69,7 @@ public class CasaWidget extends AppWidgetProvider {
 
         Calendar c = Calendar.getInstance();
         String oggi = iso(c);
-        v.setTextViewText(R.id.widget_titolo, "Casa · " + GIORNI[c.get(Calendar.DAY_OF_WEEK) - 1] + " " + c.get(Calendar.DAY_OF_MONTH) + " " + MESI[c.get(Calendar.MONTH)]);
+        v.setTextViewText(R.id.widget_titolo, "A&C · " + GIORNI[c.get(Calendar.DAY_OF_WEEK) - 1] + " " + c.get(Calendar.DAY_OF_MONTH) + " " + MESI[c.get(Calendar.MONTH)]);
         c.add(Calendar.DAY_OF_MONTH, 1);
         String domani = iso(c);
 

@@ -1,4 +1,4 @@
-# Casa · Andrea e Cristina
+# A&C · Andrea e Cristina
 
 Sito e app Android per la casa di Fratta Terme: bidoni della raccolta Alea, pagamenti, scadenze, appuntamenti e promemoria. I dati sono condivisi tra i due telefoni tramite un Google Sheet.
 
@@ -37,7 +37,7 @@ Se modifichi lo script dopo, ricorda **Distribuisci → Gestisci distribuzioni �
 
 ## 3. Promemoria
 
-**App Android** — le notifiche vere: la sera prima dei ritiri all'ora scelta (predefinita 20:00), i pagamenti 2 giorni prima e il giorno stesso alle 9, gli appuntamenti con l'anticipo scelto. L'app programma i prossimi 21 giorni ogni volta che la apri o che cambia qualcosa, quindi aprila almeno ogni tanto. C'è anche il **widget** per la home: tieni premuto sulla home → Widget → Casa.
+**App Android** — le notifiche vere: la sera prima dei ritiri all'ora scelta (predefinita 20:00), i pagamenti 2 giorni prima e il giorno stesso alle 9, gli appuntamenti con l'anticipo scelto. L'app programma i prossimi 21 giorni ogni volta che la apri o che cambia qualcosa, quindi aprila almeno ogni tanto. C'è anche il **widget** per la home: tieni premuto sulla home → Widget → A&C.
 
 **Bot Telegram** (facoltativo, funziona anche ad app chiusa e per tutti e due):
 
