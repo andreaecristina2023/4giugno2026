@@ -225,6 +225,7 @@ var Viaggi = (function () {
     var h = '<a class="indietro" href="#viaggi">‹ Viaggi</a>' +
       '<header class="testa-viaggio"><h1>' + esc(v.titolo) + '</h1><p>' + esc(intervallo(v.data, v.fine)) + ' · <span class="cv-quando ' + q.classe + '">' + q.testo + '</span>' + (v.chi ? ' · ' + esc(v.chi) : '') + '</p>' +
       '<div class="azioni"><button class="btn piccolo secondario" type="button" data-modifica-viaggio="' + esc(v.id) + '">Modifica</button></div></header>';
+    h += '<section class="mappa-viaggio"><div id="mappa-viaggio" class="mappa"></div><p id="mappa-nota" class="testo-muto"></p></section>';
     Object.keys(SEZIONI).forEach(function (sez) {
       var lista = (v[sez] || []).slice().sort(function (a, b) { var x = a.data || a.checkin || a.scadenza || '', y = b.data || b.checkin || b.scadenza || ''; return x < y ? -1 : 1; });
       h += '<h2>' + SEZIONI[sez].titolo + ' <small>' + lista.length + '</small></h2>' + lista.map(function (s) { return rigaSotto(v, sez, s); }).join('') +
@@ -405,8 +406,62 @@ var Viaggi = (function () {
     return out;
   }
 
+  // mappa: aeroporti da voli e indirizzi degli hotel, geocodificati con Nominatim (cache locale)
+  var GEO_KEY = 'aec-geo', COLORI_LUOGO = { voli: '#1E7F8C', hotel: '#A3307A' };
+  function luoghiViaggio(v) {
+    var out = [];
+    (v.voli || []).forEach(function (s) {
+      [['da', 'Partenza'], ['a', 'Arrivo']].forEach(function (c) {
+        var t = (s[c[0]] || '').trim();
+        if (t) out.push({ etichetta: c[1] + ' ' + t + (s.numero ? ' · ' + s.numero : ''), q: t + ' airport', col: COLORI_LUOGO.voli });
+      });
+    });
+    (v.hotel || []).forEach(function (h) {
+      var q = [h.indirizzo || '', h.nome || ''].filter(Boolean).join(', ');
+      if (q) out.push({ etichetta: 'Hotel ' + (h.nome || h.indirizzo), q: q, col: COLORI_LUOGO.hotel });
+    });
+    return out;
+  }
+  function geoCache() { try { return JSON.parse(localStorage.getItem(GEO_KEY) || '{}'); } catch (e) { return {}; } }
+  function geocodifica(q) {
+    var c = geoCache();
+    if (q in c) return Promise.resolve(c[q]);
+    return fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(q), { headers: { 'Accept-Language': 'it' } })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var pos = j && j[0] ? [+j[0].lat, +j[0].lon] : null, cc = geoCache();
+        cc[q] = pos; try { localStorage.setItem(GEO_KEY, JSON.stringify(cc)); } catch (e) { /* cache piena */ }
+        return pos;
+      })
+      .catch(function () { return null; }); // offline: non salvo nulla, riprova più tardi
+  }
+  function disegnaMappa(id) {
+    var el = document.getElementById('mappa-viaggio'), nota = document.getElementById('mappa-nota');
+    if (!el || !nota || !window.L) return;
+    var v = Store.get(id), luoghi = v ? luoghiViaggio(v) : [];
+    if (!luoghi.length) { el.style.display = 'none'; nota.textContent = 'Aggiungi voli o hotel con aeroporto o indirizzo per vedere la mappa.'; return; }
+    var m = L.map(el, { scrollWheelZoom: false }), punti = [];
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap' }).addTo(m);
+    m.setView([44.5, 11.3], 4);
+    nota.textContent = 'Cerco i luoghi…';
+    luoghi.reduce(function (prima, l) {
+      return prima.then(function () {
+        var daRete = !(l.q in geoCache());
+        return new Promise(function (ok) { setTimeout(ok, daRete ? 1100 : 0); }).then(function () { return geocodifica(l.q); }).then(function (pos) {
+          if (!el.isConnected || !pos) return;
+          L.circleMarker(pos, { radius: 9, color: '#fff', weight: 2, fillColor: l.col, fillOpacity: 1 }).bindTooltip(l.etichetta).addTo(m);
+          punti.push(pos);
+          if (punti.length === 1) m.setView(pos, 6); else m.fitBounds(punti, { padding: [24, 24] });
+        });
+      });
+    }, Promise.resolve()).then(function () {
+      if (!el.isConnected) return;
+      nota.textContent = punti.length ? '' : 'Nessun luogo trovato: controlla i nomi di aeroporti e indirizzi.';
+    });
+  }
   return {
     init: function (u) { ui = u; },
+    disegnaMappa: disegnaMappa,
     htmlElenco: htmlElenco, htmlDettaglio: htmlDettaglio, htmlConcerti: htmlConcerti,
     apriViaggio: apriViaggio, apriConcerto: apriConcerto, apriAllegato: apriAllegato,
     click: click, change: change, prossimi: prossimi, intervallo: intervallo
