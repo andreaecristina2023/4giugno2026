@@ -184,7 +184,7 @@ var Viaggi = (function () {
   // ---------- VIAGGI: dettaglio ----------
   var SEZIONI = {
     voli: { titolo: 'Voli', uno: 'volo', campi: [
-      ['data', 'Data', 'date', true], ['ora', 'Partenza', 'time'], ['arrivo', 'Arrivo', 'time'],
+      ['data', 'Data partenza', 'date', true], ['ora', 'Ora partenza', 'time'], ['dataArrivo', 'Data arrivo', 'date'], ['arrivo', 'Ora arrivo', 'time'],
       ['da', 'Da', 'text', 'Es. BLQ Bologna'], ['a', 'A', 'text', 'Es. NRT Tokyo'],
       ['compagnia', 'Compagnia', 'text'], ['numero', 'Numero volo', 'text', 'Es. LH291'],
       ['pnr', 'Codice prenotazione (PNR)', 'text'], ['posto', 'Posti', 'text', 'Es. 23A, 23B'], ['note', 'Note', 'textarea']] },
@@ -203,7 +203,8 @@ var Viaggi = (function () {
       var tappe = s.tappe || [];
       var percorso = [s.da, s.a].concat(tappe.map(function (t) { return t.a; })).filter(Boolean);
       if (percorso.length) titolo += ' · ' + percorso.join(' → ');
-      righe.push(C.etichettaGiorno(s.data) + (s.ora ? ', ' + s.ora : '') + (s.arrivo ? ' → ' + s.arrivo : ''));
+      var arrivoTesto = (s.dataArrivo && s.dataArrivo !== s.data ? C.etichettaGiorno(s.dataArrivo) + (s.arrivo ? ' ' : '') : '') + (s.arrivo || '');
+      righe.push(C.etichettaGiorno(s.data) + (s.ora ? ', ' + s.ora : '') + (arrivoTesto ? ' → ' + arrivoTesto : ''));
       if (tappe.length) righe.push(tappe.length + (tappe.length === 1 ? ' tappa successiva' : ' tappe successive') + ': ' + tappe.map(function (t) { return [t.numero, t.da, t.a].filter(Boolean).join(' '); }).join(', '));
       if (s.pnr) righe.push('PNR ' + s.pnr); if (s.posto) righe.push('Posti ' + s.posto);
     } else if (sez === 'hotel') {
@@ -313,7 +314,7 @@ var Viaggi = (function () {
   function apriSotto(idViaggio, sez, idSotto) {
     var v = JSON.parse(JSON.stringify(Store.get(idViaggio))), def = SEZIONI[sez];
     var s = idSotto ? (v[sez] || []).filter(function (x) { return x.id === idSotto; })[0] : null;
-    var dati = s || (sez === 'voli' ? { data: v.data } : sez === 'hotel' ? { checkin: v.data, checkout: v.fine } : { tipo: 'eVisa' });
+    var dati = s || (sez === 'voli' ? { data: v.data, dataArrivo: v.data } : sez === 'hotel' ? { checkin: v.data, checkout: v.fine } : { tipo: 'eVisa' });
     var tappeIn = sez === 'voli' ? (dati.tappe || []).map(function (t) { return Object.assign({}, t); }) : null;
     var tappeAttive = tappeIn;
     function righeTappe(f) {
