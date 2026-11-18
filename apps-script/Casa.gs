@@ -235,7 +235,7 @@ var Casa = (function () {
     plastica: { nome: 'Plastica e lattine', colore: '#E3B505' },
     vetro:    { nome: 'Vetro',            colore: '#2E8B57' },
     secco:    { nome: 'Secco',            colore: '#6B6F73' },
-    vegetale: { nome: 'Vegetale',         colore: '#6E9A2F' }
+    vegetale: { nome: 'Vegetale',         colore: '#B08A5E' }
   };
 
   var TIPI = {
@@ -297,17 +297,27 @@ var Casa = (function () {
         mese = Math.floor((h + l - 7 * m + 114) / 31), giorno = ((h + l - 7 * m + 114) % 31) + 1;
     return iso(new Date(y, mese - 1, giorno, 12));
   }
-  var FISSE = ['01-01', '01-06', '04-25', '05-01', '06-02', '08-15', '10-04', '11-01', '12-08', '12-25', '12-26'];
+  // Festività nazionali (per il calendario)
+  var NAZIONALI = ['01-01', '01-06', '04-25', '05-01', '06-02', '08-15', '10-04', '11-01', '12-08', '12-25', '12-26'];
+  // Giorni senza raccolta secondo l'Eco-Calendario Alea (modificabili nelle impostazioni rifiuti)
+  var FESTIVI_ALEA = ['01-01', '01-06', '02-04', '04-25', '05-01', '06-02', '08-15', '11-01', '12-08', '12-25'];
   var _fest = {};
-  function festivita(y) {
-    if (_fest[y]) return _fest[y];
+  function insiemeFestivi(y, lista, pasquetta) {
+    var k = y + '|' + lista.join(',') + '|' + pasquetta;
+    if (_fest[k]) return _fest[k];
     var set = {};
-    FISSE.forEach(function (md) { set[y + '-' + md] = true; });
-    set[addGiorni(pasqua(y), 1)] = true; // Pasquetta
-    _fest[y] = set;
+    lista.forEach(function (md) { set[y + '-' + md] = true; });
+    if (pasquetta) set[addGiorni(pasqua(y), 1)] = true;
+    _fest[k] = set;
     return set;
   }
-  function eFestivo(s) { return !!festivita(+s.slice(0, 4))[s]; }
+  // festivo nazionale (calendario)
+  function eFestivo(s) { return !!insiemeFestivi(+s.slice(0, 4), NAZIONALI, true)[s]; }
+  // giorno senza raccolta rifiuti
+  function senzaRaccolta(cfg, s) {
+    var lista = (cfg && cfg.festivi && cfg.festivi.length) ? cfg.festivi : FESTIVI_ALEA;
+    return !!insiemeFestivi(+s.slice(0, 4), lista, !(cfg && cfg.pasquetta === false))[s];
+  }
 
   // ---------- rifiuti ----------
   // cfg = { regole:[{giorno:1..6, frazioni:[...], settimane:[1,3] (vuoto = tutte), mesi:[4..10] (vuoto = tutti)}],
@@ -323,21 +333,26 @@ var Casa = (function () {
     return out;
   }
   // Ritiri effettivi del giorno s (dopo spostamenti per festività ed eccezioni manuali)
+  // Regole Alea: festa lun-mer → recupero il sabato prima; gio-ven → il sabato dopo; di sabato non si recupera.
+  // Il recupero c'è solo se cade ad almeno 2 giorni dalla raccolta precedente o successiva dello stesso rifiuto.
   function ritiri(cfg, s) {
     if (!cfg || !cfg.regole) return { frazioni: [], nota: '' };
     var ecc = (cfg.eccezioni || []).filter(function (e) { return e.data === s; })[0];
     if (ecc) return { frazioni: (ecc.frazioni || []).slice(), nota: ecc.nota || 'Modifica manuale' };
     var usaFest = cfg.festivita !== false;
     var g = giornoSett(s);
-    var base = (usaFest && eFestivo(s)) ? [] : frazioniDaRegole(cfg, s);
-    var nota = (usaFest && eFestivo(s) && frazioniDaRegole(cfg, s).length) ? 'Festivo: niente ritiro' : '';
+    var festa = usaFest && senzaRaccolta(cfg, s);
+    var base = festa ? [] : frazioniDaRegole(cfg, s);
+    var nota = (festa && frazioniDaRegole(cfg, s).length) ? 'Festivo: niente ritiro' : '';
     if (usaFest && g === 6) {
-      // recuperi: festivi lun-mer della settimana successiva → sabato prima; gio-ven della settimana stessa → sabato dopo
       var recuperati = [];
-      [2, 3, 4].forEach(function (k) { var f = addGiorni(s, k); if (eFestivo(f)) recuperati.push(f); });
-      [-2, -1].forEach(function (k) { var f = addGiorni(s, k); if (eFestivo(f)) recuperati.push(f); });
+      [2, 3, 4].forEach(function (k) { var f = addGiorni(s, k); if (senzaRaccolta(cfg, f)) recuperati.push(f); });
+      [-2, -1].forEach(function (k) { var f = addGiorni(s, k); if (senzaRaccolta(cfg, f)) recuperati.push(f); });
       recuperati.forEach(function (f) {
-        var fr = frazioniDaRegole(cfg, f);
+        var fr = frazioniDaRegole(cfg, f).filter(function (x) {
+          // troppo vicino a un'altra raccolta dello stesso rifiuto (il giorno prima o dopo il sabato)?
+          return [-1, 1].every(function (k) { var d = addGiorni(s, k); return d === f || senzaRaccolta(cfg, d) || frazioniDaRegole(cfg, d).indexOf(x) < 0; });
+        });
         if (fr.length) {
           fr.forEach(function (x) { if (base.indexOf(x) < 0) base.push(x); });
           nota = 'Recupero festività di ' + GIORNI_LUNGHI[giornoSett(f)] + ' ' + parse(f).getDate();
@@ -452,7 +467,7 @@ var Casa = (function () {
     GIORNI: GIORNI, GIORNI_LUNGHI: GIORNI_LUNGHI, MESI: MESI, FRAZIONI: FRAZIONI, TIPI: TIPI, RICORRENZE: RICORRENZE,
     iso: iso, parse: parse, oggi: oggi, addGiorni: addGiorni, addMesi: addMesi, diffGiorni: diffGiorni,
     giornoSett: giornoSett, settimanaDelMese: settimanaDelMese, etichettaGiorno: etichettaGiorno, dataBreve: dataBreve,
-    pasqua: pasqua, eFestivo: eFestivo, ritiri: ritiri, calendarioRifiuti: calendarioRifiuti,
+    pasqua: pasqua, eFestivo: eFestivo, senzaRaccolta: senzaRaccolta, FESTIVI_ALEA: FESTIVI_ALEA, ritiri: ritiri, calendarioRifiuti: calendarioRifiuti,
     occorrenze: occorrenze, fatto: fatto, chiudibile: chiudibile, agenda: agenda, arretrati: arretrati,
     promemoria: promemoria, nomiFrazioni: nomiFrazioni, hashInt: hashInt, nuovoId: nuovoId, euro: euro, pad: pad
   };

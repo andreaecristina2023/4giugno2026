@@ -20,10 +20,34 @@ var Store = (function () {
     persone: ['Andrea', 'Cristina'],
     categorie: ['Casa', 'Bollette', 'Auto', 'Salute', 'Tasse', 'Banca', 'Altro']
   };
+  // Eco-Calendario Alea di casa (foto del 18/11/2026): precaricato una volta se non ci sono giorni impostati
+  var CALENDARIO_CASA = {
+    regole: [
+      { giorno: 1, frazioni: ['umido', 'carta'], settimane: [], mesi: [] },
+      { giorno: 3, frazioni: ['secco'], settimane: [1, 3], mesi: [] },
+      { giorno: 3, frazioni: ['vegetale'], settimane: [], mesi: [] },
+      { giorno: 3, frazioni: ['vetro'], settimane: [2], mesi: [] },
+      { giorno: 4, frazioni: ['umido', 'plastica'], settimane: [], mesi: [] }
+    ],
+    festivi: ['01-01', '01-06', '02-04', '04-25', '05-01', '06-02', '08-15', '11-01', '12-08', '12-25'],
+    pasquetta: true
+  };
   if (!settings) settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
   else {
     Object.keys(DEFAULT_SETTINGS).forEach(function (k) { if (settings[k] === undefined) settings[k] = JSON.parse(JSON.stringify(DEFAULT_SETTINGS[k])); });
   }
+
+  function precarica() {
+    var r = settings.rifiuti;
+    if (r.precaricato || (r.regole && r.regole.length)) return;
+    r.regole = JSON.parse(JSON.stringify(CALENDARIO_CASA.regole));
+    if (!r.festivi) r.festivi = CALENDARIO_CASA.festivi.slice();
+    if (r.pasquetta === undefined) r.pasquetta = true;
+    r.precaricato = true;
+    settings.aggiornato = Date.now(); dirty.settings = true; persist();
+    if (typeof timer !== 'undefined') syncPresto();
+  }
+  precarica();
 
   function emit() { listeners.forEach(function (f) { try { f(); } catch (e) { console.error(e); } }); }
   function persist() { save(K.items, items); save(K.settings, settings); save(K.dirty, dirty); }
@@ -88,6 +112,7 @@ var Store = (function () {
         inviati.forEach(function (it) { if (items[it.id] && items[it.id].aggiornato === it.aggiornato) delete dirty.items[it.id]; });
         if (body.impostazioni && settings.aggiornato === body.impostazioni.aggiornato) dirty.settings = false;
         merge(res.voci, res.impostazioni);
+        precarica();
         stato.sync = 'ok'; stato.errore = ''; stato.ultimo = Date.now(); save(K.last, stato.ultimo);
         persist();
       })

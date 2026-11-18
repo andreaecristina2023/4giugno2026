@@ -191,7 +191,9 @@
     if (cfg.zona && ZONE[cfg.zona]) h += '<p class="testo-muto" style="margin:0">Calendario ufficiale: <a href="' + ZONE[cfg.zona].pdf + '" target="_blank" rel="noopener">Eco-Calendario ' + esc(ZONE[cfg.zona].nome) + ' (PDF)</a>. Copia qui sotto i giorni della "settimana tipo".</p>';
     h += '<div class="due"><label class="campo">Promemoria la sera prima<input type="time" data-rif="oraAvviso" value="' + esc(cfg.oraAvviso || '20:00') + '"></label>' +
       '<label class="campo">Festività<select data-rif="festivita"><option value="1"' + (cfg.festivita !== false ? ' selected' : '') + '>Regole Alea</option><option value="0"' + (cfg.festivita === false ? ' selected' : '') + '>Ignora</option></select></label></div>';
-    h += '<p class="testo-muto" style="margin:0">Con le regole Alea un ritiro che cade di festa si sposta al sabato prima (lun–mer) o dopo (gio–ven); di sabato salta.</p></div>';
+    var fest = (cfg.festivi && cfg.festivi.length ? cfg.festivi : C.FESTIVI_ALEA).map(function (md) { return +md.slice(3) + '/' + +md.slice(0, 2); }).join(', ');
+    h += '<label class="campo">Giorni senza raccolta<span class="aiuto">Giorno/mese separati da virgola, come sull\'Eco-Calendario. Pasquetta è calcolata in automatico.</span><input type="text" data-rif="festivi" value="' + esc(fest) + '"></label>';
+    h += '<p class="testo-muto" style="margin:0">Un ritiro che cade in questi giorni si recupera il sabato prima (lun–mer) o dopo (gio–ven), solo se il sabato è ad almeno 2 giorni da un\'altra raccolta dello stesso rifiuto; di sabato non si recupera.</p></div>';
 
     h += '<h2>Giorni di ritiro</h2>';
     if (!cfg.regole.length) h += '<p class="testo-muto">Aggiungi un giorno per ogni riga della settimana tipo. Esempio: lunedì → Umido + Carta; mercoledì 1ª e 3ª settimana → Secco.</p>';
@@ -367,7 +369,12 @@
   });
   vista.addEventListener('change', function (e) {
     var t = e.target, d = t.dataset;
-    if (d.rif) salvaRifiuti(function (cfg) { cfg[d.rif] = d.rif === 'festivita' ? t.value === '1' : t.value; });
+    if (d.rif === 'festivi') {
+      var lista = t.value.split(/[,;\s]+/).map(function (x) { var m = x.match(/^(\d{1,2})[\/.\-](\d{1,2})$/); return m && +m[2] >= 1 && +m[2] <= 12 && +m[1] >= 1 && +m[1] <= 31 ? C.pad(+m[2]) + '-' + C.pad(+m[1]) : null; }).filter(Boolean);
+      if (!lista.length) { toast('Scrivi i giorni come 1/1, 6/1, 25/12'); return; }
+      salvaRifiuti(function (cfg) { cfg.festivi = lista; }); toast('Giorni senza raccolta salvati');
+    }
+    else if (d.rif) salvaRifiuti(function (cfg) { cfg[d.rif] = d.rif === 'festivita' ? t.value === '1' : t.value; });
     else if (d.reg && d.campo === 'giorno') salvaRifiuti(function (cfg) { cfg.regole[+d.reg].giorno = +t.value; });
     else if (d.azione === 'importa' && t.files[0]) {
       t.files[0].text().then(function (txt) { try { toast('Importate ' + Store.importa(txt) + ' voci'); } catch (err) { toast('File non valido: serve un backup esportato da A&C'); } });
