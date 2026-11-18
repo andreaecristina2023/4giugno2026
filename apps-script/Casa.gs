@@ -300,7 +300,7 @@ var Casa = (function () {
   // Festività nazionali (per il calendario)
   var NAZIONALI = ['01-01', '01-06', '04-25', '05-01', '06-02', '08-15', '10-04', '11-01', '12-08', '12-25', '12-26'];
   // Giorni senza raccolta secondo l'Eco-Calendario Alea (modificabili nelle impostazioni rifiuti)
-  var FESTIVI_ALEA = ['01-01', '01-06', '02-04', '04-25', '05-01', '06-02', '08-15', '11-01', '12-08', '12-25'];
+  var FESTIVI_ALEA = ['01-01', '01-06', '02-04', '04-25', '05-01', '06-02', '08-15', '10-04', '11-01', '12-08', '12-25', '12-26'];
   var _fest = {};
   function insiemeFestivi(y, lista, pasquetta) {
     var k = y + '|' + lista.join(',') + '|' + pasquetta;

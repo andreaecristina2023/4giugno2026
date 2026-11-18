@@ -29,7 +29,7 @@ var Store = (function () {
       { giorno: 3, frazioni: ['vetro'], settimane: [2], mesi: [] },
       { giorno: 4, frazioni: ['umido', 'plastica'], settimane: [], mesi: [] }
     ],
-    festivi: ['01-01', '01-06', '02-04', '04-25', '05-01', '06-02', '08-15', '11-01', '12-08', '12-25'],
+    festivi: ['01-01', '01-06', '02-04', '04-25', '05-01', '06-02', '08-15', '10-04', '11-01', '12-08', '12-25', '12-26'],
     pasquetta: true
   };
   if (!settings) settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
@@ -39,7 +39,15 @@ var Store = (function () {
 
   function precarica() {
     var r = settings.rifiuti;
+    // v2: aggiunti 4 ottobre e 26 dicembre ai giorni senza raccolta (confermati il 18/11/2026)
+    if (r.festivi && r.festivi.length && r.festiviVer !== 2) {
+      ['10-04', '12-26'].forEach(function (md) { if (r.festivi.indexOf(md) < 0) r.festivi.push(md); });
+      r.festivi.sort(); r.festiviVer = 2;
+      settings.aggiornato = Date.now(); dirty.settings = true; persist();
+      if (typeof timer !== 'undefined') syncPresto();
+    }
     if (r.precaricato || (r.regole && r.regole.length)) return;
+    r.festiviVer = 2;
     r.regole = JSON.parse(JSON.stringify(CALENDARIO_CASA.regole));
     if (!r.festivi) r.festivi = CALENDARIO_CASA.festivi.slice();
     if (r.pasquetta === undefined) r.pasquetta = true;
