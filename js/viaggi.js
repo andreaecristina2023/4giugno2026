@@ -457,18 +457,20 @@ var Viaggi = (function () {
     });
     (v.hotel || []).forEach(function (h) {
       var q = [h.indirizzo || '', h.nome || ''].filter(Boolean).join(', ');
-      if (q) out.push({ etichetta: 'Hotel ' + (h.nome || h.indirizzo), q: q, col: COLORI_LUOGO.hotel, tipo: 'hotel' });
+      var nomeHotel = h.nome ? h.nome : '';
+      if (q) out.push({ etichetta: 'Hotel ' + (h.nome || h.indirizzo), q: q, alt: h.indirizzo && nomeHotel ? nomeHotel : '', col: COLORI_LUOGO.hotel, tipo: 'hotel', nome: 'Hotel ' + (h.nome || h.indirizzo) });
     });
     return out;
   }
   function geoCache() { try { return JSON.parse(localStorage.getItem(GEO_KEY) || '{}'); } catch (e) { return {}; } }
   function geocodifica(q) {
     var c = geoCache();
-    if (q in c) return Promise.resolve(c[q]);
+    if (c[q]) return Promise.resolve(c[q]);
     return fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(q), { headers: { 'Accept-Language': 'it' } })
       .then(function (r) { return r.json(); })
       .then(function (j) {
-        var pos = j && j[0] ? [+j[0].lat, +j[0].lon] : null, cc = geoCache();
+        if (!j || !j[0]) return null; // non trovato: non lo salvo, così riprovo più tardi
+        var pos = [+j[0].lat, +j[0].lon], cc = geoCache();
         cc[q] = pos; try { localStorage.setItem(GEO_KEY, JSON.stringify(cc)); } catch (e) { /* cache piena */ }
         return pos;
       })
@@ -513,11 +515,16 @@ var Viaggi = (function () {
     });
     nota.textContent = (luoghi.length ? 'Cerco i luoghi…' : '') + (luoghi.length || punti.length ? '' : 'Tocca la mappa per aggiungere un luogo.');
     if (punti.length) m.fitBounds(punti, { padding: [24, 24] });
+    var mancanti = [];
     luoghi.reduce(function (prima, l) {
       return prima.then(function () {
         var daRete = !(l.q in geoCache());
         return new Promise(function (ok) { setTimeout(ok, daRete ? 1100 : 0); }).then(function () { return geocodifica(l.q); }).then(function (pos) {
-          if (!el.isConnected || mappaCorrente !== m || !pos) return;
+          if (!pos && l.alt) return new Promise(function (ok) { setTimeout(ok, 1100); }).then(function () { return geocodifica(l.alt); });
+          return pos;
+        }).then(function (pos) {
+          if (!el.isConnected || mappaCorrente !== m) return;
+          if (!pos) { mancanti.push(l.etichetta); return; }
           var emoji = EMOJI_FISSI[l.tipo] || '📍';
           L.marker(pos, { icon: icona(emoji, l.col) }).bindTooltip(l.etichetta).addTo(m);
           punti.push(pos);
@@ -526,7 +533,8 @@ var Viaggi = (function () {
       });
     }, Promise.resolve()).then(function () {
       if (!el.isConnected || mappaCorrente !== m) return;
-      nota.textContent = luoghi.length && !punti.length ? 'Nessun aeroporto o hotel trovato: controlla i nomi. Tocca la mappa per aggiungere luoghi.' : 'Tocca la mappa per aggiungere un luogo.';
+      var msg = mancanti.length ? 'Non trovati: ' + mancanti.join(', ') + '. Aggiungi l\'indirizzo completo (via e città) nella scheda, oppure tocca la mappa per segnare il punto.' : 'Tocca la mappa per aggiungere un luogo.';
+      nota.textContent = msg;
     });
   }
   return {
