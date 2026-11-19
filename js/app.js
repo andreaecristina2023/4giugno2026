@@ -596,6 +596,48 @@
         .catch(function () { if (nota) nota.textContent = 'Non riesco a cercare l\'indirizzo: tocca la mappa.'; });
     };
   }
+  // Ritaglia automaticamente il documento: cerca la zona che si distingue dallo sfondo (bordo della foto).
+  // Se non trova un ritaglio sensato lascia la foto com'è.
+  function ritagliaFoto(file) {
+    if (!/^image\//.test(file.type || '')) return Promise.resolve(file);
+    return new Promise(function (ok) {
+      var url = URL.createObjectURL(file), img = new Image();
+      img.onerror = function () { URL.revokeObjectURL(url); ok(file); };
+      img.onload = function () {
+        try {
+          var scala = Math.min(1, 900 / Math.max(img.width, img.height));
+          var w = Math.max(2, Math.round(img.width * scala)), h = Math.max(2, Math.round(img.height * scala));
+          var c = document.createElement('canvas'); c.width = w; c.height = h;
+          var g = c.getContext('2d'); g.drawImage(img, 0, 0, w, h);
+          var px = g.getImageData(0, 0, w, h).data;
+          var rs = [], gs = [], bs = [];
+          function campiona(x, y) { var i = (y * w + x) * 4; rs.push(px[i]); gs.push(px[i + 1]); bs.push(px[i + 2]); }
+          for (var x = 0; x < w; x += 3) { campiona(x, 0); campiona(x, h - 1); }
+          for (var y = 0; y < h; y += 3) { campiona(0, y); campiona(w - 1, y); }
+          var mediana = function (a) { a = a.slice().sort(function (p, q) { return p - q; }); return a[a.length >> 1]; };
+          var bg = [mediana(rs), mediana(gs), mediana(bs)];
+          var righe = new Array(h).fill(0), colonne = new Array(w).fill(0);
+          for (var y2 = 0; y2 < h; y2++) for (var x2 = 0; x2 < w; x2++) {
+            var i2 = (y2 * w + x2) * 4;
+            if (Math.abs(px[i2] - bg[0]) + Math.abs(px[i2 + 1] - bg[1]) + Math.abs(px[i2 + 2] - bg[2]) > 90) { righe[y2]++; colonne[x2]++; }
+          }
+          var estremi = function (arr, soglia) { var a = -1, b = -1; for (var k = 0; k < arr.length; k++) if (arr[k] >= soglia) { if (a < 0) a = k; b = k; } return [a, b]; };
+          var er = estremi(righe, w * 0.2), ec = estremi(colonne, h * 0.2);
+          if (er[0] < 0 || ec[0] < 0) { URL.revokeObjectURL(url); return ok(file); }
+          var m = Math.round(Math.min(w, h) * 0.02);
+          var x0 = Math.max(0, ec[0] - m), x1 = Math.min(w - 1, ec[1] + m), y0 = Math.max(0, er[0] - m), y1 = Math.min(h - 1, er[1] + m);
+          var quota = (x1 - x0) * (y1 - y0) / (w * h);
+          if (quota > 0.95 || quota < 0.15) { URL.revokeObjectURL(url); return ok(file); }
+          var k = img.width / w, out = document.createElement('canvas');
+          out.width = Math.round((x1 - x0) * k); out.height = Math.round((y1 - y0) * k);
+          out.getContext('2d').drawImage(img, x0 * k, y0 * k, (x1 - x0) * k, (y1 - y0) * k, 0, 0, out.width, out.height);
+          URL.revokeObjectURL(url);
+          out.toBlob(function (b) { ok(b ? new File([b], file.name, { type: b.type || file.type }) : file); }, file.type || 'image/jpeg', 0.92);
+        } catch (e) { URL.revokeObjectURL(url); ok(file); }
+      };
+      img.src = url;
+    });
+  }
   function apriDocumento(id) {
     var lista = ((Store.settings().anagrafica || {}).documenti || []), orig = id ? lista.filter(function (x) { return x.id === id; })[0] : null;
     var d = orig ? JSON.parse(JSON.stringify(orig)) : { id: C.nuovoId(), tipo: TIPI_DOCUMENTO[0], persona: 'Andrea', numero: '', rilascio: '', scadenza: '', rilasciatoDa: '', allegati: [] };
@@ -647,15 +689,20 @@
         snap();
         scelta.innerHTML = '<div class="campo"><span>Di quale lato sono?</span>' + files.map(function (x, i) {
           return '<label class="campo">' + esc(x.name) + '<select data-lato="' + i + '">' + ['Fronte', 'Retro', 'Altro'].map(function (l) { return '<option>' + l + '</option>'; }).join('') + '</select></label>';
-        }).join('') + '<div class="azioni"><button class="btn" type="button" data-carica-lati>Carica</button><button class="btn secondario" type="button" data-annulla-lati>Annulla</button></div></div>';
+        }).join('') + '<label class="check"><input type="checkbox" data-ritaglia checked> Ritaglia automaticamente il documento</label>' +
+          '<div class="azioni"><button class="btn" type="button" data-carica-lati>Carica</button><button class="btn secondario" type="button" data-annulla-lati>Annulla</button></div></div>';
         scelta.querySelector('[data-annulla-lati]').onclick = function () { scelta.innerHTML = ''; inp.value = ''; };
         scelta.querySelector('[data-carica-lati]').onclick = function () {
           var lati = Array.prototype.map.call(scelta.querySelectorAll('[data-lato]'), function (s) { return s.value; });
+          var ritaglia = !!(scelta.querySelector('[data-ritaglia]') || {}).checked;
           var nomi = lati.map(function (l, i) { return nomeFile(l, files[i].name, i); });
-          scelta.innerHTML = '';
-          Viaggi.allega(wrap, ctx, files, false, {
-            nome: function (x) { return nomi[files.indexOf(x)]; },
-            extra: function (x) { return { lato: lati[files.indexOf(x)] }; }
+          scelta.innerHTML = '<p class="testo-muto">Carico…</p>';
+          Promise.all(files.map(function (x) { return ritaglia ? ritagliaFoto(x) : x; })).then(function (fs) {
+            scelta.innerHTML = '';
+            return Viaggi.allega(wrap, ctx, fs, false, {
+              nome: function (x) { return nomi[fs.indexOf(x)]; },
+              extra: function (x) { return { lato: lati[fs.indexOf(x)] }; }
+            });
           }).then(disegna);
         };
       };
