@@ -431,3 +431,8 @@ nav.barra-nav .pallino { position: absolute; top: 8px; left: calc(50% + 10px); w
 .ritaglio-comandi { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
 .ritaglio-zoom { display: flex; gap: 8px; align-items: center; font-weight: 600; }
 .ritaglio-zoom input { width: 150px; }
+
+.scelta-tipi { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.scelta-tipi button { border-left: 6px solid var(--c); text-align: left; }
+.mappa-scelta-campo { width: 100%; height: 60vh; border-radius: 12px; overflow: hidden; }
+.mappa-scelta .camera-guida, .camera-guida.mappa-scelta { justify-content: flex-start; }

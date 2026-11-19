@@ -53,7 +53,8 @@
     var contatti = '';
     if (it.telefono) contatti += '<a class="contatto" href="tel:' + esc(numeroChiamata(it.telefono)) + '" aria-label="Chiama ' + esc(it.telefono) + '">📞</a>';
     if (it.email) contatti += '<a class="contatto" href="mailto:' + esc(it.email) + '" aria-label="Scrivi a ' + esc(it.email) + '">✉️</a>';
-    if (it.indirizzo) contatti += '<a class="contatto" href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(it.indirizzo) + '" target="_blank" rel="noopener" aria-label="Apri ' + esc(it.indirizzo) + ' in mappa">📍</a>';
+    if (it.lat != null && it.lon != null) contatti += '<a class="contatto" href="https://www.google.com/maps/dir/?api=1&destination=' + it.lat + ',' + it.lon + '" target="_blank" rel="noopener" aria-label="Naviga al punto segnato">🧭</a>';
+    else if (it.indirizzo) contatti += '<a class="contatto" href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(it.indirizzo) + '" target="_blank" rel="noopener" aria-label="Apri ' + esc(it.indirizzo) + ' in mappa">📍</a>';
     return '<li class="' + cls + '" style="--c:' + colVoce(it) + '"><span class="barra"></span>' +
       '<button class="corpo-riga" type="button" data-apri="' + esc(it.id) + '"><span class="titolo">' + esc(it.titolo) + '</span><span class="meta">' + esc(meta.join(' · ')) + '</span></button>' +
       '<span class="destra">' + contatti + destra + '</span></li>';
@@ -858,6 +859,8 @@
         '<label class="campo">Per chi<select name="chi"><option value="">Tutti e due</option>' + s.persone.map(function (p) { return '<option' + (it.chi === p ? ' selected' : '') + '>' + esc(p) + '</option>'; }).join('') + '</select></label>' +
         '<div class="due"><label class="campo">Telefono<input type="tel" name="telefono" value="' + esc(it.telefono || '') + '"></label><label class="campo">Email<input type="email" name="email" value="' + esc(it.email || '') + '"></label></div>' +
         '<label class="campo">Indirizzo<input type="text" name="indirizzo" maxlength="160" value="' + esc(it.indirizzo || '') + '"></label>' +
+        '<div class="posizione-azioni"><button type="button" class="btn secondario piccolo" data-mappa-voce>📍 ' + (it.lat != null ? 'Cambia posizione' : 'Scegli sulla mappa') + '</button>' +
+          (it.lat != null ? '<span class="testo-muto">Posizione segnata</span><button type="button" class="btn secondario piccolo" data-mappa-togli>Togli</button>' : '') + '</div>' +
         '<div class="campo"><span>Note</span><div class="note-elenco">' + it.annotazioni.map(function (n, i) {
           return '<div class="nota-riga"><input type="text" name="ntesto" maxlength="300" value="' + esc(n.testo) + '" placeholder="Es. Portare la tessera sanitaria" aria-label="Nota ' + (i + 1) + '">' +
             '<input type="datetime-local" name="nquando" value="' + esc(n.quando) + '" aria-label="Promemoria nota ' + (i + 1) + ' (facoltativo)">' +
@@ -874,6 +877,9 @@
       f.ripN.oninput = function () { f.fine.disabled = !(+f.ripN.value > 0); };
       f.querySelectorAll('[data-colore]').forEach(function (b) { b.onclick = function () { leggi(f); it.colore = b.dataset.colore; render(); }; });
       f.querySelectorAll('[data-nota-piu]').forEach(function (b) { b.onclick = function () { leggi(f); it.annotazioni.push({ testo: '', quando: '' }); render(); }; });
+      var bMappa = f.querySelector('[data-mappa-voce]'), bTogli = f.querySelector('[data-mappa-togli]');
+      if (bMappa) bMappa.onclick = function () { leggi(f); scegliSulMappa(it.lat != null ? { lat: it.lat, lon: it.lon } : null, function (p) { it.lat = p.lat; it.lon = p.lon; render(); }); };
+      if (bTogli) bTogli.onclick = function () { leggi(f); delete it.lat; delete it.lon; render(); };
       f.querySelectorAll('[data-nota-meno]').forEach(function (b) { b.onclick = function () { leggi(f); it.annotazioni.splice(+b.dataset.notaMeno, 1); render(); }; });
       if (f.categoria) f.categoria.onchange = function () {
         leggi(f);
@@ -891,6 +897,7 @@
         it.annotazioni = it.annotazioni.filter(function (n) { return n.testo || n.quando; });
         it.note = it.annotazioni.map(function (n) { return n.testo; }).filter(Boolean).join(' · ');
         if (!it.colore) delete it.colore;
+        if (it.lat == null) { delete it.lat; delete it.lon; }
         Store.upsert(it); foglio.close(); toast(id ? 'Modifiche salvate' : 'Aggiunto: ' + it.titolo);
       };
     }
@@ -970,7 +977,49 @@
   $('#fab').onclick = function () {
     if (rotta() === 'viaggi') { Viaggi.apriViaggio(null); return; }
     if (rotta() === 'concerti') { Viaggi.apriConcerto(null); return; }
-    if (rotta() === 'album') { var inp = $('input[data-album=file]'); if (inp) inp.click(); else location.hash = 'altro'; return; } apriVoce(null, rotta() === 'calendario' ? { data: ui.giornoCal } : rotta() === 'conti' ? { tipo: 'pagamento' } : null); };
+    if (rotta() === 'album') { var inp = $('input[data-album=file]'); if (inp) inp.click(); else location.hash = 'altro'; return; }
+    if (rotta() === 'lista') { apriNota(null); return; }
+    if (rotta() === 'wallet') { apriCarta(null); return; }
+    sceltaNuovo(rotta() === 'calendario' ? ui.giornoCal : null); };
+  // scelta diretta del tipo quando si preme +
+  function sceltaNuovo(data) {
+    var voci = [['appuntamento', 'Appuntamento'], ['pagamento', 'Pagamento'], ['scadenza', 'Scadenza'], ['promemoria', 'Promemoria'], ['nota', 'Nota post-it'], ['spesa', 'Lista della spesa'], ['carta', 'Carta o biglietto'], ['viaggio', 'Viaggio'], ['concerto', 'Concerto']];
+    foglio.classList.remove('visore');
+    foglio.innerHTML = '<div class="maniglia"></div><h3 id="foglio-titolo">Cosa aggiungi?</h3><div class="campi scelta-tipi">' +
+      voci.map(function (v) { return '<button type="button" class="btn secondario" data-nuovo-tipo="' + v[0] + '" style="--c:' + (COLORE_TIPO[v[0]] || 'var(--ardesia)') + '">' + v[1] + '</button>'; }).join('') + '</div>';
+    foglio.querySelectorAll('[data-nuovo-tipo]').forEach(function (b) { b.onclick = function () {
+      var t = b.dataset.nuovoTipo;
+      foglio.close();
+      if (t === 'nota') apriNota(null);
+      else if (t === 'carta') apriCarta(null);
+      else if (t === 'viaggio') Viaggi.apriViaggio(null);
+      else if (t === 'concerto') Viaggi.apriConcerto(null);
+      else if (t === 'spesa') { location.hash = 'lista'; }
+      else apriVoce(null, Object.assign({ tipo: t }, data ? { data: data } : {}));
+    }; });
+    foglio.showModal();
+  }
+  // scelta di un punto sulla mappa: tocca il luogo e conferma
+  function scegliSulMappa(corrente, onScelta) {
+    var box = document.createElement('div');
+    box.className = 'camera-guida mappa-scelta';
+    box.innerHTML = '<div class="mappa-scelta-campo"></div><p class="camera-suggerimento">Tocca il punto del luogo</p>' +
+      '<div class="camera-azioni"><button class="btn secondario" type="button" data-annulla-mappa>Annulla</button><button class="btn" type="button" data-usa-mappa>Usa questa posizione</button></div>';
+    document.body.appendChild(box);
+    var m = L.map(box.querySelector('.mappa-scelta-campo'), { zoomControl: true });
+    m.setView(corrente ? [corrente.lat, corrente.lon] : [44.2, 12.2], corrente ? 16 : 11);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(m);
+    var icona = L.divIcon({ html: '📍', className: 'pin-luogo', iconSize: [28, 28], iconAnchor: [14, 26] });
+    var pos = corrente ? L.latLng(corrente.lat, corrente.lon) : null, marker = pos ? L.marker(pos, { icon: icona }).addTo(m) : null;
+    m.on('click', function (e) { pos = e.latlng; if (marker) marker.setLatLng(pos); else marker = L.marker(pos, { icon: icona }).addTo(m); });
+    setTimeout(function () { m.invalidateSize(); }, 150);
+    function chiudi() { m.remove(); box.remove(); }
+    box.querySelector('[data-annulla-mappa]').onclick = chiudi;
+    box.querySelector('[data-usa-mappa]').onclick = function () {
+      if (pos) onScelta({ lat: +pos.lat.toFixed(6), lon: +pos.lng.toFixed(6) });
+      chiudi();
+    };
+  }
   foglio.addEventListener('click', function (e) { if (e.target === foglio) foglio.close(); });
 
   vista.addEventListener('click', function (e) {
