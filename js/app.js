@@ -482,6 +482,8 @@
       form = $('#form-documento', foglio);
       $('[data-chiudi]', form).onclick = function () { foglio.close(); };
       if (id) $('[data-elimina]', form).onclick = function () {
+        if (!window.confirm('Eliminare il documento «' + (orig.tipo || 'Documento') + '»?')) return;
+        if ((orig.allegati || []).length && !window.confirm('Conferma di nuovo: le foto del documento andranno nel cestino di Drive.')) return;
         (orig.allegati || []).forEach(function (a) { Store.chiama('allegato_elimina', { id: a.id }).catch(function () {}); });
         salvaAnagrafica({ documenti: lista.filter(function (x) { return x.id !== id; }) }); foglio.close(); toast('Documento eliminato');
       };

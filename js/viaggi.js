@@ -301,7 +301,7 @@ var Viaggi = (function () {
       (opz.elimina ? '<button class="btn pericolo" type="button" data-elimina style="margin-left:auto">Elimina</button>' : '') + '</div></div></form>';
     var f = fg.querySelector('form');
     f.querySelector('[data-annulla]').onclick = function () { if (opz.annulla) opz.annulla(); fg.close(); };
-    if (opz.elimina) f.querySelector('[data-elimina]').onclick = function () { if (window.confirm(opz.confermaElimina || 'Eliminare?')) { opz.elimina(); fg.close(); } };
+    if (opz.elimina) f.querySelector('[data-elimina]').onclick = function () { if (window.confirm(opz.confermaElimina || 'Eliminare?') && (!opz.secondaConferma || window.confirm(opz.secondaConferma))) { opz.elimina(); fg.close(); } };
     f.onsubmit = function (e) {
       e.preventDefault();
       var out = {};
@@ -420,7 +420,8 @@ var Viaggi = (function () {
         (s.allegati || []).forEach(function (a) { Store.chiama('allegato_elimina', { id: a.id }).catch(function () {}); });
         v[sez] = v[sez].filter(function (x) { return x.id !== idSotto; }); Store.upsert(v); ui.toast('Eliminato');
       } : null,
-      confermaElimina: 'Eliminare questo ' + def.uno + ' e i suoi allegati?'
+      confermaElimina: 'Eliminare questo ' + def.uno + ' e i suoi allegati?',
+      secondaConferma: (s && (s.allegati || []).length) ? 'Conferma di nuovo: i file allegati andranno nel cestino di Drive.' : null
     }));
   }
 
@@ -447,7 +448,7 @@ var Viaggi = (function () {
         f.addEventListener('click', function (e) {
           var t = e.target.closest('[data-apri-allegato],[data-togli-allegato]'); if (!t) return;
           e.preventDefault(); e.stopPropagation();
-          if (t.dataset.togliAllegato) { var p = t.dataset.togliAllegato.split('|'); togli(c, c.id + '||', p[3], false); disegnaBiglietti(f); }
+          if (t.dataset.togliAllegato && window.confirm('Togliere questo biglietto? Il file va nel cestino di Drive.')) { var p = t.dataset.togliAllegato.split('|'); togli(c, c.id + '||', p[3], false); disegnaBiglietti(f); }
           else ui.toast('Salva il concerto, poi apri il biglietto dalla lista');
         });
       },
