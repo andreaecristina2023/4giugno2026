@@ -668,8 +668,8 @@
           }
           anteprima();
         });
-        function fine(e) { delete punti[e.pointerId]; distPrec = 0; ultimo = null; }
-        cv.addEventListener('pointerup', fine); cv.addEventListener('pointercancel', fine);
+        function fineTocco(e) { delete punti[e.pointerId]; distPrec = 0; ultimo = null; }
+        cv.addEventListener('pointerup', fineTocco); cv.addEventListener('pointercancel', fineTocco);
         cv.addEventListener('wheel', function (e) { e.preventDefault(); zoom = Math.max(1, Math.min(4, zoom - e.deltaY * 0.002)); slider.value = zoom; anteprima(); }, { passive: false });
         slider.oninput = function () { zoom = +slider.value; anteprima(); };
         var raddrizza = box.querySelector('[data-raddrizza]'), gradi = box.querySelector('[data-gradi]');
