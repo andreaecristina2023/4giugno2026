@@ -90,7 +90,8 @@ public class RifiutiWidget extends AppWidgetProvider {
         v.setTextViewText(R.id.r_quando, quando);
         int mostrati = 0;
         String nota = "";
-        if (scelto != null) {
+        boolean staSera = scelto != null && (quando.equals("Stasera fuori") || quando.equals("Fuori adesso"));
+        if (staSera) {
             JSONArray fr = scelto.optJSONArray("frazioni");
             nota = scelto.optString("nota", "");
             for (int i = 0; fr != null && i < fr.length() && mostrati < BOX.length; i++) {
@@ -104,7 +105,15 @@ public class RifiutiWidget extends AppWidgetProvider {
                 mostrati++;
             }
         } else {
-            nota = "Apri l'app per aggiornare";
+            // nulla da portare fuori stasera: cestini vuoti, sbiaditi
+            for (int i = 0; i < BOX.length; i++) {
+                v.setViewVisibility(BOX[i], View.VISIBLE);
+                v.setInt(BIN[i], "setColorFilter", Color.parseColor("#9AA59C"));
+                v.setFloat(BIN[i], "setAlpha", 0.35f);
+                v.setTextViewText(NOME[i], "");
+            }
+            mostrati = BOX.length;
+            if (scelto == null) nota = "Apri l'app per aggiornare";
         }
         for (int i = mostrati; i < BOX.length; i++) v.setViewVisibility(BOX[i], View.GONE);
         CharSequence serv = TurniVVF.etichetta(context, Calendar.getInstance());
