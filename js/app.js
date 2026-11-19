@@ -605,6 +605,10 @@
       img.onerror = function () { URL.revokeObjectURL(url); ok(null); };
       img.onload = function () {
         var rot = 0, fine = 0, zoom = 1, ox = 0, oy = 0, W = 0, H = 0, fW = 0, fH = 0, fX = 0, fY = 0;
+        var kP = Math.min(1, 900 / Math.max(img.width, img.height));
+        var piccola = document.createElement('canvas');
+        piccola.width = Math.max(2, Math.round(img.width * kP)); piccola.height = Math.max(2, Math.round(img.height * kP));
+        piccola.getContext('2d').drawImage(img, 0, 0, piccola.width, piccola.height);
         var box = document.createElement('dialog');
         box.className = 'camera-guida ritaglio';
         box.innerHTML = '<div class="ritaglio-vista"><canvas></canvas><div class="camera-riquadro" aria-hidden="true"></div></div>' +
@@ -628,17 +632,23 @@
           ov.style.cssText = 'left:' + fX + 'px;top:' + fY + 'px;width:' + fW + 'px;height:' + fH + 'px;transform:none;aspect-ratio:auto;';
         }
         // disegna l'immagine nel riquadro; f = fattore di scala, (dx,dy) = origine del riquadro sul contesto
-        function disegna(c, f, dx, dy, colore, larg, alt) {
+        function disegna(c, f, dx, dy, colore, larg, alt, src) {
+          var sorg = src || img;
           c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = colore; c.fillRect(0, 0, larg, alt);
           c.setTransform(f, 0, 0, f, dx, dy);
           // angolo totale = rotazione di 90° + raddrizzamento fine; la scala copre il riquadro anche ruotata
           var angolo = (rot + fine) * Math.PI / 180, cosA = Math.abs(Math.cos(angolo)), sinA = Math.abs(Math.sin(angolo));
-          var bw = img.width * cosA + img.height * sinA, bh = img.width * sinA + img.height * cosA;
+          var bw = sorg.width * cosA + sorg.height * sinA, bh = sorg.width * sinA + sorg.height * cosA;
           var base = Math.max(fW / bw, fH / bh) * zoom;
           c.translate(fW / 2 + ox, fH / 2 + oy); c.rotate(angolo); c.scale(base, base);
-          c.drawImage(img, -img.width / 2, -img.height / 2);
+          c.drawImage(sorg, -sorg.width / 2, -sorg.height / 2);
         }
-        function anteprima() { disegna(ctx, 1, fX, fY, '#000', W, H); }
+        // anteprima leggera (foto ridotta) e un solo disegno per fotogramma: la foto piena si usa solo al salvataggio
+        var inCorso = false;
+        function anteprima() {
+          if (inCorso) return; inCorso = true;
+          requestAnimationFrame(function () { inCorso = false; disegna(ctx, 1, fX, fY, '#000', W, H, piccola); });
+        }
         misura(); anteprima();
         // trascinamento e pizzico con due dita
         var punti = {}, distPrec = 0, ultimo = null;
