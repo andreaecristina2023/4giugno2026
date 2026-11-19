@@ -638,6 +638,37 @@
       img.src = url;
     });
   }
+  // Fotocamera con riquadro: il documento va centrato nel riquadro e viene ritagliato al suo interno.
+  function scattaConRiquadro() {
+    return new Promise(function (ok, ko) {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return ko(new Error('Fotocamera non disponibile'));
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 } }, audio: false }).then(function (flusso) {
+        var box = document.createElement('div');
+        box.className = 'camera-guida';
+        box.innerHTML = '<div class="camera-vista"><video playsinline muted></video><div class="camera-riquadro" aria-hidden="true"></div></div>' +
+          '<p class="camera-suggerimento">Centra il documento nel riquadro, senza riflessi</p>' +
+          '<div class="camera-azioni"><button class="btn secondario" type="button" data-annulla-cam>Annulla</button><button class="btn" type="button" data-scatta-cam>Scatta</button></div>';
+        document.body.appendChild(box);
+        var video = box.querySelector('video'), vista = box.querySelector('.camera-vista');
+        function chiudi() { flusso.getTracks().forEach(function (t) { t.stop(); }); box.remove(); }
+        video.onloadedmetadata = function () { vista.style.aspectRatio = video.videoWidth + ' / ' + video.videoHeight; };
+        video.srcObject = flusso; video.play().catch(function () {});
+        box.querySelector('[data-annulla-cam]').onclick = function () { chiudi(); ko(new Error('annullato')); };
+        box.querySelector('[data-scatta-cam]').onclick = function () {
+          var vw = video.videoWidth, vh = video.videoHeight;
+          if (!vw || !vh) return;
+          // riquadro: 82% della larghezza, proporzione carta d'identità (1,586), come nel disegno
+          var rw = vw * 0.82, rh = rw / 1.586;
+          if (rh > vh * 0.9) { rh = vh * 0.9; rw = rh * 1.586; }
+          var rx = (vw - rw) / 2, ry = (vh - rh) / 2;
+          var cv = document.createElement('canvas'); cv.width = Math.round(rw); cv.height = Math.round(rh);
+          cv.getContext('2d').drawImage(video, rx, ry, rw, rh, 0, 0, cv.width, cv.height);
+          chiudi();
+          cv.toBlob(function (b) { if (!b) return ko(new Error('scatto non riuscito')); ok(new File([b], 'scatto-' + Date.now() + '.jpg', { type: 'image/jpeg' })); }, 'image/jpeg', 0.92);
+        };
+      }).catch(ko);
+    });
+  }
   function apriDocumento(id) {
     var lista = ((Store.settings().anagrafica || {}).documenti || []), orig = id ? lista.filter(function (x) { return x.id === id; })[0] : null;
     var d = orig ? JSON.parse(JSON.stringify(orig)) : { id: C.nuovoId(), tipo: TIPI_DOCUMENTO[0], persona: 'Andrea', numero: '', rilascio: '', scadenza: '', rilasciatoDa: '', allegati: [] };
@@ -667,7 +698,7 @@
         '<label class="campo">Numero<input type="text" name="numero" maxlength="60" value="' + esc(d.numero) + '"></label>' +
         '<div class="due"><label class="campo">Data di rilascio<input type="date" name="rilascio" value="' + esc(d.rilascio) + '"></label><label class="campo">Data di scadenza<input type="date" name="scadenza" value="' + esc(d.scadenza) + '"></label></div>' +
         '<label class="campo">Rilasciato da<input type="text" name="rilasciatoDa" maxlength="120" value="' + esc(d.rilasciatoDa) + '" placeholder="Es. Comune di Bertinoro"></label>' +
-        '<div class="campo"><span>Foto (fronte e retro)</span><span class="aiuto">Puoi aggiungerne più d\'una. Restano salvate nell\'area Allegati del foglio.</span>' + Viaggi.htmlAllegati(d.allegati, ctx, 'Aggiungi foto') + '<div id="scelta-lati"></div></div>' +
+        '<div class="campo"><span>Foto (fronte e retro)</span><span class="aiuto">Puoi aggiungerne più d\'una. Restano salvate nell\'area Allegati del foglio.</span>' + Viaggi.htmlAllegati(d.allegati, ctx, 'Aggiungi foto') + '<div class="azioni-foto"><button type="button" class="btn secondario piccolo" data-scatta>📷 Scatta con riquadro</button><input type="file" accept="image/*" capture="environment" data-scatta-file class="sr" tabindex="-1"></div><div id="scelta-lati"></div></div>' +
         '<div class="azioni"><button class="btn" type="submit">Salva</button><button class="btn secondario" type="button" data-chiudi>Annulla</button>' + (id ? '<button class="btn pericolo" type="button" data-elimina style="margin-left:auto">Elimina</button>' : '') + '</div></div></form>';
       form = $('#form-documento', foglio);
       $('[data-chiudi]', form).onclick = function () { foglio.close(); };
@@ -683,8 +714,7 @@
         if (confirm('Togliere questa foto?')) { snap(); Viaggi.togli(wrap, ctx, idAll, false); disegna(); }
       }; });
       var inp = form.querySelector('[data-allega]'), scelta = form.querySelector('#scelta-lati');
-      if (inp) inp.onchange = function () {
-        var files = Array.prototype.slice.call(inp.files || []);
+      function sceltaFile(files) {
         if (!files.length) return;
         snap();
         scelta.innerHTML = '<div class="campo"><span>Di quale lato sono?</span>' + files.map(function (x, i) {
@@ -697,7 +727,7 @@
           var ritaglia = !!(scelta.querySelector('[data-ritaglia]') || {}).checked;
           var nomi = lati.map(function (l, i) { return nomeFile(l, files[i].name, i); });
           scelta.innerHTML = '<p class="testo-muto">Carico…</p>';
-          Promise.all(files.map(function (x) { return ritaglia ? ritagliaFoto(x) : x; })).then(function (fs) {
+          Promise.all(files.map(function (x) { return (ritaglia && !x.guidato) ? ritagliaFoto(x) : x; })).then(function (fs) {
             scelta.innerHTML = '';
             return Viaggi.allega(wrap, ctx, fs, false, {
               nome: function (x) { return nomi[fs.indexOf(x)]; },
@@ -705,7 +735,14 @@
             });
           }).then(disegna);
         };
+      }
+      if (inp) inp.onchange = function () { sceltaFile(Array.prototype.slice.call(inp.files || [])); };
+      var scatta = form.querySelector('[data-scatta]'), scattaFile = form.querySelector('[data-scatta-file]');
+      if (scatta) scatta.onclick = function () {
+        scattaConRiquadro().then(function (f) { f.guidato = true; sceltaFile([f]); })
+          .catch(function (err) { if (err && err.message === 'annullato') return; if (scattaFile) scattaFile.click(); });
       };
+      if (scattaFile) scattaFile.onchange = function () { var f = scattaFile.files[0]; if (f) { f.guidato = true; sceltaFile([f]); } };
       Viaggi.anteprime(foglio);
       form.onsubmit = function (e) {
         e.preventDefault();
