@@ -35,6 +35,8 @@
     }).join('') + '</div>';
   }
 
+  // numero da chiamare: solo cifre e + (es. +39 0543 460039 → +390543460039)
+  function numeroChiamata(t) { return String(t || '').replace(/[^0-9+]/g, ''); }
   function rigaVoce(x) {
     var it = x.item, cls = 'riga' + (x.fatto ? ' fatta' : '') + (x.scaduto ? ' scaduta' : '');
     var meta = [];
@@ -48,9 +50,13 @@
     var destra = '';
     if (it.importo) destra += '<span class="importo">' + C.euro(it.importo) + '</span>';
     if (C.chiudibile(it)) destra += '<button class="spunta" type="button" data-fatto="' + esc(it.id) + '" data-data="' + x.data + '" aria-pressed="' + x.fatto + '" aria-label="' + (x.fatto ? 'Segna come da fare: ' : 'Segna come fatto: ') + esc(it.titolo) + '"></button>';
+    var contatti = '';
+    if (it.telefono) contatti += '<a class="contatto" href="tel:' + esc(numeroChiamata(it.telefono)) + '" aria-label="Chiama ' + esc(it.telefono) + '">📞</a>';
+    if (it.email) contatti += '<a class="contatto" href="mailto:' + esc(it.email) + '" aria-label="Scrivi a ' + esc(it.email) + '">✉️</a>';
+    if (it.indirizzo) contatti += '<a class="contatto" href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(it.indirizzo) + '" target="_blank" rel="noopener" aria-label="Apri ' + esc(it.indirizzo) + ' in mappa">📍</a>';
     return '<li class="' + cls + '" style="--c:' + colVoce(it) + '"><span class="barra"></span>' +
       '<button class="corpo-riga" type="button" data-apri="' + esc(it.id) + '"><span class="titolo">' + esc(it.titolo) + '</span><span class="meta">' + esc(meta.join(' · ')) + '</span></button>' +
-      '<span class="destra">' + destra + '</span></li>';
+      '<span class="destra">' + contatti + destra + '</span></li>';
   }
   function rigaRifiuti(x) {
     return '<li class="riga" style="--c:' + C.FRAZIONI[x.frazioni[0]].colore + '"><span class="barra"></span>' +
@@ -365,24 +371,12 @@
 
   // ---------- VIAGGI e CONCERTI ----------
   // ---------- lista della spesa e note ----------
-  // una nota è nuova per chi non l'ha ancora aperta, se l'ha scritta l'altra persona
-  function nonLetta(v) {
-    var me = Store.conf().chi;
-    return !!(me && v.tipo === 'nota' && v.creatoDa && v.creatoDa !== me && (v.letta || []).indexOf(me) < 0);
-  }
-  function aggiornaPallini() {
-    var ci = Store.lista().some(nonLetta);
-    var link = document.querySelector('nav.barra-nav a[data-r="lista"]');
-    if (!link) return;
-    var p = link.querySelector('.pallino');
-    if (ci && !p) link.insertAdjacentHTML('beforeend', '<span class="pallino" aria-label="Note nuove"></span>');
-    else if (!ci && p) p.remove();
-  }
   var COLORI_POSTIT = ['#FFE98A', '#BDE7FF', '#FFC9D6', '#C9F2C7'];
   // una nota è "nuova" per me se l'ha scritta o modificata qualcun altro dopo l'ultima volta che l'ho letta
   function notaNuova(n) {
     var me = Store.conf().chi, autore = n.modificatoDa || n.creatoDa || '';
-    return !!me && n.tipo === 'nota' && autore !== me && ((n.letti || {})[me] || 0) < (n.modificataIl || 0);
+    var quando = n.modificataIl || n.aggiornato || 0;
+    return !!me && n.tipo === 'nota' && autore !== me && ((n.letti || {})[me] || 0) < quando;
   }
   function segnaLette(note) {
     var me = Store.conf().chi; if (!me) return;
@@ -410,13 +404,12 @@
         '<span class="spesa-testo">' + esc(x.titolo) + '</span><button type="button" class="togli" data-elimina-spesa="' + esc(x.id) + '" aria-label="Elimina ' + esc(x.titolo) + '">✕</button></div>';
     }).join('') + (spese.length ? '' : '<p class="vuoto">La lista è vuota.</p>') + '</div>';
     h += '<h2>Note</h2><div class="postit-griglia">' + note.map(function (n) {
-      return '<button type="button" class="postit" style="--p:' + esc(n.colore || COLORI_POSTIT[0]) + '" data-nota="' + esc(n.id) + '"><strong>' + esc(n.titolo || 'Nota') + '</strong><span>' + esc(n.testo || '') + '</span>' + (nonLetta(n) ? '<span class="pallino" aria-label="Non letta"></span>' : '') + '</button>';
+      return '<button type="button" class="postit" style="--p:' + esc(n.colore || COLORI_POSTIT[0]) + '" data-nota="' + esc(n.id) + '"><strong>' + esc(n.titolo || 'Nota') + '</strong><span>' + esc(n.testo || '') + '</span>' + (notaNuova(n) ? '<span class="pallino" aria-label="Non letta"></span>' : '') + '</button>';
     }).join('') + '<button type="button" class="postit nuovo" data-nota-nuova>+ Nuova nota</button></div>';
     vista.innerHTML = h;
   }
   function apriNota(id) {
     var orig = id ? Store.get(id) : null;
-    if (orig && nonLetta(orig)) Store.upsert(Object.assign({}, orig, { letta: (orig.letta || []).concat([Store.conf().chi]) }));
     var n = orig ? JSON.parse(JSON.stringify(orig)) : { titolo: '', testo: '', colore: COLORI_POSTIT[0] };
     if (orig) segnaLette([orig]);
     foglio.classList.remove('visore');
@@ -465,8 +458,10 @@
     function campo(nome, etic, val, tipo) { return '<label class="campo">' + etic + '<input type="' + (tipo || 'text') + '" name="' + nome + '" value="' + esc(val || '') + '"></label>'; }
     function persona(nome) {
       var p = pp[nome] || {};
-      return '<div class="campo"><span>' + esc(nome) + '</span><div class="due"><label class="campo">Prefisso<select name="' + nome + '_prefisso">' + PREFISSI_DATI.map(function (x) { return '<option' + ((p.prefisso || '+39') === x ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select></label>' +
-        '<label class="campo">Telefono<input type="tel" name="' + nome + '_telefono" value="' + esc(p.telefono || '') + '"></label></div>' +
+      var telPredef = p.telefono || (nome === 'Andrea' ? '41460039' : '');
+      var chiama = telPredef ? '<a class="contatto" href="tel:' + esc(numeroChiamata((p.prefisso || '+39') + telPredef)) + '" aria-label="Chiama ' + esc(nome) + '">📞 Chiama</a>' : '';
+      return '<div class="campo"><span>' + esc(nome) + ' ' + chiama + '</span><div class="due"><label class="campo">Prefisso<select name="' + nome + '_prefisso">' + PREFISSI_DATI.map(function (x) { return '<option' + ((p.prefisso || '+39') === x ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select></label>' +
+        '<label class="campo">Telefono<input type="tel" name="' + nome + '_telefono" value="' + esc(telPredef) + '"></label></div>' +
         '<div class="due">' + campo(nome + '_nome', 'Nome e cognome', p.nomeCompleto) + '<label class="campo">Data di nascita<input type="date" name="' + nome + '_nascita" value="' + esc(p.nascita || '') + '"></label></div>' +
         '<div class="due">' + campo(nome + '_email', 'Email', p.email, 'email') + campo(nome + '_cf', 'Codice fiscale', p.cf) + '</div></div>';
     }
@@ -764,7 +759,6 @@
   function disegna() {
     var r = rotta(), y = window.scrollY;
     VISTE[r]();
-    aggiornaPallino();
     $('#fab').style.display = (r === 'altro' || r === 'album' || r === 'viaggio') ? 'none' : '';
     var rNav = r === 'viaggio' ? 'viaggi' : r;
     document.querySelectorAll('nav.barra-nav a').forEach(function (a) { if (a.dataset.r === rNav) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
@@ -773,7 +767,7 @@
   }
   window.addEventListener('hashchange', function () { disegna(); window.scrollTo(0, 0); });
   Store.on(disegna);
-  Store.on(aggiornaPallini); aggiornaPallini();
+  Store.on(aggiornaPallino); aggiornaPallino();
 
   Album.init({ esc: esc, toast: toast, foglio: foglio, ridisegna: function () { if (rotta() === 'album' && !foglio.open) disegna(); } });
   Viaggi.init({ esc: esc, toast: toast, foglio: foglio });

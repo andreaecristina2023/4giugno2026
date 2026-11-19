@@ -399,3 +399,7 @@ nav.barra-nav a { position: relative; }
 nav.barra-nav .pallino { position: absolute; top: 8px; left: calc(50% + 10px); width: 10px; height: 10px; border-radius: 50%; background: var(--sangiovese); box-shadow: 0 0 0 2px var(--superficie); }
 .postit { position: relative; }
 .postit .pallino { position: absolute; top: -4px; right: -4px; width: 12px; height: 12px; border-radius: 50%; background: var(--sangiovese); box-shadow: 0 0 0 2px #fff; }
+
+.contatto { display: inline-flex; align-items: center; justify-content: center; min-width: 34px; height: 34px; padding: 0 6px; border-radius: 17px; font-size: 16px; text-decoration: none; color: inherit; background: var(--superficie); box-shadow: 0 0 0 1px var(--confine); flex: none; }
+.postit { position: relative; }
+.postit .pallino { position: absolute; top: 8px; right: 8px; width: 11px; height: 11px; border-radius: 50%; background: var(--sangiovese); box-shadow: 0 0 0 2px #fff; }
