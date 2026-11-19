@@ -75,6 +75,7 @@ function doPost(e) {
     else if (req.azione === 'allegato_carica') out = caricaAllegato(req);
     else if (req.azione === 'allegato_scarica') out = scaricaAllegato(req.id);
     else if (req.azione === 'allegato_elimina') out = eliminaAllegato(req.id);
+    else if (req.azione === 'allegato_rinomina') out = rinominaAllegato(req.id, req.nome);
     else throw new Error('Azione sconosciuta');
   } catch (err) {
     out = { ok: false, errore: String(err.message || err) };
@@ -304,6 +305,13 @@ function scaricaAllegato(id) {
 function eliminaAllegato(id) {
   try { allegatoNellaCartella(id).setTrashed(true); } catch (e) { /* già eliminato */ }
   return { ok: true };
+}
+
+function rinominaAllegato(id, nome) {
+  if (!id || !nome) throw new Error('Nome o id mancante');
+  var nuovo = String(nome).replace(/[\\/:*?"<>|]/g, '_').slice(0, 120);
+  allegatoNellaCartella(id).setName(nuovo);
+  return { ok: true, nome: nuovo };
 }
 
 // ---------------- bot Telegram (facoltativo) ----------------

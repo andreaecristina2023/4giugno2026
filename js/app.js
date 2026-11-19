@@ -513,9 +513,19 @@
       form.onsubmit = function (e) {
         e.preventDefault();
         snap();
-        var nuovo = { id: d.id, tipo: d.tipo, persona: d.persona, numero: d.numero, rilascio: d.rilascio, scadenza: d.scadenza, rilasciatoDa: d.rilasciatoDa, allegati: d.allegati };
-        var nuova = id ? lista.map(function (x) { return x.id === id ? nuovo : x; }) : lista.concat([nuovo]);
-        salvaAnagrafica({ documenti: nuova }); foglio.close(); toast(id ? 'Documento salvato' : 'Documento aggiunto');
+        // rinomina su Drive le foto del documento con il nome aggiornato (le vecchie senza lato: 1ª fronte, 2ª retro)
+        var rinomine = d.allegati.map(function (a, i) {
+          if (!a.lato) a.lato = i === 0 ? 'Fronte' : i === 1 ? 'Retro' : 'Altro';
+          var voce = nomeFile(a.lato, a.nome, i);
+          if (a.nome === voce) return Promise.resolve();
+          return Promise.resolve().then(function () { return Store.chiama('allegato_rinomina', { id: a.id, nome: voce }); })
+            .then(function () { a.nome = voce; }).catch(function () {});
+        });
+        Promise.all(rinomine).then(function () {
+          var nuovo = { id: d.id, tipo: d.tipo, persona: d.persona, numero: d.numero, rilascio: d.rilascio, scadenza: d.scadenza, rilasciatoDa: d.rilasciatoDa, allegati: d.allegati };
+          var nuova = id ? lista.map(function (x) { return x.id === id ? nuovo : x; }) : lista.concat([nuovo]);
+          salvaAnagrafica({ documenti: nuova }); foglio.close(); toast(id ? 'Documento salvato' : 'Documento aggiunto');
+        });
       };
     }
     disegna();
