@@ -604,13 +604,14 @@
       var url = URL.createObjectURL(file), img = new Image();
       img.onerror = function () { URL.revokeObjectURL(url); ok(null); };
       img.onload = function () {
-        var rot = 0, zoom = 1, ox = 0, oy = 0, W = 0, H = 0, fW = 0, fH = 0, fX = 0, fY = 0;
+        var rot = 0, fine = 0, zoom = 1, ox = 0, oy = 0, W = 0, H = 0, fW = 0, fH = 0, fX = 0, fY = 0;
         var box = document.createElement('div');
         box.className = 'camera-guida ritaglio';
         box.innerHTML = '<div class="ritaglio-vista"><canvas></canvas><div class="camera-riquadro" aria-hidden="true"></div></div>' +
           '<div class="ritaglio-comandi"><button type="button" class="btn secondario piccolo" data-ruota="-90" aria-label="Ruota a sinistra">↺</button>' +
           '<button type="button" class="btn secondario piccolo" data-ruota="90" aria-label="Ruota a destra">↻</button>' +
-          '<label class="ritaglio-zoom">Zoom <input type="range" min="1" max="4" step="0.01" value="1" data-zoom></label></div>' +
+          '<label class="ritaglio-zoom">Zoom <input type="range" min="1" max="4" step="0.01" value="1" data-zoom></label>' +
+          '<label class="ritaglio-zoom">Raddrizza <input type="range" min="-15" max="15" step="0.1" value="0" data-raddrizza> <span data-gradi>0°</span></label></div>' +
           '<p class="camera-suggerimento">Trascina e zooma per mettere il documento nel riquadro</p>' +
           '<div class="camera-azioni"><button class="btn secondario" type="button" data-annulla-rit>Annulla</button><button class="btn" type="button" data-usa-rit>Usa questa foto</button></div>';
         document.body.appendChild(box);
@@ -628,9 +629,11 @@
         function disegna(c, f, dx, dy, colore, larg, alt) {
           c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = colore; c.fillRect(0, 0, larg, alt);
           c.setTransform(f, 0, 0, f, dx, dy);
-          var ruotata = rot % 180 !== 0, rw = ruotata ? img.height : img.width, rh = ruotata ? img.width : img.height;
-          var base = Math.max(fW / rw, fH / rh) * zoom;
-          c.translate(fW / 2 + ox, fH / 2 + oy); c.rotate(rot * Math.PI / 180); c.scale(base, base);
+          // angolo totale = rotazione di 90° + raddrizzamento fine; la scala copre il riquadro anche ruotata
+          var angolo = (rot + fine) * Math.PI / 180, cosA = Math.abs(Math.cos(angolo)), sinA = Math.abs(Math.sin(angolo));
+          var bw = img.width * cosA + img.height * sinA, bh = img.width * sinA + img.height * cosA;
+          var base = Math.max(fW / bw, fH / bh) * zoom;
+          c.translate(fW / 2 + ox, fH / 2 + oy); c.rotate(angolo); c.scale(base, base);
           c.drawImage(img, -img.width / 2, -img.height / 2);
         }
         function anteprima() { disegna(ctx, 1, fX, fY, '#000', W, H); }
@@ -656,6 +659,8 @@
         cv.addEventListener('pointerup', fine); cv.addEventListener('pointercancel', fine);
         cv.addEventListener('wheel', function (e) { e.preventDefault(); zoom = Math.max(1, Math.min(4, zoom - e.deltaY * 0.002)); slider.value = zoom; anteprima(); }, { passive: false });
         slider.oninput = function () { zoom = +slider.value; anteprima(); };
+        var raddrizza = box.querySelector('[data-raddrizza]'), gradi = box.querySelector('[data-gradi]');
+        raddrizza.oninput = function () { fine = +raddrizza.value; gradi.textContent = fine.toFixed(1) + '°'; anteprima(); };
         box.querySelectorAll('[data-ruota]').forEach(function (b) { b.onclick = function () { rot = (rot + (+b.dataset.ruota) + 360) % 360; anteprima(); }; });
         function chiudi() { URL.revokeObjectURL(url); box.remove(); window.removeEventListener('resize', misura); }
         box.querySelector('[data-annulla-rit]').onclick = function () { chiudi(); ok(null); };
