@@ -113,6 +113,7 @@ public class RifiutiWidget extends AppWidgetProvider {
                 v.setTextViewText(NOME[i], "");
             }
             mostrati = BOX.length;
+            if (scelto != null) v.setTextViewText(R.id.r_quando, "Fuori stasera: nulla");
             if (scelto == null) nota = "Apri l'app per aggiornare";
         }
         for (int i = mostrati; i < BOX.length; i++) v.setViewVisibility(BOX[i], View.GONE);
