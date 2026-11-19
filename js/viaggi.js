@@ -764,6 +764,7 @@ var Viaggi = (function () {
     disegnaMappa: disegnaMappa,
     htmlElenco: htmlElenco, htmlDettaglio: htmlDettaglio, htmlConcerti: htmlConcerti,
     apriViaggio: apriViaggio, apriConcerto: apriConcerto, apriAllegato: apriAllegato,
-    click: click, change: change, prossimi: prossimi, intervallo: intervallo
+    click: click, change: change, prossimi: prossimi, intervallo: intervallo,
+    allega: allega, togli: togli, htmlAllegati: htmlAllegati
   };
 })();

@@ -404,7 +404,7 @@
       '<label class="campo">Altro<span class="aiuto">Quello che ti serve spesso: codici, numeri utili, note.</span><textarea name="altro" maxlength="2000">' + esc(a.altro || '') + '</textarea></label>' +
       '<div class="azioni"><button class="btn" type="submit">Salva i dati</button></div></form>';
     h += '<h2>Documenti <small>' + docs.length + '</small></h2><div class="sezione">' + docs.map(function (d) {
-      return '<button type="button" class="sotto-card doc-riga" data-doc-modifica="' + esc(d.id) + '"><span class="sc-titolo">' + esc(d.tipo || 'Documento') + (d.numero ? ' · ' + esc(d.numero) : '') + '</span>' +
+      return '<button type="button" class="sotto-card doc-riga" data-doc-modifica="' + esc(d.id) + '"><span class="sc-titolo">' + esc(d.tipo || 'Documento') + (d.numero ? ' · ' + esc(d.numero) : '') + (d.allegati && d.allegati.length ? ' · 🖼 ' + d.allegati.length : '') + '</span>' +
         (d.scadenza ? '<span class="sc-riga">Scade ' + esc(d.scadenza) + (d.rilasciatoDa ? ' · ' + esc(d.rilasciatoDa) : '') + '</span>' : (d.rilasciatoDa ? '<span class="sc-riga">' + esc(d.rilasciatoDa) + '</span>' : '')) + '</button>';
     }).join('') + '<button type="button" class="btn secondario piccolo" data-doc-nuovo aria-label="Aggiungi documento">+ Aggiungi documento</button></div>';
     setTimeout(initCasa, 0);
@@ -447,26 +447,43 @@
     };
   }
   function apriDocumento(id) {
-    var lista = ((Store.settings().anagrafica || {}).documenti || []), d = null;
-    if (id) d = lista.filter(function (x) { return x.id === id; })[0];
-    d = d ? JSON.parse(JSON.stringify(d)) : { id: '', tipo: TIPI_DOCUMENTO[0], numero: '', rilascio: '', scadenza: '', rilasciatoDa: '' };
-    foglio.innerHTML = '<form method="dialog" id="form-documento"><div class="maniglia"></div><h3 id="foglio-titolo">' + (id ? 'Modifica documento' : 'Nuovo documento') + '</h3><div class="campi">' +
-      '<label class="campo">Tipo<select name="tipo">' + TIPI_DOCUMENTO.map(function (t) { return '<option' + (d.tipo === t ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select></label>' +
-      '<label class="campo">Numero<input type="text" name="numero" maxlength="60" value="' + esc(d.numero) + '"></label>' +
-      '<div class="due"><label class="campo">Data di rilascio<input type="date" name="rilascio" value="' + esc(d.rilascio) + '"></label><label class="campo">Data di scadenza<input type="date" name="scadenza" value="' + esc(d.scadenza) + '"></label></div>' +
-      '<label class="campo">Rilasciato da<input type="text" name="rilasciatoDa" maxlength="120" value="' + esc(d.rilasciatoDa) + '" placeholder="Es. Comune di Bertinoro"></label>' +
-      '<div class="azioni"><button class="btn" type="submit">Salva</button><button class="btn secondario" type="button" data-chiudi>Annulla</button>' + (id ? '<button class="btn pericolo" type="button" data-elimina style="margin-left:auto">Elimina</button>' : '') + '</div></div></form>';
-    var f = $('#form-documento', foglio);
-    $('[data-chiudi]', f).onclick = function () { foglio.close(); };
-    if (id) $('[data-elimina]', f).onclick = function () { salvaAnagrafica({ documenti: lista.filter(function (x) { return x.id !== id; }) }); foglio.close(); toast('Documento eliminato'); };
-    f.onsubmit = function (e) {
-      e.preventDefault();
-      var nuovo = { id: d.id || C.nuovoId(), tipo: f.tipo.value, numero: f.numero.value.trim(), rilascio: f.rilascio.value, scadenza: f.scadenza.value, rilasciatoDa: f.rilasciatoDa.value.trim() };
-      var nuova = id ? lista.map(function (x) { return x.id === id ? nuovo : x; }) : lista.concat([nuovo]);
-      salvaAnagrafica({ documenti: nuova }); foglio.close(); toast(id ? 'Documento salvato' : 'Documento aggiunto');
-    };
+    var lista = ((Store.settings().anagrafica || {}).documenti || []), orig = id ? lista.filter(function (x) { return x.id === id; })[0] : null;
+    var d = orig ? JSON.parse(JSON.stringify(orig)) : { id: C.nuovoId(), tipo: TIPI_DOCUMENTO[0], numero: '', rilascio: '', scadenza: '', rilasciatoDa: '', allegati: [] };
+    d.allegati = d.allegati || [];
+    var wrap = { documenti: [d] }, ctx = 'anag|documenti|' + d.id;
+    foglio.classList.remove('visore');
+    function disegna() {
+      foglio.innerHTML = '<form method="dialog" id="form-documento"><div class="maniglia"></div><h3 id="foglio-titolo">' + (id ? 'Modifica documento' : 'Nuovo documento') + '</h3><div class="campi">' +
+        '<label class="campo">Tipo<select name="tipo">' + TIPI_DOCUMENTO.map(function (t) { return '<option' + (d.tipo === t ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select></label>' +
+        '<label class="campo">Numero<input type="text" name="numero" maxlength="60" value="' + esc(d.numero) + '"></label>' +
+        '<div class="due"><label class="campo">Data di rilascio<input type="date" name="rilascio" value="' + esc(d.rilascio) + '"></label><label class="campo">Data di scadenza<input type="date" name="scadenza" value="' + esc(d.scadenza) + '"></label></div>' +
+        '<label class="campo">Rilasciato da<input type="text" name="rilasciatoDa" maxlength="120" value="' + esc(d.rilasciatoDa) + '" placeholder="Es. Comune di Bertinoro"></label>' +
+        '<div class="campo"><span>Foto (fronte e retro)</span><span class="aiuto">Puoi aggiungerne più d\'una. Restano salvate nell\'area Allegati del foglio.</span>' + Viaggi.htmlAllegati(d.allegati, ctx, 'Aggiungi foto') + '</div>' +
+        '<div class="azioni"><button class="btn" type="submit">Salva</button><button class="btn secondario" type="button" data-chiudi>Annulla</button>' + (id ? '<button class="btn pericolo" type="button" data-elimina style="margin-left:auto">Elimina</button>' : '') + '</div></div></form>';
+      var f = $('#form-documento', foglio);
+      $('[data-chiudi]', f).onclick = function () { foglio.close(); };
+      if (id) $('[data-elimina]', f).onclick = function () {
+        (orig.allegati || []).forEach(function (a) { Store.chiama('allegato_elimina', { id: a.id }).catch(function () {}); });
+        salvaAnagrafica({ documenti: lista.filter(function (x) { return x.id !== id; }) }); foglio.close(); toast('Documento eliminato');
+      };
+      f.querySelectorAll('[data-apri-allegato]').forEach(function (b) { b.onclick = function () { Viaggi.apriAllegato(b.dataset.apriAllegato, b.dataset.nome, b.dataset.mime); }; });
+      f.querySelectorAll('[data-togli-allegato]').forEach(function (b) { b.onclick = function () {
+        var idAll = b.dataset.togliAllegato.split('|').pop();
+        if (confirm('Togliere questa foto?')) { Viaggi.togli(wrap, ctx, idAll, false); disegna(); }
+      }; });
+      var inp = f.querySelector('[data-allega]');
+      if (inp) inp.onchange = function () { Viaggi.allega(wrap, ctx, inp.files, false).then(disegna); };
+      f.onsubmit = function (e) {
+        e.preventDefault();
+        var nuovo = { id: d.id, tipo: f.tipo.value, numero: f.numero.value.trim(), rilascio: f.rilascio.value, scadenza: f.scadenza.value, rilasciatoDa: f.rilasciatoDa.value.trim(), allegati: d.allegati };
+        var nuova = id ? lista.map(function (x) { return x.id === id ? nuovo : x; }) : lista.concat([nuovo]);
+        salvaAnagrafica({ documenti: nuova }); foglio.close(); toast(id ? 'Documento salvato' : 'Documento aggiunto');
+      };
+    }
+    disegna();
     foglio.showModal();
   }
+
   function vistaAltro() {
     var conf = Store.conf(), st = Store.stato(), s = Store.settings();
     var h = testata('Altro', 'Impostazioni e app');
