@@ -193,16 +193,17 @@ nav.barra-nav a[aria-current="page"] { color: var(--sangiovese); }
 @media (min-width: 700px) { .app { padding-top: 32px; } .testata h1 { font-size: 36px; } }
 @media (max-width: 440px) { .tipi { grid-template-columns: 1fr 1fr; } }
 .note-elenco { display: grid; gap: 8px; }
-.nota-riga { display: grid; grid-template-columns: minmax(0,1fr) auto auto auto; gap: 6px; align-items: center; }
-.nota-riga input[type=text] { min-width: 0; }
-.nota-riga input[type=datetime-local] { font-size: 12px; max-width: 150px; }
-.nota-riga .btn.icona { width: 36px; height: 36px; padding: 0; }
+.nota-riga { display: grid; grid-template-columns: minmax(0,1fr) 150px 36px 36px; gap: 6px; align-items: center; }
+.nota-riga input[type=text] { min-width: 0; width: 100%; }
+.nota-riga input[type=datetime-local] { font-size: 12px; width: 100%; min-width: 0; }
+.nota-riga .btn.icona, .nota-spazio { width: 36px; height: 36px; padding: 0; }
+.nota-spazio { display: inline-block; }
 .colori { display: flex; flex-wrap: wrap; gap: 8px; }
 .colore-scelta { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--superficie); background: var(--c); box-shadow: 0 0 0 1px var(--confine); cursor: pointer; padding: 0; }
 .colore-scelta[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--c); }
 .colore-scelta[data-colore=""] { width: auto; padding: 0 10px; border-radius: 17px; background: var(--superficie); color: var(--inchiostro); font-size: 13px; font-weight: 700; }
 .colore-scelta[data-colore=""][aria-pressed="true"] { background: var(--c); color: var(--su-colore); }
-@media (max-width: 440px) { .nota-riga { grid-template-columns: minmax(0,1fr) auto; } .nota-riga input[type=datetime-local] { grid-column: 1 / 2; max-width: none; } }
+@media (max-width: 440px) { .nota-riga { grid-template-columns: minmax(0,1fr) 36px 36px; } .nota-riga input[type=text] { grid-column: 1 / -1; } .nota-riga input[type=datetime-local] { grid-column: 1; } }
 
 /* ---------- album ---------- */
 .galleria { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }

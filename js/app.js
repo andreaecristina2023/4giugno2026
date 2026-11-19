@@ -527,7 +527,7 @@
           return '<div class="nota-riga"><input type="text" name="ntesto" maxlength="300" value="' + esc(n.testo) + '" placeholder="Es. Portare la tessera sanitaria" aria-label="Nota ' + (i + 1) + '">' +
             '<input type="datetime-local" name="nquando" value="' + esc(n.quando) + '" aria-label="Promemoria nota ' + (i + 1) + ' (facoltativo)">' +
             '<button class="btn icona" type="button" data-nota-piu aria-label="Aggiungi nota">+</button>' +
-            (it.annotazioni.length > 1 ? '<button class="btn icona secondario" type="button" data-nota-meno="' + i + '" aria-label="Togli nota">−</button>' : '') + '</div>';
+            (it.annotazioni.length > 1 ? '<button class="btn icona secondario" type="button" data-nota-meno="' + i + '" aria-label="Togli nota">−</button>' : '<span class="nota-spazio" aria-hidden="true"></span>') + '</div>';
         }).join('') + '</div><span class="aiuto">Con un orario la nota diventa un promemoria.</span></div>' +
         '<div class="campo"><span>Colore</span><div class="colori" role="group" aria-label="Colore">' +
           '<button type="button" class="colore-scelta" data-colore="" style="--c:' + COLORE_TIPO[it.tipo] + '" aria-pressed="' + (!it.colore) + '" aria-label="Colore predefinito">Auto</button>' +
