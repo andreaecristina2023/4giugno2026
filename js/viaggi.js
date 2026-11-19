@@ -544,7 +544,8 @@ var Viaggi = (function () {
   var SIMBOLI_LUOGO = ['🍽️ Ristorante', '🍕 Pizzeria o bar', '🏛️ Museo', '🏰 Castello o monumento', '⛪ Chiesa', '🏞️ Panorama o natura', '🏖️ Spiaggia', '🎤 Concerto o evento', '🛍️ Negozio', '🚆 Stazione', '🚗 Noleggio auto', '🅿️ Parcheggio', '🏥 Ospedale o farmacia', '💳 Banca o cambio', '📍 Altro'];
   var EMOJI_FISSI = { voli: '✈️', hotel: '🏨' };
   var mappaCorrente = null;
-  function emojiDi(simbolo) { return (simbolo || '📍').split(' ')[0]; }
+  function emojiDi(simbolo) { var e = (simbolo || '📍').split(' ')[0]; return /^[\x00-\x7f]+$/.test(e) ? '📍' : e; }
+  function simboloFinale(o) { var sc = o.simboloAltro ? o.simboloAltro.trim() : ''; var r = (o.simbolo && o.simbolo.indexOf('Altro') >= 0 && sc) ? sc : (o.simbolo || SIMBOLI_LUOGO[0]); delete o.simboloAltro; return r; }
   function icona(emoji, colore) {
     return L.divIcon({ className: 'pin-luogo', html: '<span style="--c:' + colore + '">' + emoji + '</span>', iconSize: [38, 38], iconAnchor: [19, 19] });
   }
@@ -552,8 +553,8 @@ var Viaggi = (function () {
   function parsaPunti(testo) {
     var righe = String(testo || '').split(/\r?\n/).map(function (r) { return r.trim(); }).filter(Boolean), punti = [], scartate = 0;
     righe.forEach(function (r) {
-      var m = r.match(/@(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)/) || r.match(/[?&](?:q|ll|query|destination)=(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)/) || r.match(/(-?\d{1,2}\.\d+)\s*[, ]\s*(-?\d{1,3}\.\d+)/);
-      var lat = m ? +m[1] : NaN, lon = m ? +m[2] : NaN;
+      var m = r.match(/@(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)/) || r.match(/[?&](?:q|ll|query|destination)=(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)/) || r.match(/(-?\d{1,2}[.,]\d+)\s*[;, ]\s*(-?\d{1,3}[.,]\d+)/);
+      var lat = m ? parseFloat(m[1].replace(',', '.')) : NaN, lon = m ? parseFloat(m[2].replace(',', '.')) : NaN;
       if (!m || isNaN(lat) || isNaN(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) { scartate++; return; }
       var nome = '', luogo = r.match(/\/place\/([^\/@?]+)/);
       if (luogo) { try { nome = decodeURIComponent(luogo[1].replace(/\+/g, ' ')); } catch (e) { nome = luogo[1]; } }
@@ -563,7 +564,7 @@ var Viaggi = (function () {
     return { punti: punti, scartate: scartate };
   }
   function apriPunti(id) {
-    modulo('Aggiungi punti', [['testo', 'Coordinate, link o elenco (uno per riga)', 'textarea'], ['simbolo', 'Simbolo', 'select', SIMBOLI_LUOGO]], { testo: '', simbolo: SIMBOLI_LUOGO[0] }, {
+    modulo('Aggiungi punti', [['testo', 'Coordinate, link o elenco (uno per riga)', 'textarea'], ['simbolo', 'Simbolo', 'select', SIMBOLI_LUOGO], ['simboloAltro', 'Se scegli Altro, scrivi cosa è (es. 🍷 Enoteca)', 'text']], { testo: '', simbolo: SIMBOLI_LUOGO[0], simboloAltro: '' }, {
       valida: function (o) {
         var r = parsaPunti(o.testo);
         if (!r.punti.length) { ui.toast(r.scartate ? 'Non riconosco i punti: servono coordinate tipo 44.12, 11.23 o link Google Maps completi' : 'Scrivi almeno un punto'); return false; }
@@ -572,7 +573,8 @@ var Viaggi = (function () {
       salva: function (o) {
         var r = parsaPunti(o.testo), vv = JSON.parse(JSON.stringify(Store.get(id)));
         if (!vv.luoghi) vv.luoghi = [];
-        r.punti.forEach(function (p) { vv.luoghi.push({ id: C.nuovoId(), nome: p.nome || 'Punto', lat: p.lat, lon: p.lon, simbolo: o.simbolo, note: '' }); });
+        var simbolo = simboloFinale(o);
+        r.punti.forEach(function (p) { vv.luoghi.push({ id: C.nuovoId(), nome: p.nome || 'Punto', lat: p.lat, lon: p.lon, simbolo: simbolo, note: '' }); });
         Store.upsert(vv); disegnaMappa(id);
         ui.toast('Aggiunti ' + r.punti.length + (r.scartate ? ' (' + r.scartate + ' non riconosciuti)' : ''));
       }
@@ -581,9 +583,10 @@ var Viaggi = (function () {
   function apriLuogo(id, pos, luogo) {
     var v = JSON.parse(JSON.stringify(Store.get(id)));
     var dati = luogo || { nome: '', simbolo: SIMBOLI_LUOGO[0] };
-    modulo(luogo ? 'Modifica luogo' : 'Nuovo luogo', [['nome', 'Nome', 'text', true], ['simbolo', 'Simbolo', 'select', SIMBOLI_LUOGO], ['note', 'Note', 'textarea']], dati, {
+    modulo(luogo ? 'Modifica luogo' : 'Nuovo luogo', [['nome', 'Nome', 'text', true], ['simbolo', 'Simbolo', 'select', SIMBOLI_LUOGO], ['simboloAltro', 'Se scegli Altro, scrivi cosa è (es. 🍷 Enoteca)', 'text'], ['note', 'Note', 'textarea']], Object.assign({ simboloAltro: '' }, dati), {
       valida: function (o, f) { if (!o.nome) { f.elements.nome.focus(); return false; } return true; },
       salva: function (o) {
+        o.simbolo = simboloFinale(o);
         if (!v.luoghi) v.luoghi = [];
         if (luogo) { var t = v.luoghi.filter(function (x) { return x.id === luogo.id; })[0]; Object.keys(o).forEach(function (k) { t[k] = o[k]; }); }
         else { o.id = C.nuovoId(); o.lat = pos.lat; o.lon = pos.lng; v.luoghi.push(o); }
