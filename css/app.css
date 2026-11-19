@@ -436,3 +436,7 @@ nav.barra-nav .pallino { position: absolute; top: 8px; left: calc(50% + 10px); w
 .scelta-tipi button { border-left: 6px solid var(--c); text-align: left; }
 .mappa-scelta-campo { width: 100%; height: 60vh; border-radius: 12px; overflow: hidden; }
 .mappa-scelta .camera-guida, .camera-guida.mappa-scelta { justify-content: flex-start; }
+
+/* Le mappe restano dentro il loro contenitore: i livelli di Leaflet non passano sopra la barra in basso */
+.mappa, .mappa-casa, .mappa-viaggio, .mappa-scelta-campo { position: relative; z-index: 0; isolation: isolate; overflow: hidden; }
+.mappa-casa { margin-top: 8px; }
