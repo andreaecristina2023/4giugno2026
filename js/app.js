@@ -808,6 +808,8 @@
   function vistaAltro() {
     var conf = Store.conf(), st = Store.stato(), s = Store.settings();
     var h = testata('Altro', 'Impostazioni e app');
+    h += '<h2>Aggiornamento app</h2><div class="sezione"><p class="testo-muto" style="margin:0 0 10px">Scarica l\'APK più recente, installalo sopra quella attuale e poi eliminalo dalla cartella Download.</p>' +
+      '<a class="btn" href="https://github.com/andreaecristina2023/4giugno2026/releases/download/app/Casa.apk" download="Casa.apk" target="_blank" rel="noopener">⬇ Scarica l\'APK</a></div>';
     h += '<h2>Lista e note</h2><p><a href="#lista">🛒 Lista della spesa e note</a></p><p><a href="#wallet">💳 Wallet: carte e biglietti</a></p>';
     h += '<h2>Chi sta usando questo telefono</h2><div class="schede" role="group" aria-label="Persona">' + s.persone.map(function (p) { return '<button type="button" data-chi="' + esc(p) + '" aria-pressed="' + (conf.chi === p) + '">' + esc(p) + '</button>'; }).join('') + '</div>';
 
