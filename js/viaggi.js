@@ -195,6 +195,7 @@ var Viaggi = (function () {
       ['tipo', 'Tipo', 'select', ['eVisa', 'Passaporto', 'Carta d\'identità', 'Assicurazione viaggio', 'Patente internazionale', 'Vaccinazioni', 'ESTA / ETA', 'Altro']],
       ['persona', 'Di chi', 'persone'], ['numero', 'Numero', 'text'], ['scadenza', 'Scadenza', 'date'], ['note', 'Note', 'textarea']] }
   };
+  function naviga(lat, lon) { return 'https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lon; }
   function numeroTel(s) { return (s.prefisso || PREFISSO_PREDEF) + String(s.telefono || '').replace(/[^0-9]/g, ''); }
   function rigaSotto(v, sez, s) {
     var esc = ui.esc, ctx = v.id + '|' + sez + '|' + s.id, titolo = '', righe = [];
@@ -222,7 +223,7 @@ var Viaggi = (function () {
       righe.map(function (r) { return '<span class="sc-riga">' + esc(r) + '</span>'; }).join('') +
       (avv ? '<span class="sc-avviso">⚠ ' + esc(avv) + '</span>' : '') + (s.note ? '<span class="sc-riga testo-muto">' + esc(s.note) + '</span>' : '') + '</button>' +
       (sez === 'hotel' && s.telefono ? '<a class="sc-chiama" href="tel:' + esc(numeroTel(s)) + '" aria-label="Chiama ' + esc(s.nome || 'hotel') + '">☎️ Chiama</a>' : '') +
-      (sez === 'hotel' && s.indirizzo ? '<a class="sc-mappa" href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(s.nome + ', ' + s.indirizzo) + '" target="_blank" rel="noopener">Mappa</a>' : '') +
+      (sez === 'hotel' && s.lat != null && s.lon != null ? '<a class="sc-mappa" href="' + naviga(s.lat, s.lon) + '" target="_blank" rel="noopener">🧭 Naviga</a>' : (sez === 'hotel' && s.indirizzo ? '<a class="sc-mappa" href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(s.nome + ', ' + s.indirizzo) + '" target="_blank" rel="noopener">Mappa</a>' : '')) +
       htmlAllegati(s.allegati, ctx, sez === 'documenti' ? 'Allega documento' : sez === 'voli' ? 'Allega carta d\'imbarco' : 'Allega conferma') + '</div>';
   }
   function htmlDettaglio(id) {
@@ -233,12 +234,13 @@ var Viaggi = (function () {
       '<header class="testa-viaggio"><h1>' + esc(v.titolo) + '</h1><p>' + esc(intervallo(v.data, v.fine)) + ' · <span class="cv-quando ' + q.classe + '">' + q.testo + '</span>' + (v.chi ? ' · ' + esc(v.chi) : '') + '</p>' +
       '<div class="azioni"><button class="btn piccolo secondario" type="button" data-modifica-viaggio="' + esc(v.id) + '">Modifica</button></div></header>';
     h += '<section class="mappa-viaggio"><div id="mappa-viaggio" class="mappa"></div><p id="mappa-nota" class="testo-muto"></p></section>';
-    var altri = (v.luoghi || []).map(function (x) { return { tipo: 'luogo', id: x.id, emoji: emojiDi(x.simbolo), nome: x.nome, sub: x.note || '' }; })
-      .concat((v.hotel || []).map(function (x) { return { tipo: 'hotel', id: x.id, emoji: '🏨', nome: x.nome || 'Hotel', sub: [x.indirizzo, x.lat != null ? 'posizione segnata' : 'posizione non segnata'].filter(Boolean).join(' · '), tel: x.telefono ? numeroTel(x) : '' }; }));
+    var altri = (v.luoghi || []).map(function (x) { return { tipo: 'luogo', id: x.id, emoji: emojiDi(x.simbolo), nome: x.nome, sub: x.note || '', lat: x.lat, lon: x.lon }; })
+      .concat((v.hotel || []).map(function (x) { return { tipo: 'hotel', id: x.id, emoji: '🏨', nome: x.nome || 'Hotel', sub: [x.indirizzo, x.lat != null ? 'posizione segnata' : 'posizione non segnata'].filter(Boolean).join(' · '), tel: x.telefono ? numeroTel(x) : '', lat: x.lat, lon: x.lon }; }));
     if (altri.length) {
       h += '<h2>Altri punti <small>' + altri.length + '</small></h2>' + altri.map(function (x) {
         return '<div class="sotto-card altro-punto"><span class="altro-simbolo" aria-hidden="true">' + x.emoji + '</span><button type="button" class="sc-corpo altro-corpo" data-altro="' + esc(x.tipo + '|' + x.id) + '"><span class="sc-titolo">' + esc(x.nome) + '</span>' +
           (x.sub ? '<span class="sc-riga">' + esc(x.sub) + '</span>' : '') + '</button>' +
+          (x.lat != null && x.lon != null ? '<a class="sc-chiama" href="' + naviga(x.lat, x.lon) + '" target="_blank" rel="noopener" aria-label="Naviga a ' + esc(x.nome) + '">🧭 Naviga</a>' : '') +
           (x.tel ? '<a class="sc-chiama" href="tel:' + esc(x.tel) + '" aria-label="Chiama ' + esc(x.nome) + '">☎️ Chiama</a>' : '') + '</div>';
       }).join('');
     }
@@ -342,6 +344,7 @@ var Viaggi = (function () {
     }
     var opzHotel = {
       extraHtml: '<div class="campo posizione-campo"><span>Posizione sulla mappa</span><span class="aiuto" id="pos-stato">' + (dati.lat != null ? 'Posizione segnata' : 'Non ancora segnata') + '</span><div class="posizione-azioni"><button type="button" class="btn secondario piccolo" id="loc-hotel">📍 Localizza</button><button type="button" class="btn secondario piccolo" id="scegli-hotel">🗺️ Scegli sulla mappa</button></div>' +
+        '<label class="campo">Coordinate o link Google Maps<span class="aiuto">Facoltativo: incolla coordinate o link, in alternativa a «Localizza».</span><input type="text" name="coordinate" placeholder="Es. 44.12, 11.23"></label>' +
         '<input type="hidden" name="lat" value="' + (dati.lat != null ? dati.lat : '') + '"><input type="hidden" name="lon" value="' + (dati.lon != null ? dati.lon : '') + '"></div>',
       dopo: function (f) {
         var stato = f.querySelector('#pos-stato');
@@ -367,7 +370,13 @@ var Viaggi = (function () {
           ui.foglio.close(); disegnaMappa(v.id);
         };
       },
-      leggiExtra: function (f) { var la = parseFloat(f.elements.lat.value), lo = parseFloat(f.elements.lon.value); return { lat: isNaN(la) ? undefined : la, lon: isNaN(lo) ? undefined : lo }; }
+      leggiExtra: function (f) {
+        var testo = f.elements.coordinate ? f.elements.coordinate.value.trim() : '';
+        var c = testo ? cercaCoordinata(testo) : null;
+        if (c) return { lat: c.lat, lon: c.lon };
+        var la = parseFloat(f.elements.lat.value), lo = parseFloat(f.elements.lon.value);
+        return { lat: isNaN(la) ? undefined : la, lon: isNaN(lo) ? undefined : lo };
+      }
     };
     var opzVoli = sez === 'voli' ? {
       extraHtml: '<datalist id="lista-compagnie">' + COMPAGNIE.map(function (c) { return '<option value="' + c[0] + '">'; }).join('') + '</datalist><div class="campo tappe-campo"><span>Tappe successive</span><span class="aiuto">Per voli con scali o cambi: ogni tappa è un volo in più dello stesso viaggio.</span><div id="tappe-lista"></div><div class="tappe-azioni"><button type="button" class="btn secondario piccolo" id="aggiungi-tappa">+ Aggiungi tappa</button><button type="button" class="btn secondario piccolo" id="ar-volo" title="Crea il volo di ritorno con le tratte invertite">⇄ A/R</button></div></div>',
