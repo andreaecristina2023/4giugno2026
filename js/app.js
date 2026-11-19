@@ -365,6 +365,19 @@
 
   // ---------- VIAGGI e CONCERTI ----------
   // ---------- lista della spesa e note ----------
+  // una nota è nuova per chi non l'ha ancora aperta, se l'ha scritta l'altra persona
+  function nonLetta(v) {
+    var me = Store.conf().chi;
+    return !!(me && v.tipo === 'nota' && v.creatoDa && v.creatoDa !== me && (v.letta || []).indexOf(me) < 0);
+  }
+  function aggiornaPallini() {
+    var ci = Store.lista().some(nonLetta);
+    var link = document.querySelector('nav.barra-nav a[data-r="lista"]');
+    if (!link) return;
+    var p = link.querySelector('.pallino');
+    if (ci && !p) link.insertAdjacentHTML('beforeend', '<span class="pallino" aria-label="Note nuove"></span>');
+    else if (!ci && p) p.remove();
+  }
   var COLORI_POSTIT = ['#FFE98A', '#BDE7FF', '#FFC9D6', '#C9F2C7'];
   // una nota è "nuova" per me se l'ha scritta o modificata qualcun altro dopo l'ultima volta che l'ho letta
   function notaNuova(n) {
@@ -397,12 +410,13 @@
         '<span class="spesa-testo">' + esc(x.titolo) + '</span><button type="button" class="togli" data-elimina-spesa="' + esc(x.id) + '" aria-label="Elimina ' + esc(x.titolo) + '">✕</button></div>';
     }).join('') + (spese.length ? '' : '<p class="vuoto">La lista è vuota.</p>') + '</div>';
     h += '<h2>Note</h2><div class="postit-griglia">' + note.map(function (n) {
-      return '<button type="button" class="postit" style="--p:' + esc(n.colore || COLORI_POSTIT[0]) + '" data-nota="' + esc(n.id) + '"><strong>' + esc(n.titolo || 'Nota') + '</strong><span>' + esc(n.testo || '') + '</span></button>';
+      return '<button type="button" class="postit" style="--p:' + esc(n.colore || COLORI_POSTIT[0]) + '" data-nota="' + esc(n.id) + '"><strong>' + esc(n.titolo || 'Nota') + '</strong><span>' + esc(n.testo || '') + '</span>' + (nonLetta(n) ? '<span class="pallino" aria-label="Non letta"></span>' : '') + '</button>';
     }).join('') + '<button type="button" class="postit nuovo" data-nota-nuova>+ Nuova nota</button></div>';
     vista.innerHTML = h;
   }
   function apriNota(id) {
     var orig = id ? Store.get(id) : null;
+    if (orig && nonLetta(orig)) Store.upsert(Object.assign({}, orig, { letta: (orig.letta || []).concat([Store.conf().chi]) }));
     var n = orig ? JSON.parse(JSON.stringify(orig)) : { titolo: '', testo: '', colore: COLORI_POSTIT[0] };
     if (orig) segnaLette([orig]);
     foglio.classList.remove('visore');
@@ -651,6 +665,8 @@
         '<label class="campo">Fino al<input type="date" name="fine" value="' + esc(it.fine || '') + '"' + (rip.n ? '' : ' disabled') + '></label></div>' +
         '<label class="campo">Avviso prima<span class="aiuto">Vuoto = ' + predef + (it.tipo === 'appuntamento' ? ' prima' : (it.tipo === 'promemoria' ? '' : ' prima, più il giorno stesso')) + '.</span><span class="durata"><input type="number" name="avvN" min="0" max="999" inputmode="numeric" value="' + esc(avv.n) + '" placeholder="—" aria-label="Quanti">' + selUnita('avvU', C.UNITA_AVVISO, avv.u) + '</span></label>' +
         '<label class="campo">Per chi<select name="chi"><option value="">Tutti e due</option>' + s.persone.map(function (p) { return '<option' + (it.chi === p ? ' selected' : '') + '>' + esc(p) + '</option>'; }).join('') + '</select></label>' +
+        '<div class="due"><label class="campo">Telefono<input type="tel" name="telefono" value="' + esc(it.telefono || '') + '"></label><label class="campo">Email<input type="email" name="email" value="' + esc(it.email || '') + '"></label></div>' +
+        '<label class="campo">Indirizzo<input type="text" name="indirizzo" maxlength="160" value="' + esc(it.indirizzo || '') + '"></label>' +
         '<div class="campo"><span>Note</span><div class="note-elenco">' + it.annotazioni.map(function (n, i) {
           return '<div class="nota-riga"><input type="text" name="ntesto" maxlength="300" value="' + esc(n.testo) + '" placeholder="Es. Portare la tessera sanitaria" aria-label="Nota ' + (i + 1) + '">' +
             '<input type="datetime-local" name="nquando" value="' + esc(n.quando) + '" aria-label="Promemoria nota ' + (i + 1) + ' (facoltativo)">' +
@@ -699,6 +715,9 @@
       if (f.importo) { it.importo = f.importo.value === '' ? '' : Math.round(parseFloat(f.importo.value) * 100) / 100; it.categoria = f.categoria.value; }
       else { it.importo = ''; }
       if (f.targa) it.targa = f.targa.value.toUpperCase().replace(/\s+/g, '');
+      if (f.telefono) it.telefono = f.telefono.value.trim();
+      if (f.email) it.email = f.email.value.trim();
+      if (f.indirizzo) it.indirizzo = f.indirizzo.value.trim();
       it.titolo = it.titolo.trim();
     }
     render();
@@ -754,6 +773,7 @@
   }
   window.addEventListener('hashchange', function () { disegna(); window.scrollTo(0, 0); });
   Store.on(disegna);
+  Store.on(aggiornaPallini); aggiornaPallini();
 
   Album.init({ esc: esc, toast: toast, foglio: foglio, ridisegna: function () { if (rotta() === 'album' && !foglio.open) disegna(); } });
   Viaggi.init({ esc: esc, toast: toast, foglio: foglio });
