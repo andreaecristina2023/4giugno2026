@@ -631,7 +631,7 @@ var Viaggi = (function () {
     return { punti: punti, scartate: scartate };
   }
   function apriPunti(id) {
-    modulo('Aggiungi punti', [['testo', 'Coordinate (decimali, gradi o Plus Code), link o elenco, uno per riga', 'textarea'], ['simbolo', 'Simbolo', 'select', SIMBOLI_LUOGO], ['simboloAltro', 'Se scegli Altro, scrivi cosa è (es. 🍷 Enoteca)', 'text']], { testo: '', simbolo: SIMBOLI_LUOGO[0], simboloAltro: '' }, {
+    modulo('Aggiungi punti', [['nome', 'Nome del punto', 'text', 'Es. Ristorante da Mario'], ['testo', 'Coordinate (decimali, gradi o Plus Code), link o elenco, uno per riga', 'textarea'], ['simbolo', 'Simbolo', 'select', SIMBOLI_LUOGO], ['simboloAltro', 'Se scegli Altro, scrivi cosa è (es. 🍷 Enoteca)', 'text']], { nome: '', testo: '', simbolo: SIMBOLI_LUOGO[0], simboloAltro: '' }, {
       valida: function (o) {
         var r = parsaPunti(o.testo);
         if (!r.punti.length) { ui.toast(r.scartate ? 'Non riconosco i punti: servono coordinate tipo 44.12, 11.23 o link Google Maps completi' : 'Scrivi almeno un punto'); return false; }
@@ -640,6 +640,8 @@ var Viaggi = (function () {
       salva: function (o) {
         var r = parsaPunti(o.testo), vv = JSON.parse(JSON.stringify(Store.get(id)));
         if (!vv.luoghi) vv.luoghi = [];
+        // il nome scritto nel campo vale per i punti che non ne hanno uno (con più punti: nome 1, nome 2…)
+        if (o.nome) r.punti.forEach(function (p, i) { if (!p.nome || r.punti.length === 1) p.nome = r.punti.length === 1 ? o.nome : (p.nome || o.nome + ' ' + (i + 1)); });
         var simbolo = simboloFinale(o);
         r.punti.forEach(function (p) { vv.luoghi.push({ id: C.nuovoId(), nome: p.nome || 'Punto', lat: p.lat, lon: p.lon, simbolo: simbolo, note: '' }); });
         Store.upsert(vv); disegnaMappa(id);
