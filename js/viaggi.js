@@ -63,7 +63,7 @@ var Viaggi = (function () {
     });
   }
   // carica i file e li aggiunge alla lista; item già in memoria (non ancora salvato se 'salva' è false)
-  function allega(item, ctx, files, salva) {
+  function allega(item, ctx, files, salva, opz) {
     files = Array.prototype.slice.call(files || []);
     if (!files.length) return Promise.resolve();
     if (!Store.configurato()) { ui.toast('Per gli allegati serve il collegamento al foglio (Altro)'); return Promise.resolve(); }
@@ -73,9 +73,10 @@ var Viaggi = (function () {
     return files.reduce(function (p, f) {
       return p.then(function () {
         return fileAB64(f).then(function (b64) {
-          return Store.chiama('allegato_carica', { nome: f.name, mime: f.type || 'application/octet-stream', dati: b64 });
+          return Store.chiama('allegato_carica', { nome: opz && opz.nome ? opz.nome(f) : f.name, mime: f.type || 'application/octet-stream', dati: b64 });
         }).then(function (r) {
           scriviCache(r.allegato.id, f);
+          if (opz && opz.extra) Object.assign(r.allegato, opz.extra(f));
           trovaLista(item, ctx, true).push(r.allegato);
         });
       });

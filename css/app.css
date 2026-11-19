@@ -378,3 +378,5 @@ details.passati[open] summary h2::after { content: ' ⌄'; }
 .tappa-due { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
 .tappe-azioni { display: flex; flex-wrap: wrap; gap: 8px; }
 @media (max-width: 440px) { .tappa-testa { grid-template-columns: 1fr 1fr; } .tappa-due { grid-template-columns: 1fr 1fr; } }
+
+.doc-miniatura{float:left;width:44px;height:44px;object-fit:cover;border-radius:8px;margin-right:10px}

@@ -393,6 +393,7 @@
       var p = pp[nome] || {};
       return '<div class="campo"><span>' + esc(nome) + '</span><div class="due"><label class="campo">Prefisso<select name="' + nome + '_prefisso">' + PREFISSI_DATI.map(function (x) { return '<option' + ((p.prefisso || '+39') === x ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select></label>' +
         '<label class="campo">Telefono<input type="tel" name="' + nome + '_telefono" value="' + esc(p.telefono || '') + '"></label></div>' +
+        '<div class="due">' + campo(nome + '_nome', 'Nome e cognome', p.nomeCompleto) + '<label class="campo">Data di nascita<input type="date" name="' + nome + '_nascita" value="' + esc(p.nascita || '') + '"></label></div>' +
         '<div class="due">' + campo(nome + '_email', 'Email', p.email, 'email') + campo(nome + '_cf', 'Codice fiscale', p.cf) + '</div></div>';
     }
     var h = '<h2>I miei dati</h2><form id="form-dati" class="sezione campi" style="display:grid;gap:12px">' +
@@ -404,10 +405,11 @@
       '<label class="campo">Altro<span class="aiuto">Quello che ti serve spesso: codici, numeri utili, note.</span><textarea name="altro" maxlength="2000">' + esc(a.altro || '') + '</textarea></label>' +
       '<div class="azioni"><button class="btn" type="submit">Salva i dati</button></div></form>';
     h += '<h2>Documenti <small>' + docs.length + '</small></h2><div class="sezione">' + docs.map(function (d) {
-      return '<button type="button" class="sotto-card doc-riga" data-doc-modifica="' + esc(d.id) + '"><span class="sc-titolo">' + esc(d.tipo || 'Documento') + (d.numero ? ' · ' + esc(d.numero) : '') + (d.allegati && d.allegati.length ? ' · 🖼 ' + d.allegati.length : '') + '</span>' +
+      var pf = (d.allegati || []).filter(function (a) { return /^image\//.test(a.mime || ''); })[0];
+      return '<button type="button" class="sotto-card doc-riga" data-doc-modifica="' + esc(d.id) + '">' + (pf ? '<img class="doc-miniatura" data-anteprima="' + esc(pf.id) + '" data-mime="' + esc(pf.mime) + '" alt="" src="">' : '') + '<span class="sc-titolo">' + esc(d.tipo || 'Documento') + (d.numero ? ' · ' + esc(d.numero) : '') + (d.allegati && d.allegati.length ? ' · 🖼 ' + d.allegati.length : '') + '</span>' +
         (d.scadenza ? '<span class="sc-riga">Scade ' + esc(d.scadenza) + (d.rilasciatoDa ? ' · ' + esc(d.rilasciatoDa) : '') + '</span>' : (d.rilasciatoDa ? '<span class="sc-riga">' + esc(d.rilasciatoDa) + '</span>' : '')) + '</button>';
     }).join('') + '<button type="button" class="btn secondario piccolo" data-doc-nuovo aria-label="Aggiungi documento">+ Aggiungi documento</button></div>';
-    setTimeout(initCasa, 0);
+    setTimeout(function () { initCasa(); Viaggi.anteprime(document); }, 0);
     return h;
   }
   function indirizzoCasa(f) {
@@ -448,35 +450,70 @@
   }
   function apriDocumento(id) {
     var lista = ((Store.settings().anagrafica || {}).documenti || []), orig = id ? lista.filter(function (x) { return x.id === id; })[0] : null;
-    var d = orig ? JSON.parse(JSON.stringify(orig)) : { id: C.nuovoId(), tipo: TIPI_DOCUMENTO[0], numero: '', rilascio: '', scadenza: '', rilasciatoDa: '', allegati: [] };
+    var d = orig ? JSON.parse(JSON.stringify(orig)) : { id: C.nuovoId(), tipo: TIPI_DOCUMENTO[0], persona: 'Andrea', numero: '', rilascio: '', scadenza: '', rilasciatoDa: '', allegati: [] };
     d.allegati = d.allegati || [];
-    var wrap = { documenti: [d] }, ctx = 'anag|documenti|' + d.id;
+    d.persona = d.persona || 'Andrea';
+    var wrap = { documenti: [d] }, ctx = 'anag|documenti|' + d.id, form = null, PERSONE = ['Andrea', 'Cristina'];
     foglio.classList.remove('visore');
+    // ricopia nel documento ciò che è scritto nel form, così il ridisegno non perde le modifiche
+    function snap() {
+      if (!form) return;
+      d.tipo = form.tipo.value; d.persona = form.persona.value; d.numero = form.numero.value.trim();
+      d.rilascio = form.rilascio.value; d.scadenza = form.scadenza.value; d.rilasciatoDa = form.rilasciatoDa.value.trim();
+    }
+    // nome del file in Drive: tipo - nome e cognome - data di nascita - lato
+    function nomeFile(lato, originale, i) {
+      var per = ((Store.settings().anagrafica || {}).persone || {})[d.persona] || {};
+      var ext = (String(originale).match(/\.[A-Za-z0-9]+$/) || [''])[0];
+      var parti = [d.tipo || 'Documento', per.nomeCompleto || d.persona];
+      if (per.nascita) parti.push(per.nascita);
+      parti.push(lato === 'Altro' ? 'altro ' + (i + 1) : lato.toLowerCase());
+      return parti.join(' - ') + ext;
+    }
     function disegna() {
       foglio.innerHTML = '<form method="dialog" id="form-documento"><div class="maniglia"></div><h3 id="foglio-titolo">' + (id ? 'Modifica documento' : 'Nuovo documento') + '</h3><div class="campi">' +
         '<label class="campo">Tipo<select name="tipo">' + TIPI_DOCUMENTO.map(function (t) { return '<option' + (d.tipo === t ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select></label>' +
+        '<label class="campo">Intestato a<select name="persona">' + PERSONE.map(function (p) { return '<option' + (d.persona === p ? ' selected' : '') + '>' + p + '</option>'; }).join('') + '</select><span class="aiuto">Nome e data di nascita si prendono da «I miei dati».</span></label>' +
         '<label class="campo">Numero<input type="text" name="numero" maxlength="60" value="' + esc(d.numero) + '"></label>' +
         '<div class="due"><label class="campo">Data di rilascio<input type="date" name="rilascio" value="' + esc(d.rilascio) + '"></label><label class="campo">Data di scadenza<input type="date" name="scadenza" value="' + esc(d.scadenza) + '"></label></div>' +
         '<label class="campo">Rilasciato da<input type="text" name="rilasciatoDa" maxlength="120" value="' + esc(d.rilasciatoDa) + '" placeholder="Es. Comune di Bertinoro"></label>' +
-        '<div class="campo"><span>Foto (fronte e retro)</span><span class="aiuto">Puoi aggiungerne più d\'una. Restano salvate nell\'area Allegati del foglio.</span>' + Viaggi.htmlAllegati(d.allegati, ctx, 'Aggiungi foto') + '</div>' +
+        '<div class="campo"><span>Foto (fronte e retro)</span><span class="aiuto">Puoi aggiungerne più d\'una. Restano salvate nell\'area Allegati del foglio.</span>' + Viaggi.htmlAllegati(d.allegati, ctx, 'Aggiungi foto') + '<div id="scelta-lati"></div></div>' +
         '<div class="azioni"><button class="btn" type="submit">Salva</button><button class="btn secondario" type="button" data-chiudi>Annulla</button>' + (id ? '<button class="btn pericolo" type="button" data-elimina style="margin-left:auto">Elimina</button>' : '') + '</div></div></form>';
-      var f = $('#form-documento', foglio);
-      $('[data-chiudi]', f).onclick = function () { foglio.close(); };
-      if (id) $('[data-elimina]', f).onclick = function () {
+      form = $('#form-documento', foglio);
+      $('[data-chiudi]', form).onclick = function () { foglio.close(); };
+      if (id) $('[data-elimina]', form).onclick = function () {
         (orig.allegati || []).forEach(function (a) { Store.chiama('allegato_elimina', { id: a.id }).catch(function () {}); });
         salvaAnagrafica({ documenti: lista.filter(function (x) { return x.id !== id; }) }); foglio.close(); toast('Documento eliminato');
       };
-      f.querySelectorAll('[data-apri-allegato]').forEach(function (b) { b.onclick = function () { Viaggi.apriAllegato(b.dataset.apriAllegato, b.dataset.nome, b.dataset.mime); }; });
-      f.querySelectorAll('[data-togli-allegato]').forEach(function (b) { b.onclick = function () {
+      form.querySelectorAll('[data-apri-allegato]').forEach(function (b) { b.onclick = function () { Viaggi.apriAllegato(b.dataset.apriAllegato, b.dataset.nome, b.dataset.mime); }; });
+      form.querySelectorAll('[data-togli-allegato]').forEach(function (b) { b.onclick = function () {
         var idAll = b.dataset.togliAllegato.split('|').pop();
-        if (confirm('Togliere questa foto?')) { Viaggi.togli(wrap, ctx, idAll, false); disegna(); }
+        if (confirm('Togliere questa foto?')) { snap(); Viaggi.togli(wrap, ctx, idAll, false); disegna(); }
       }; });
-      Viaggi.anteprime(f);
-      var inp = f.querySelector('[data-allega]');
-      if (inp) inp.onchange = function () { Viaggi.allega(wrap, ctx, inp.files, false).then(disegna); };
-      f.onsubmit = function (e) {
+      var inp = form.querySelector('[data-allega]'), scelta = form.querySelector('#scelta-lati');
+      if (inp) inp.onchange = function () {
+        var files = Array.prototype.slice.call(inp.files || []);
+        if (!files.length) return;
+        snap();
+        scelta.innerHTML = '<div class="campo"><span>Di quale lato sono?</span>' + files.map(function (x, i) {
+          return '<label class="campo">' + esc(x.name) + '<select data-lato="' + i + '">' + ['Fronte', 'Retro', 'Altro'].map(function (l) { return '<option>' + l + '</option>'; }).join('') + '</select></label>';
+        }).join('') + '<div class="azioni"><button class="btn" type="button" data-carica-lati>Carica</button><button class="btn secondario" type="button" data-annulla-lati>Annulla</button></div></div>';
+        scelta.querySelector('[data-annulla-lati]').onclick = function () { scelta.innerHTML = ''; inp.value = ''; };
+        scelta.querySelector('[data-carica-lati]').onclick = function () {
+          var lati = Array.prototype.map.call(scelta.querySelectorAll('[data-lato]'), function (s) { return s.value; });
+          var nomi = lati.map(function (l, i) { return nomeFile(l, files[i].name, i); });
+          scelta.innerHTML = '';
+          Viaggi.allega(wrap, ctx, files, false, {
+            nome: function (x) { return nomi[files.indexOf(x)]; },
+            extra: function (x) { return { lato: lati[files.indexOf(x)] }; }
+          }).then(disegna);
+        };
+      };
+      Viaggi.anteprime(foglio);
+      form.onsubmit = function (e) {
         e.preventDefault();
-        var nuovo = { id: d.id, tipo: f.tipo.value, numero: f.numero.value.trim(), rilascio: f.rilascio.value, scadenza: f.scadenza.value, rilasciatoDa: f.rilasciatoDa.value.trim(), allegati: d.allegati };
+        snap();
+        var nuovo = { id: d.id, tipo: d.tipo, persona: d.persona, numero: d.numero, rilascio: d.rilascio, scadenza: d.scadenza, rilasciatoDa: d.rilasciatoDa, allegati: d.allegati };
         var nuova = id ? lista.map(function (x) { return x.id === id ? nuovo : x; }) : lista.concat([nuovo]);
         salvaAnagrafica({ documenti: nuova }); foglio.close(); toast(id ? 'Documento salvato' : 'Documento aggiunto');
       };
@@ -624,8 +661,8 @@
     var casa = { via: v('via'), civico: v('civico'), comune: v('comune'), cap: v('cap'), provincia: v('provincia').toUpperCase() };
     var pos = casaPosizione || (casaVecchia.lat != null ? [casaVecchia.lat, casaVecchia.lon] : null);
     if (pos) { casa.lat = pos[0]; casa.lon = pos[1]; }
-    salvaAnagrafica({ casa: casa, altro: v('altro'), persone: { Andrea: { prefisso: v('Andrea_prefisso'), telefono: v('Andrea_telefono'), email: v('Andrea_email'), cf: v('Andrea_cf').toUpperCase() },
-                 Cristina: { prefisso: v('Cristina_prefisso'), telefono: v('Cristina_telefono'), email: v('Cristina_email'), cf: v('Cristina_cf').toUpperCase() } } });
+    salvaAnagrafica({ casa: casa, altro: v('altro'), persone: { Andrea: { prefisso: v('Andrea_prefisso'), telefono: v('Andrea_telefono'), nomeCompleto: v('Andrea_nome'), nascita: v('Andrea_nascita'), email: v('Andrea_email'), cf: v('Andrea_cf').toUpperCase() },
+                 Cristina: { prefisso: v('Cristina_prefisso'), telefono: v('Cristina_telefono'), nomeCompleto: v('Cristina_nome'), nascita: v('Cristina_nascita'), email: v('Cristina_email'), cf: v('Cristina_cf').toUpperCase() } } });
     toast('Dati salvati');
   });
 
