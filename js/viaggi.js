@@ -550,21 +550,79 @@ var Viaggi = (function () {
     return L.divIcon({ className: 'pin-luogo', html: '<span style="--c:' + colore + '">' + emoji + '</span>', iconSize: [38, 38], iconAnchor: [19, 19] });
   }
   // punti da coordinate, link di Google Maps o elenco (uno per riga)
+  var OLC_ALFA = '23456789CFGHJMPQRVWX';
+  // Open Location Code (Plus Code), codice completo
+  function decodeOLC(code) {
+    var c = String(code).toUpperCase().replace(/\+/g, '').replace(/0+$/, '');
+    if (c.length < 8) return null;
+    var lat = -90, lon = -180, latRes = 0.000125, lonRes = 0.000125, k, idx1, idx2;
+    for (k = 0; k < Math.min(c.length, 10) && k < 10; k += 2) {
+      idx1 = OLC_ALFA.indexOf(c[k]); idx2 = OLC_ALFA.indexOf(c[k + 1]);
+      if (idx1 < 0 || idx2 < 0) return null;
+      var res = 20 / Math.pow(20, k / 2);
+      lat += idx1 * res; lon += idx2 * res;
+    }
+    for (var j = 10; j < c.length; j++) {
+      var idx = OLC_ALFA.indexOf(c[j]);
+      if (idx < 0) return null;
+      latRes /= 5; lonRes /= 4;
+      lat += Math.floor(idx / 4) * latRes; lon += (idx % 4) * lonRes;
+    }
+    return { lat: lat + latRes / 2, lon: lon + lonRes / 2 };
+  }
+  function gradiDecimali(deg, min, sec, emisfero) {
+    var v = Math.abs(deg) + (min || 0) / 60 + (sec || 0) / 3600;
+    if (deg < 0 || /[SW]/i.test(emisfero || '')) v = -v;
+    return v;
+  }
+  // trova una coordinata nel testo: restituisce lat, lon e la posizione nel testo
+  function cercaCoordinata(r) {
+    var m = r.match(/@(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)/) || r.match(/[?&](?:q|ll|query|destination)=(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)/);
+    if (m) return { lat: +m[1], lon: +m[2], idx: m.index };
+    // Plus Code (OLC) completo
+    var olc = r.toUpperCase().match(/([23456789CFGHJMPQRVWX]{8}\+[23456789CFGHJMPQRVWX]{0,7})/);
+    if (olc) { var d = decodeOLC(olc[1]); if (d) return { lat: d.lat, lon: d.lon, idx: olc.index }; }
+    // gradi, minuti e secondi (es. 44°07'24.3"N 11°14'05.2"E) o gradi e minuti decimali (44° 07.405' N)
+    var dms = [], re = /(-?\d{1,3}(?:[.,]\d+)?)\s*[°º]\s*(?:(\d{1,2}(?:[.,]\d+)?)\s*['′’]?\s*)?(?:(\d{1,2}(?:[.,]\d+)?)\s*["″”]?\s*)?([NSEWO])?/gi, t;
+    while ((t = re.exec(r)) !== null) {
+      dms.push({ v: gradiDecimali(parseFloat(t[1].replace(',', '.')), parseFloat((t[2] || '0').replace(',', '.')), parseFloat((t[3] || '0').replace(',', '.')), t[4]), e: (t[4] || '').toUpperCase(), idx: t.index });
+    }
+    if (dms.length >= 2) return pairLatLon(dms[0], dms[1], dms[0].idx);
+    // decimali, con o senza lettere N S E O (anche prima del numero)
+    var dec = [], rd = /(?:(?<![A-Za-z])([NSEWO])\s*)?(-?\d{1,3}[.,]\d+)\s*°?(?:\s*([NSEWO])(?![A-Za-z]))?/gi;
+    while ((t = rd.exec(r)) !== null) {
+      var lett = (t[1] || t[3] || '').toUpperCase();
+      dec.push({ v: parseFloat(t[2].replace(',', '.')), e: lett, idx: t.index });
+    }
+    if (dec.length >= 2) {
+      var x = dec[0], y = dec[1];
+      if (x.e === 'E' || x.e === 'W' || x.e === 'O' || y.e === 'N' || y.e === 'S') { var tmp = x; x = y; y = tmp; }
+      return pairLatLon(x, y, x.idx);
+    }
+    return null;
+  }
+  function pairLatLon(a, b, idx) {
+    var lat = a.v, lon = b.v;
+    if (a.e === 'E' || a.e === 'W' || a.e === 'O' || b.e === 'N' || b.e === 'S') { lat = b.v; lon = a.v; }
+    if (/[SW]/.test(a.e) && a.e === 'S') lat = -Math.abs(lat);
+    if (b.e === 'W' || b.e === 'O') lon = -Math.abs(lon);
+    if (Math.abs(lat) > 90 || Math.abs(lon) > 180 || isNaN(lat) || isNaN(lon)) return null;
+    return { lat: lat, lon: lon, idx: idx };
+  }
   function parsaPunti(testo) {
     var righe = String(testo || '').split(/\r?\n/).map(function (r) { return r.trim(); }).filter(Boolean), punti = [], scartate = 0;
     righe.forEach(function (r) {
-      var m = r.match(/@(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)/) || r.match(/[?&](?:q|ll|query|destination)=(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)/) || r.match(/(-?\d{1,2}[.,]\d+)\s*[;, ]\s*(-?\d{1,3}[.,]\d+)/);
-      var lat = m ? parseFloat(m[1].replace(',', '.')) : NaN, lon = m ? parseFloat(m[2].replace(',', '.')) : NaN;
-      if (!m || isNaN(lat) || isNaN(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) { scartate++; return; }
+      var c = cercaCoordinata(r);
+      if (!c) { scartate++; return; }
       var nome = '', luogo = r.match(/\/place\/([^\/@?]+)/);
       if (luogo) { try { nome = decodeURIComponent(luogo[1].replace(/\+/g, ' ')); } catch (e) { nome = luogo[1]; } }
-      if (!nome) nome = r.slice(0, m.index).replace(/https?:\/\/\S*/g, '').replace(/[,;|\t:\s]+$/, '').replace(/^[\s,;|\t]+/, '').trim();
-      punti.push({ nome: nome, lat: lat, lon: lon });
+      if (!nome) nome = r.slice(0, c.idx).replace(/https?:\/\/\S*/g, '').replace(/[,;|\t:\s]+$/, '').replace(/^[\s,;|\t]+/, '').trim();
+      punti.push({ nome: nome, lat: c.lat, lon: c.lon });
     });
     return { punti: punti, scartate: scartate };
   }
   function apriPunti(id) {
-    modulo('Aggiungi punti', [['testo', 'Coordinate, link o elenco (uno per riga)', 'textarea'], ['simbolo', 'Simbolo', 'select', SIMBOLI_LUOGO], ['simboloAltro', 'Se scegli Altro, scrivi cosa è (es. 🍷 Enoteca)', 'text']], { testo: '', simbolo: SIMBOLI_LUOGO[0], simboloAltro: '' }, {
+    modulo('Aggiungi punti', [['testo', 'Coordinate (decimali, gradi o Plus Code), link o elenco, uno per riga', 'textarea'], ['simbolo', 'Simbolo', 'select', SIMBOLI_LUOGO], ['simboloAltro', 'Se scegli Altro, scrivi cosa è (es. 🍷 Enoteca)', 'text']], { testo: '', simbolo: SIMBOLI_LUOGO[0], simboloAltro: '' }, {
       valida: function (o) {
         var r = parsaPunti(o.testo);
         if (!r.punti.length) { ui.toast(r.scartate ? 'Non riconosco i punti: servono coordinate tipo 44.12, 11.23 o link Google Maps completi' : 'Scrivi almeno un punto'); return false; }
