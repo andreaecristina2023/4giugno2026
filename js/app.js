@@ -471,6 +471,7 @@
         var idAll = b.dataset.togliAllegato.split('|').pop();
         if (confirm('Togliere questa foto?')) { Viaggi.togli(wrap, ctx, idAll, false); disegna(); }
       }; });
+      Viaggi.anteprime(f);
       var inp = f.querySelector('[data-allega]');
       if (inp) inp.onchange = function () { Viaggi.allega(wrap, ctx, inp.files, false).then(disegna); };
       f.onsubmit = function (e) {

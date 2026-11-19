@@ -315,6 +315,7 @@ details.passati[open] summary h2::after { content: ' ⌄'; }
 .allegato { display: inline-flex; align-items: stretch; border: 1.5px solid var(--confine); border-radius: 10px; overflow: hidden; max-width: 100%; }
 .allegato button { background: var(--intonaco); border: 0; padding: 6px 10px; font-size: 14px; cursor: pointer; text-align: left; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .allegato button small { color: var(--muschio); }
+.allegato .anteprima { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; vertical-align: middle; margin-right: 6px; background: var(--confine); }
 .allegato .togli { padding: 6px 9px; color: var(--muschio); border-left: 1.5px solid var(--confine); }
 .allega { display: inline-flex; align-items: center; padding: 6px 12px; border: 1.5px dashed var(--confine); border-radius: 10px; font-size: 14px; font-weight: 700; color: var(--ardesia); cursor: pointer; }
 .visore-doc { overflow: auto; display: grid; gap: 10px; align-content: start; justify-items: center; min-height: 0; }

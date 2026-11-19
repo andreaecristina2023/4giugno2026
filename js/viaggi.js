@@ -49,10 +49,18 @@ var Viaggi = (function () {
     var esc = ui.esc;
     return '<div class="allegati">' + (lista || []).map(function (a) {
       var icona = /^image\//.test(a.mime) ? '🖼' : /pdf/.test(a.mime) ? '📄' : '📎';
-      return '<span class="allegato"><button type="button" data-apri-allegato="' + esc(a.id) + '" data-nome="' + esc(a.nome) + '" data-mime="' + esc(a.mime || '') + '">' + icona + ' ' + esc(a.nome) + ' <small>' + peso(a.dimensione) + '</small></button>' +
+      var anteprima = /^image\//.test(a.mime) ? '<img class="anteprima" data-anteprima="' + esc(a.id) + '" data-mime="' + esc(a.mime || '') + '" alt="" src="">' : icona + ' ';
+      return '<span class="allegato"><button type="button" data-apri-allegato="' + esc(a.id) + '" data-nome="' + esc(a.nome) + '" data-mime="' + esc(a.mime || '') + '">' + anteprima + esc(a.nome) + ' <small>' + peso(a.dimensione) + '</small></button>' +
         '<button type="button" class="togli" data-togli-allegato="' + esc(ctx) + '|' + esc(a.id) + '" aria-label="Togli ' + esc(a.nome) + '">✕</button></span>';
     }).join('') +
       '<label class="allega">+ ' + esc(etichetta || 'Allega') + '<input type="file" accept="image/*,application/pdf" multiple data-allega="' + esc(ctx) + '" class="sr"></label></div>';
+  }
+  // mostra le miniature delle immagini dentro root (chiamare dopo aver inserito l'HTML)
+  function anteprime(root) {
+    if (!root) return;
+    root.querySelectorAll('[data-anteprima]').forEach(function (img) {
+      blobAllegato(img.dataset.anteprima, img.dataset.mime).then(function (b) { img.src = URL.createObjectURL(b); }).catch(function () {});
+    });
   }
   // carica i file e li aggiunge alla lista; item già in memoria (non ancora salvato se 'salva' è false)
   function allega(item, ctx, files, salva) {
@@ -765,6 +773,6 @@ var Viaggi = (function () {
     htmlElenco: htmlElenco, htmlDettaglio: htmlDettaglio, htmlConcerti: htmlConcerti,
     apriViaggio: apriViaggio, apriConcerto: apriConcerto, apriAllegato: apriAllegato,
     click: click, change: change, prossimi: prossimi, intervallo: intervallo,
-    allega: allega, togli: togli, htmlAllegati: htmlAllegati
+    allega: allega, togli: togli, htmlAllegati: htmlAllegati, anteprime: anteprime
   };
 })();
