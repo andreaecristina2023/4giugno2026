@@ -183,6 +183,8 @@ nav.barra-nav ul { list-style: none; margin: 0 auto; padding: 0; display: grid; 
 nav.barra-nav a { display: grid; justify-items: center; align-content: center; gap: 3px; height: 100%; color: var(--muschio); text-decoration: none; font-size: 10px; font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; }
 nav.barra-nav a svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 nav.barra-nav a[aria-current="page"] { color: var(--sangiovese); }
+nav.barra-nav a { position: relative; }
+nav.barra-nav a.con-pallino::after { content: ''; position: absolute; top: 12px; left: calc(50% + 10px); width: 10px; height: 10px; border-radius: 50%; background: var(--sangiovese); box-shadow: 0 0 0 2px var(--superficie); }
 .fab { position: fixed; right: max(18px, calc(50vw - 302px)); bottom: calc(var(--nav-h) + var(--safe-b) + 16px); height: 58px; padding: 0 22px 0 18px; border-radius: 18px; border: 0; background: var(--azione); color: #fff; font-weight: 700; font-size: 17px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; box-shadow: 0 6px 18px rgba(122, 31, 61, .35); z-index: 6; }
 .fab svg { width: 22px; height: 22px; stroke: currentColor; stroke-width: 2.6; fill: none; stroke-linecap: round; }
 

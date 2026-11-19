@@ -366,11 +366,30 @@
   // ---------- VIAGGI e CONCERTI ----------
   // ---------- lista della spesa e note ----------
   var COLORI_POSTIT = ['#FFE98A', '#BDE7FF', '#FFC9D6', '#C9F2C7'];
+  // una nota è "nuova" per me se l'ha scritta o modificata qualcun altro dopo l'ultima volta che l'ho letta
+  function notaNuova(n) {
+    var me = Store.conf().chi, autore = n.modificatoDa || n.creatoDa || '';
+    return !!me && n.tipo === 'nota' && autore !== me && ((n.letti || {})[me] || 0) < (n.modificataIl || 0);
+  }
+  function segnaLette(note) {
+    var me = Store.conf().chi; if (!me) return;
+    note.filter(notaNuova).forEach(function (n) {
+      var l = Object.assign({}, n.letti || {}); l[me] = Date.now();
+      Store.upsert(Object.assign({}, n, { letti: l }));
+    });
+  }
+  function aggiornaPallino() {
+    var nuove = Store.lista().filter(notaNuova).length, a = document.querySelector('nav.barra-nav a[data-r="lista"]');
+    if (!a) return;
+    a.classList.toggle('con-pallino', nuove > 0);
+    a.setAttribute('aria-label', nuove ? 'Lista e note, ' + nuove + ' nuove' : 'Lista e note');
+  }
   function vistaLista() {
     var tutte = Store.lista();
     var spese = tutte.filter(function (v) { return v.tipo === 'spesa'; });
     var daFare = spese.filter(function (x) { return !x.fatto; }), fatte = spese.filter(function (x) { return x.fatto; });
     var note = tutte.filter(function (v) { return v.tipo === 'nota'; }).sort(function (a, b) { return b.aggiornato - a.aggiornato; });
+    segnaLette(note);
     var h = testata('Lista e note', daFare.length ? daFare.length + ' da comprare' : 'Tutto preso');
     h += '<h2>Lista della spesa</h2><form id="form-spesa" class="sezione" style="display:flex;gap:8px"><input type="text" name="voce" maxlength="80" placeholder="Aggiungi alla lista" aria-label="Aggiungi alla lista" style="flex:1"><button class="btn" type="submit">Aggiungi</button></form>';
     h += '<div class="sezione lista-spesa">' + daFare.concat(fatte).map(function (x) {
@@ -385,6 +404,7 @@
   function apriNota(id) {
     var orig = id ? Store.get(id) : null;
     var n = orig ? JSON.parse(JSON.stringify(orig)) : { titolo: '', testo: '', colore: COLORI_POSTIT[0] };
+    if (orig) segnaLette([orig]);
     foglio.classList.remove('visore');
     foglio.innerHTML = '<form method="dialog" id="form-nota"><div class="maniglia"></div><h3 id="foglio-titolo">' + (id ? 'Modifica nota' : 'Nuova nota') + '</h3><div class="campi">' +
       '<label class="campo">Titolo<input type="text" name="titolo" maxlength="60" value="' + esc(n.titolo) + '"></label>' +
@@ -399,7 +419,7 @@
     f.onsubmit = function (e) {
       e.preventDefault();
       var colore = (f.querySelector('input[name=colore]:checked') || {}).value || COLORI_POSTIT[0];
-      Store.upsert(Object.assign(n, { tipo: 'nota', titolo: f.titolo.value.trim(), testo: f.testo.value, colore: colore }));
+      Store.upsert(Object.assign(n, { tipo: 'nota', titolo: f.titolo.value.trim(), testo: f.testo.value, colore: colore, modificatoDa: Store.conf().chi || '', modificataIl: Date.now() }));
       foglio.close(); toast('Nota salvata');
     };
     foglio.showModal();
@@ -725,6 +745,7 @@
   function disegna() {
     var r = rotta(), y = window.scrollY;
     VISTE[r]();
+    aggiornaPallino();
     $('#fab').style.display = (r === 'altro' || r === 'album' || r === 'viaggio') ? 'none' : '';
     var rNav = r === 'viaggio' ? 'viaggi' : r;
     document.querySelectorAll('nav.barra-nav a').forEach(function (a) { if (a.dataset.r === rNav) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
