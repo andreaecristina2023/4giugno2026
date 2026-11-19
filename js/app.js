@@ -614,7 +614,7 @@
           '<label class="ritaglio-zoom">Raddrizza <input type="range" min="-15" max="15" step="0.1" value="0" data-raddrizza> <span data-gradi>0°</span></label></div>' +
           '<p class="camera-suggerimento">Trascina e zooma per mettere il documento nel riquadro</p>' +
           '<div class="camera-azioni"><button class="btn secondario" type="button" data-annulla-rit>Annulla</button><button class="btn" type="button" data-usa-rit>Usa questa foto</button></div>';
-        document.body.appendChild(box);
+        (foglio.open ? foglio : document.body).appendChild(box); // sopra la scheda aperta, altrimenti resta nascosto
         var cv = box.querySelector('canvas'), ctx = cv.getContext('2d'), vista = box.querySelector('.ritaglio-vista');
         var ov = vista.querySelector('.camera-riquadro'), slider = box.querySelector('[data-zoom]');
         function misura() {
@@ -686,7 +686,7 @@
         box.innerHTML = '<div class="camera-vista"><video playsinline muted></video><div class="camera-riquadro" aria-hidden="true"></div></div>' +
           '<p class="camera-suggerimento">Centra il documento nel riquadro, senza riflessi</p>' +
           '<div class="camera-azioni"><button class="btn secondario" type="button" data-annulla-cam>Annulla</button><button class="btn" type="button" data-scatta-cam>Scatta</button></div>';
-        document.body.appendChild(box);
+        (foglio.open ? foglio : document.body).appendChild(box); // sopra la scheda aperta, altrimenti resta nascosto
         var video = box.querySelector('video'), vista = box.querySelector('.camera-vista');
         function chiudi() { flusso.getTracks().forEach(function (t) { t.stop(); }); box.remove(); }
         video.onloadedmetadata = function () { vista.style.aspectRatio = video.videoWidth + ' / ' + video.videoHeight; };
@@ -1012,7 +1012,7 @@
     box.className = 'camera-guida mappa-scelta';
     box.innerHTML = '<div class="mappa-scelta-campo"></div><p class="camera-suggerimento">Tocca il punto del luogo</p>' +
       '<div class="camera-azioni"><button class="btn secondario" type="button" data-annulla-mappa>Annulla</button><button class="btn" type="button" data-usa-mappa>Usa questa posizione</button></div>';
-    document.body.appendChild(box);
+    (foglio.open ? foglio : document.body).appendChild(box); // sopra la scheda aperta, altrimenti resta nascosto
     var m = L.map(box.querySelector('.mappa-scelta-campo'), { zoomControl: true });
     m.setView(corrente ? [corrente.lat, corrente.lon] : [44.2, 12.2], corrente ? 16 : 11);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(m);
