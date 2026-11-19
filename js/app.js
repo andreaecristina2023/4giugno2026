@@ -18,7 +18,7 @@
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function rifiuti() { return Store.settings().rifiuti; }
-  function voci() { return Store.lista(); }
+  function voci() { return Store.lista().filter(function (v) { return v.tipo !== 'spesa' && v.tipo !== 'nota'; }); }
 
   function toast(testo, azione, fn) {
     var z = $('#toast-zona');
@@ -364,6 +364,46 @@
   function toggle(arr, v) { var i = arr.indexOf(v); if (i >= 0) arr.splice(i, 1); else arr.push(v); arr.sort(function (a, b) { return a > b ? 1 : -1; }); return arr; }
 
   // ---------- VIAGGI e CONCERTI ----------
+  // ---------- lista della spesa e note ----------
+  var COLORI_POSTIT = ['#FFE98A', '#BDE7FF', '#FFC9D6', '#C9F2C7'];
+  function vistaLista() {
+    var tutte = Store.lista();
+    var spese = tutte.filter(function (v) { return v.tipo === 'spesa'; });
+    var daFare = spese.filter(function (x) { return !x.fatto; }), fatte = spese.filter(function (x) { return x.fatto; });
+    var note = tutte.filter(function (v) { return v.tipo === 'nota'; }).sort(function (a, b) { return b.aggiornato - a.aggiornato; });
+    var h = testata('Lista e note', daFare.length ? daFare.length + ' da comprare' : 'Tutto preso');
+    h += '<h2>Lista della spesa</h2><form id="form-spesa" class="sezione" style="display:flex;gap:8px"><input type="text" name="voce" maxlength="80" placeholder="Aggiungi alla lista" aria-label="Aggiungi alla lista" style="flex:1"><button class="btn" type="submit">Aggiungi</button></form>';
+    h += '<div class="sezione lista-spesa">' + daFare.concat(fatte).map(function (x) {
+      return '<div class="spesa-riga' + (x.fatto ? ' fatta' : '') + '"><button type="button" class="spunta" data-spunta-spesa="' + esc(x.id) + '" aria-pressed="' + (!!x.fatto) + '" aria-label="Segna ' + esc(x.titolo) + '">' + (x.fatto ? '✓' : '') + '</button>' +
+        '<span class="spesa-testo">' + esc(x.titolo) + '</span><button type="button" class="togli" data-elimina-spesa="' + esc(x.id) + '" aria-label="Elimina ' + esc(x.titolo) + '">✕</button></div>';
+    }).join('') + (spese.length ? '' : '<p class="vuoto">La lista è vuota.</p>') + '</div>';
+    h += '<h2>Note</h2><div class="postit-griglia">' + note.map(function (n) {
+      return '<button type="button" class="postit" style="--p:' + esc(n.colore || COLORI_POSTIT[0]) + '" data-nota="' + esc(n.id) + '"><strong>' + esc(n.titolo || 'Nota') + '</strong><span>' + esc(n.testo || '') + '</span></button>';
+    }).join('') + '<button type="button" class="postit nuovo" data-nota-nuova>+ Nuova nota</button></div>';
+    vista.innerHTML = h;
+  }
+  function apriNota(id) {
+    var orig = id ? Store.get(id) : null;
+    var n = orig ? JSON.parse(JSON.stringify(orig)) : { titolo: '', testo: '', colore: COLORI_POSTIT[0] };
+    foglio.classList.remove('visore');
+    foglio.innerHTML = '<form method="dialog" id="form-nota"><div class="maniglia"></div><h3 id="foglio-titolo">' + (id ? 'Modifica nota' : 'Nuova nota') + '</h3><div class="campi">' +
+      '<label class="campo">Titolo<input type="text" name="titolo" maxlength="60" value="' + esc(n.titolo) + '"></label>' +
+      '<label class="campo">Testo<textarea name="testo" rows="6" maxlength="2000">' + esc(n.testo) + '</textarea></label>' +
+      '<fieldset class="colore-campo"><legend>Colore</legend><div class="colori">' + COLORI_POSTIT.map(function (c) {
+        return '<label><input type="radio" name="colore" value="' + c + '"' + (n.colore === c ? ' checked' : '') + ' class="sr"><span class="colore-pallino" style="--c:' + c + '"></span></label>';
+      }).join('') + '</div></fieldset>' +
+      '<div class="azioni"><button class="btn" type="submit">Salva</button><button class="btn secondario" type="button" data-chiudi>Annulla</button>' + (id ? '<button class="btn pericolo" type="button" data-elimina style="margin-left:auto">Elimina</button>' : '') + '</div></div></form>';
+    var f = $('#form-nota', foglio);
+    $('[data-chiudi]', f).onclick = function () { foglio.close(); };
+    if (id) $('[data-elimina]', f).onclick = function () { if (confirm('Eliminare questa nota?')) { Store.elimina(id); foglio.close(); toast('Nota eliminata'); } };
+    f.onsubmit = function (e) {
+      e.preventDefault();
+      var colore = (f.querySelector('input[name=colore]:checked') || {}).value || COLORI_POSTIT[0];
+      Store.upsert(Object.assign(n, { tipo: 'nota', titolo: f.titolo.value.trim(), testo: f.testo.value, colore: colore }));
+      foglio.close(); toast('Nota salvata');
+    };
+    foglio.showModal();
+  }
   function vistaViaggi() { var n = voci().filter(function (v) { return v.tipo === 'viaggio'; }).length; vista.innerHTML = testata('Viaggi', n ? n + (n === 1 ? ' viaggio' : ' viaggi') : 'Voli, hotel e documenti') + Viaggi.htmlElenco(); }
   function vistaViaggio() { var m = location.hash.match(/^#viaggio\/(.+)$/), id = m ? decodeURIComponent(m[1]) : ''; vista.innerHTML = Viaggi.htmlDettaglio(id); Viaggi.disegnaMappa(id); }
   function vistaConcerti() { vista.innerHTML = testata('Concerti', 'Date, cantanti e biglietti') + Viaggi.htmlConcerti(); }
@@ -537,6 +577,7 @@
   function vistaAltro() {
     var conf = Store.conf(), st = Store.stato(), s = Store.settings();
     var h = testata('Altro', 'Impostazioni e app');
+    h += '<h2>Lista e note</h2><p><a href="#lista">🛒 Lista della spesa e note</a></p>';
     h += '<h2>Chi sta usando questo telefono</h2><div class="schede" role="group" aria-label="Persona">' + s.persone.map(function (p) { return '<button type="button" data-chi="' + esc(p) + '" aria-pressed="' + (conf.chi === p) + '">' + esc(p) + '</button>'; }).join('') + '</div>';
 
     h += datiPersonali(s);
@@ -679,7 +720,7 @@
   });
 
   // ---------- routing e eventi ----------
-  var VISTE = { oggi: vistaOggi, calendario: vistaCalendario, conti: vistaConti, rifiuti: vistaRifiuti, viaggi: vistaViaggi, viaggio: vistaViaggio, concerti: vistaConcerti, album: vistaAlbum, altro: vistaAltro };
+  var VISTE = { lista: vistaLista, oggi: vistaOggi, calendario: vistaCalendario, conti: vistaConti, rifiuti: vistaRifiuti, viaggi: vistaViaggi, viaggio: vistaViaggio, concerti: vistaConcerti, album: vistaAlbum, altro: vistaAltro };
   function rotta() { var r = location.hash.replace('#', '').split('/')[0]; return VISTE[r] ? r : 'oggi'; }
   function disegna() {
     var r = rotta(), y = window.scrollY;
@@ -728,6 +769,10 @@
     else if (d.azione === 'nuovo') apriVoce(null, Object.assign({}, d.data ? { data: d.data } : {}, d.tipo ? { tipo: d.tipo } : {}));
     else if (d.azione === 'aggiungi-regola') salvaRifiuti(function (cfg) { cfg.regole.push({ giorno: 1, frazioni: [], settimane: [], mesi: [] }); });
     else if (d.azione === 'nuova-eccezione') apriEccezione();
+    else if (d.spuntaSpesa !== undefined) { var sp = Store.get(d.spuntaSpesa); if (sp) Store.upsert(Object.assign({}, sp, { fatto: !sp.fatto })); vistaLista(); }
+    else if (d.eliminaSpesa !== undefined) { Store.elimina(d.eliminaSpesa); vistaLista(); }
+    else if (d.notaNuova !== undefined) apriNota(null);
+    else if (d.nota !== undefined) apriNota(d.nota);
     else if (d.docNuovo !== undefined) apriDocumento(null);
     else if (d.docModifica) apriDocumento(d.docModifica);
     else if (d.azione === 'scollega') { Store.setConf({ url: '', chiave: '' }); toast('Scollegato: i dati restano su questo telefono'); }
@@ -776,6 +821,12 @@
     }).catch(function (err) { toast('Collegamento non riuscito: ' + (err.message === 'Failed to fetch' ? 'controlla l\'indirizzo e che lo script sia distribuito per "Chiunque"' : err.message)); });
   }
   vista.addEventListener('submit', function (e) {
+    if (e.target.id === 'form-spesa') {
+      e.preventDefault();
+      var v = e.target.voce.value.trim();
+      if (v) Store.upsert({ tipo: 'spesa', titolo: v, fatto: false });
+      e.target.reset(); vistaLista(); return;
+    }
     if (e.target.id === 'form-turni') {
       e.preventDefault();
       var f = e.target, cfg = JSON.parse(JSON.stringify(turni()));

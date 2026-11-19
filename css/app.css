@@ -380,3 +380,15 @@ details.passati[open] summary h2::after { content: ' ⌄'; }
 @media (max-width: 440px) { .tappa-testa { grid-template-columns: 1fr 1fr; } .tappa-due { grid-template-columns: 1fr 1fr; } }
 
 .doc-miniatura{float:left;width:44px;height:44px;object-fit:cover;border-radius:8px;margin-right:10px}
+
+.lista-spesa .spesa-riga { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(0,0,0,.08); }
+.lista-spesa .spunta { width: 30px; height: 30px; flex: none; border-radius: 50%; border: 2px solid currentColor; background: none; font-weight: 700; }
+.lista-spesa .spesa-testo { flex: 1; }
+.lista-spesa .spesa-riga.fatta { opacity: .5; }
+.lista-spesa .spesa-riga.fatta .spesa-testo { text-decoration: line-through; }
+.postit-griglia { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 6px 2px 16px; }
+.postit { background: var(--p); color: #222; border: 0; border-radius: 2px; padding: 12px; min-height: 120px; text-align: left; font: inherit; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 4px 8px rgba(0,0,0,.18); transform: rotate(-1.2deg); }
+.postit:nth-child(even) { transform: rotate(1deg); }
+.postit strong { font-size: 15px; }
+.postit span { white-space: pre-wrap; font-size: 14px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; }
+.postit.nuovo { background: transparent; border: 2px dashed currentColor; box-shadow: none; transform: none; justify-content: center; align-items: center; color: inherit; opacity: .7; }

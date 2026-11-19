@@ -18,6 +18,8 @@ var Casa = (function () {
 
   var TIPI = {
     appuntamento: { nome: 'Appuntamento', plurale: 'Appuntamenti' },
+    spesa:        { nome: 'Spesa',        plurale: 'Spesa' },
+    nota:         { nome: 'Nota',         plurale: 'Note' },
     pagamento:    { nome: 'Pagamento',    plurale: 'Pagamenti' },
     scadenza:     { nome: 'Scadenza',     plurale: 'Scadenze' },
     promemoria:   { nome: 'Promemoria',   plurale: 'Promemoria' },
