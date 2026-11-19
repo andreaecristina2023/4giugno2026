@@ -604,7 +604,8 @@
       var url = URL.createObjectURL(file), img = new Image();
       img.onerror = function () { URL.revokeObjectURL(url); ok(null); };
       img.onload = function () {
-        var rot = 0, fine = 0, zoom = 1, ox = 0, oy = 0, W = 0, H = 0, fW = 0, fH = 0, fX = 0, fY = 0;
+        // foto verticale (come scattata col telefono) e riquadro orizzontale: la raddrizzo da sola di 90°
+        var rot = img.height > img.width ? 90 : 0, fine = 0, zoom = 1, ox = 0, oy = 0, W = 0, H = 0, fW = 0, fH = 0, fX = 0, fY = 0;
         var kP = Math.min(1, 900 / Math.max(img.width, img.height));
         var piccola = document.createElement('canvas');
         piccola.width = Math.max(2, Math.round(img.width * kP)); piccola.height = Math.max(2, Math.round(img.height * kP));
