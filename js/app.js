@@ -605,7 +605,7 @@
       img.onerror = function () { URL.revokeObjectURL(url); ok(null); };
       img.onload = function () {
         var rot = 0, fine = 0, zoom = 1, ox = 0, oy = 0, W = 0, H = 0, fW = 0, fH = 0, fX = 0, fY = 0;
-        var box = document.createElement('div');
+        var box = document.createElement('dialog');
         box.className = 'camera-guida ritaglio';
         box.innerHTML = '<div class="ritaglio-vista"><canvas></canvas><div class="camera-riquadro" aria-hidden="true"></div></div>' +
           '<div class="ritaglio-comandi"><button type="button" class="btn secondario piccolo" data-ruota="-90" aria-label="Ruota a sinistra">↺</button>' +
@@ -614,7 +614,9 @@
           '<label class="ritaglio-zoom">Raddrizza <input type="range" min="-15" max="15" step="0.1" value="0" data-raddrizza> <span data-gradi>0°</span></label></div>' +
           '<p class="camera-suggerimento">Trascina e zooma per mettere il documento nel riquadro</p>' +
           '<div class="camera-azioni"><button class="btn secondario" type="button" data-annulla-rit>Annulla</button><button class="btn" type="button" data-usa-rit>Usa questa foto</button></div>';
-        (foglio.open ? foglio : document.body).appendChild(box); // sopra la scheda aperta, altrimenti resta nascosto
+        document.body.appendChild(box);
+        box.addEventListener('cancel', function (e) { e.preventDefault(); var b = box.querySelector('[data-annulla-rit],[data-annulla-cam],[data-annulla-mappa]'); if (b) b.click(); });
+        box.showModal();
         var cv = box.querySelector('canvas'), ctx = cv.getContext('2d'), vista = box.querySelector('.ritaglio-vista');
         var ov = vista.querySelector('.camera-riquadro'), slider = box.querySelector('[data-zoom]');
         function misura() {
@@ -662,7 +664,7 @@
         var raddrizza = box.querySelector('[data-raddrizza]'), gradi = box.querySelector('[data-gradi]');
         raddrizza.oninput = function () { fine = +raddrizza.value; gradi.textContent = fine.toFixed(1) + '°'; anteprima(); };
         box.querySelectorAll('[data-ruota]').forEach(function (b) { b.onclick = function () { rot = (rot + (+b.dataset.ruota) + 360) % 360; anteprima(); }; });
-        function chiudi() { URL.revokeObjectURL(url); box.remove(); window.removeEventListener('resize', misura); }
+        function chiudi() { URL.revokeObjectURL(url); box.close(); box.remove(); window.removeEventListener('resize', misura); }
         box.querySelector('[data-annulla-rit]').onclick = function () { chiudi(); ok(null); };
         box.querySelector('[data-usa-rit]').onclick = function () {
           var out = document.createElement('canvas'), L = 1400, A = Math.round(L / 1.586);
@@ -681,14 +683,16 @@
     return new Promise(function (ok, ko) {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return ko(new Error('Fotocamera non disponibile'));
       navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 } }, audio: false }).then(function (flusso) {
-        var box = document.createElement('div');
+        var box = document.createElement('dialog');
         box.className = 'camera-guida';
         box.innerHTML = '<div class="camera-vista"><video playsinline muted></video><div class="camera-riquadro" aria-hidden="true"></div></div>' +
           '<p class="camera-suggerimento">Centra il documento nel riquadro, senza riflessi</p>' +
           '<div class="camera-azioni"><button class="btn secondario" type="button" data-annulla-cam>Annulla</button><button class="btn" type="button" data-scatta-cam>Scatta</button></div>';
-        (foglio.open ? foglio : document.body).appendChild(box); // sopra la scheda aperta, altrimenti resta nascosto
+        document.body.appendChild(box);
+        box.addEventListener('cancel', function (e) { e.preventDefault(); var b = box.querySelector('[data-annulla-rit],[data-annulla-cam],[data-annulla-mappa]'); if (b) b.click(); });
+        box.showModal();
         var video = box.querySelector('video'), vista = box.querySelector('.camera-vista');
-        function chiudi() { flusso.getTracks().forEach(function (t) { t.stop(); }); box.remove(); }
+        function chiudi() { flusso.getTracks().forEach(function (t) { t.stop(); }); box.close(); box.remove(); }
         video.onloadedmetadata = function () { vista.style.aspectRatio = video.videoWidth + ' / ' + video.videoHeight; };
         video.srcObject = flusso; video.play().catch(function () {});
         box.querySelector('[data-annulla-cam]').onclick = function () { chiudi(); ko(new Error('annullato')); };
@@ -1007,11 +1011,13 @@
   }
   // scelta di un punto sulla mappa: tocca il luogo e conferma
   function scegliSulMappa(corrente, onScelta) {
-    var box = document.createElement('div');
+    var box = document.createElement('dialog');
     box.className = 'camera-guida mappa-scelta';
     box.innerHTML = '<div class="mappa-scelta-campo"></div><p class="camera-suggerimento">Tocca il punto del luogo</p>' +
       '<div class="camera-azioni"><button class="btn secondario" type="button" data-annulla-mappa>Annulla</button><button class="btn" type="button" data-usa-mappa>Usa questa posizione</button></div>';
-    (foglio.open ? foglio : document.body).appendChild(box); // sopra la scheda aperta, altrimenti resta nascosto
+    document.body.appendChild(box);
+        box.addEventListener('cancel', function (e) { e.preventDefault(); var b = box.querySelector('[data-annulla-rit],[data-annulla-cam],[data-annulla-mappa]'); if (b) b.click(); });
+        box.showModal();
     var m = L.map(box.querySelector('.mappa-scelta-campo'), { zoomControl: true });
     m.setView(corrente ? [corrente.lat, corrente.lon] : [44.2, 12.2], corrente ? 16 : 11);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(m);
@@ -1019,7 +1025,7 @@
     var pos = corrente ? L.latLng(corrente.lat, corrente.lon) : null, marker = pos ? L.marker(pos, { icon: icona }).addTo(m) : null;
     m.on('click', function (e) { pos = e.latlng; if (marker) marker.setLatLng(pos); else marker = L.marker(pos, { icon: icona }).addTo(m); });
     setTimeout(function () { m.invalidateSize(); }, 150);
-    function chiudi() { m.remove(); box.remove(); }
+    function chiudi() { m.remove(); box.close(); box.remove(); }
     box.querySelector('[data-annulla-mappa]').onclick = chiudi;
     box.querySelector('[data-usa-mappa]').onclick = function () {
       if (pos) onScelta({ lat: +pos.lat.toFixed(6), lon: +pos.lng.toFixed(6) });

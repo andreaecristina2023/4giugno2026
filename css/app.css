@@ -440,3 +440,6 @@ nav.barra-nav .pallino { position: absolute; top: 8px; left: calc(50% + 10px); w
 /* Le mappe restano dentro il loro contenitore: i livelli di Leaflet non passano sopra la barra in basso */
 .mappa, .mappa-casa, .mappa-viaggio, .mappa-scelta-campo { position: relative; z-index: 0; isolation: isolate; overflow: hidden; }
 .mappa-casa { margin-top: 8px; }
+/* editor di ritaglio, fotocamera con riquadro e mappa: finestre a tutto schermo sopra la scheda */
+dialog.camera-guida { width: 100vw; height: 100vh; max-width: 100vw; max-height: 100vh; margin: 0; padding: 12px; border: 0; background: #000; color: #fff; }
+dialog.camera-guida::backdrop { background: #000; }
