@@ -111,7 +111,17 @@ var Store = (function () {
       if (!l || (+r.aggiornato || 0) > (+l.aggiornato || 0)) { items[r.id] = r; delete dirty.items[r.id]; }
     });
     if (remSettings && (+remSettings.aggiornato || 0) > (+settings.aggiornato || 0)) {
+      // se ho modifiche non ancora inviate, i documenti restano uniti (non si perdono) e le modifiche vanno reinviate
+      var miei = dirty.settings && settings.anagrafica ? settings.anagrafica : null;
+      var vecchioAnag = JSON.parse(JSON.stringify(miei || {}));
       settings = remSettings; dirty.settings = false;
+      if (miei) {
+        var docRemoti = (settings.anagrafica && Array.isArray(settings.anagrafica.documenti)) ? settings.anagrafica.documenti : [];
+        var docMiei = Array.isArray(vecchioAnag.documenti) ? vecchioAnag.documenti : [];
+        var presenti = {}; docMiei.forEach(function (d) { presenti[d.id] = true; });
+        vecchioAnag.documenti = docMiei.concat(docRemoti.filter(function (d) { return !presenti[d.id]; }));
+        settings.anagrafica = vecchioAnag; dirty.settings = true;
+      }
       Object.keys(DEFAULT_SETTINGS).forEach(function (k) { if (settings[k] === undefined) settings[k] = JSON.parse(JSON.stringify(DEFAULT_SETTINGS[k])); });
     }
   }
@@ -120,7 +130,9 @@ var Store = (function () {
     if (!configurato()) { stato.sync = 'locale'; emit(); return Promise.resolve(); }
     if (inCorso) return inCorso;
     var inviati = Object.keys(dirty.items).map(function (id) { return items[id]; }).filter(Boolean);
-    var body = { chiave: conf.chiave, azione: 'sync', voci: inviati, impostazioni: dirty.settings ? settings : null, chi: conf.chi };
+    // un dispositivo che non ha ancora scaricato le impostazioni dal foglio non le invia: prima le legge
+    var haScaricato = !!stato.ultimo;
+    var body = { chiave: conf.chiave, azione: 'sync', voci: inviati, impostazioni: (dirty.settings && haScaricato) ? settings : null, chi: conf.chi };
     stato.sync = 'in corso'; emit();
     inCorso = fetch(conf.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body), redirect: 'follow' })
       .then(function (r) { if (!r.ok) throw new Error('Risposta ' + r.status + ' dallo script'); return r.json(); })
