@@ -76,6 +76,7 @@ function doPost(e) {
     else if (req.azione === 'allegato_scarica') out = scaricaAllegato(req.id);
     else if (req.azione === 'allegato_elimina') out = eliminaAllegato(req.id);
     else if (req.azione === 'allegato_rinomina') out = rinominaAllegato(req.id, req.nome);
+    else if (req.azione === 'ocr') out = leggiTesto(req);
     else throw new Error('Azione sconosciuta');
   } catch (err) {
     out = { ok: false, errore: String(err.message || err) };
@@ -305,6 +306,17 @@ function scaricaAllegato(id) {
 function eliminaAllegato(id) {
   try { allegatoNellaCartella(id).setTrashed(true); } catch (e) { /* già eliminato */ }
   return { ok: true };
+}
+
+// Legge il testo di una foto (OCR di Google Drive). Richiede il servizio avanzato «Drive API» attivo nello script.
+function leggiTesto(req) {
+  if (!req.dati) throw new Error('Foto mancante');
+  var blob = Utilities.newBlob(Utilities.base64Decode(req.dati), 'image/jpeg', 'documento.jpg');
+  var tmp = Drive.Files.create({ name: 'ocr-' + Date.now(), mimeType: MimeType.GOOGLE_DOCS }, blob, { ocrLanguage: 'it' });
+  var testo = '';
+  try { testo = DriveApp.getFileById(tmp.id).getAs('text/plain').getDataAsString(); }
+  finally { try { DriveApp.getFileById(tmp.id).setTrashed(true); } catch (e) { /* già eliminato */ } }
+  return { ok: true, testo: testo };
 }
 
 function rinominaAllegato(id, nome) {

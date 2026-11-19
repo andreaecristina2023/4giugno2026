@@ -602,7 +602,7 @@
   function ritagliaManuale(file) {
     return new Promise(function (ok) {
       var url = URL.createObjectURL(file), img = new Image();
-      img.onerror = function () { URL.revokeObjectURL(url); ok(null); };
+      img.onerror = function () { URL.revokeObjectURL(url); toast('Questa foto non si può aprire: ' + (file.name || 'file')); ok(null); };
       img.onload = function () {
         // foto verticale (come scattata col telefono) e riquadro orizzontale: la raddrizzo da sola di 90°
         var rot = img.height > img.width ? 90 : 0, fine = 0, zoom = 1, ox = 0, oy = 0, W = 0, H = 0, fW = 0, fH = 0, fX = 0, fY = 0;
@@ -722,6 +722,29 @@
       }).catch(ko);
     });
   }
+  function b64Di(blob) {
+    return new Promise(function (ok, ko) { var r = new FileReader(); r.onload = function () { ok(String(r.result).split(',')[1]); }; r.onerror = function () { ko(r.error); }; r.readAsDataURL(blob); });
+  }
+  // cerca nel testo letto numero, date e autorità di rilascio; nascita (AAAA-MM-GG) esclusa dalle date
+  // è una stima: i dati vanno sempre controllati prima di salvare
+  function leggiDatiDocumento(testo, nascita) {
+    var t = String(testo || '').replace(/\s+/g, ' ');
+    var out = { numero: '', rilascio: '', scadenza: '', rilasciatoDa: '' };
+    var n = t.match(/\b[A-Z]{2}\d{5}[A-Z]{2}\b/) || t.match(/\b[A-Z]{2}\d{7}\b/) || t.match(/\b[A-Z]\d{7}[A-Z]\b/);
+    if (n) out.numero = n[0];
+    function iso(g) { return g[3] + '-' + g[2] + '-' + g[1]; }
+    var re = /\b(\d{2})[\/.\- ](\d{2})[\/.\- ](\d{4})\b/g, m, date = [];
+    while ((m = re.exec(t))) if (iso(m) !== nascita) date.push(iso(m));
+    function dopo(parola) {
+      var x = t.match(new RegExp(parola + '[^0-9]{0,40}(\\d{2})[\\/.\\- ](\\d{2})[\\/.\\- ](\\d{4})', 'i'));
+      return x ? iso(x) : '';
+    }
+    out.scadenza = dopo('scadenza') || (date.length ? date.slice().sort().slice(-1)[0] : '');
+    out.rilascio = dopo('rilasci[oa]');
+    var c = t.match(/(Comune di|Questura di|Prefettura di|Motorizzazione civile di)\s+[A-Za-zÀ-ÿ' ]{2,30}/i);
+    if (c) out.rilasciatoDa = c[0].replace(/\s+(Data|Numero|Cognome|Nome|Nato|Sesso|scadenza|rilasci\w*)\b.*$/i, '').trim();
+    return out;
+  }
   function apriDocumento(id) {
     var lista = ((Store.settings().anagrafica || {}).documenti || []), orig = id ? lista.filter(function (x) { return x.id === id; })[0] : null;
     var d = orig ? JSON.parse(JSON.stringify(orig)) : { id: C.nuovoId(), tipo: TIPI_DOCUMENTO[0], persona: 'Andrea', numero: '', rilascio: '', scadenza: '', rilasciatoDa: '', allegati: [] };
@@ -751,7 +774,7 @@
         '<label class="campo">Numero<input type="text" name="numero" maxlength="60" value="' + esc(d.numero) + '"></label>' +
         '<div class="due"><label class="campo">Data di rilascio<input type="date" name="rilascio" value="' + esc(d.rilascio) + '"></label><label class="campo">Data di scadenza<input type="date" name="scadenza" value="' + esc(d.scadenza) + '"></label></div>' +
         '<label class="campo">Rilasciato da<input type="text" name="rilasciatoDa" maxlength="120" value="' + esc(d.rilasciatoDa) + '" placeholder="Es. Comune di Bertinoro"></label>' +
-        '<div class="campo"><span>Foto (fronte e retro)</span><span class="aiuto">Puoi aggiungerne più d\'una. Restano salvate nell\'area Allegati del foglio.</span>' + Viaggi.htmlAllegati(d.allegati, ctx, 'Aggiungi foto') + '<div class="azioni-foto"><button type="button" class="btn secondario piccolo" data-scatta>📷 Scatta con riquadro</button><input type="file" accept="image/*" capture="environment" data-scatta-file class="sr" tabindex="-1"></div><div id="scelta-lati"></div></div>' +
+        '<div class="campo"><span>Foto (fronte e retro)</span><span class="aiuto">Puoi aggiungerne più d\'una. Restano salvate nell\'area Allegati del foglio.</span>' + Viaggi.htmlAllegati(d.allegati, ctx, 'Aggiungi foto') + '<div class="azioni-foto"><button type="button" class="btn secondario piccolo" data-scatta>📷 Scatta con riquadro</button><button type="button" class="btn secondario piccolo" data-ocr>🔍 Leggi dati dalle foto</button><input type="file" accept="image/*" capture="environment" data-scatta-file class="sr" tabindex="-1"></div><div id="scelta-lati"></div></div>' +
         '<div class="azioni"><button class="btn" type="submit">Salva</button><button class="btn secondario" type="button" data-chiudi>Annulla</button>' + (id ? '<button class="btn pericolo" type="button" data-elimina style="margin-left:auto">Elimina</button>' : '') + '</div></div></form>';
       form = $('#form-documento', foglio);
       $('[data-chiudi]', form).onclick = function () { foglio.close(); };
@@ -772,21 +795,25 @@
           return p.then(function (acc) { return ritagliaManuale(f).then(function (r) { if (r) acc.push(r); return acc; }); });
         }, Promise.resolve([]));
       }
+      // le foto in attesa si accumulano: aggiungerne una nuova non fa perdere quelle ancora da caricare
+      var inAttesa = [];
       function sceltaFile(files) {
         if (!files.length) return;
         snap();
-        scelta.innerHTML = '<div class="campo"><span>Di quale lato sono?</span>' + files.map(function (x, i) {
+        inAttesa = inAttesa.concat(files);
+        scelta.innerHTML = '<div class="campo"><span>Di quale lato sono?</span>' + inAttesa.map(function (x, i) {
           return '<label class="campo">' + esc(x.name) + '<select data-lato="' + i + '">' + ['Fronte', 'Retro', 'Altro'].map(function (l) { return '<option>' + l + '</option>'; }).join('') + '</select></label>';
         }).join('') +
           '<div class="azioni"><button class="btn" type="button" data-carica-lati>Carica</button><button class="btn secondario" type="button" data-annulla-lati>Annulla</button></div></div>';
-        scelta.querySelector('[data-annulla-lati]').onclick = function () { scelta.innerHTML = ''; inp.value = ''; };
+        scelta.querySelector('[data-annulla-lati]').onclick = function () { inAttesa = []; scelta.innerHTML = ''; inp.value = ''; };
         scelta.querySelector('[data-carica-lati]').onclick = function () {
+          var daCaricare = inAttesa.slice();
           var lati = Array.prototype.map.call(scelta.querySelectorAll('[data-lato]'), function (s) { return s.value; });
-          var nomi = lati.map(function (l, i) { return nomeFile(l, files[i].name, i); });
-          scelta.innerHTML = '';
-          Viaggi.allega(wrap, ctx, files, false, {
-            nome: function (x) { return nomi[files.indexOf(x)]; },
-            extra: function (x) { return { lato: lati[files.indexOf(x)] }; }
+          var nomi = lati.map(function (l, i) { return nomeFile(l, daCaricare[i].name, i); });
+          inAttesa = []; scelta.innerHTML = '';
+          Viaggi.allega(wrap, ctx, daCaricare, false, {
+            nome: function (x) { return nomi[daCaricare.indexOf(x)]; },
+            extra: function (x) { return { lato: lati[daCaricare.indexOf(x)] }; }
           }).then(disegna);
         };
       }
@@ -797,6 +824,35 @@
           .catch(function (err) { if (err && err.message === 'annullato') return; if (scattaFile) scattaFile.click(); });
       };
       if (scattaFile) scattaFile.onchange = function () { var f = scattaFile.files[0]; if (f) elaboraFile([f]).then(function (fs) { if (fs.length) sceltaFile(fs); }); };
+      // legge il testo delle foto già caricate e propone i dati da controllare
+      var ocrBtn = form.querySelector('[data-ocr]');
+      if (ocrBtn) ocrBtn.onclick = function () {
+        snap();
+        var foto = d.allegati.filter(function (a) { return a.mime && a.mime.indexOf('image/') === 0; });
+        if (!foto.length) { toast('Carica prima una foto del documento'); return; }
+        toast('Leggo il testo della foto…');
+        Promise.all(foto.map(function (a) {
+          return Viaggi.blobAllegato(a.id, a.mime).then(function (bl) { return b64Di(bl); })
+            .then(function (b64) { return Store.chiama('ocr', { dati: b64, mime: 'image/jpeg' }); })
+            .then(function (r) { return r.testo || ''; });
+        })).then(function (testi) {
+          var testo = testi.join('\n');
+          var letti = leggiDatiDocumento(testo, (((Store.settings().anagrafica || {}).persone || {})[d.persona] || {}).nascita);
+          var righe = [['Numero', letti.numero], ['Data di rilascio', letti.rilascio], ['Data di scadenza', letti.scadenza], ['Rilasciato da', letti.rilasciatoDa]];
+          scelta.innerHTML = '<div class="campo"><span>Dati letti dalle foto: controllali prima di usarli</span>' +
+            righe.map(function (r) { return '<span class="aiuto">' + r[0] + ': ' + (r[1] ? esc(r[1]) : 'non trovato') + '</span>'; }).join('') +
+            '<details><summary class="aiuto">Testo letto</summary><pre class="aiuto" style="white-space:pre-wrap">' + esc(testo || 'nessun testo') + '</pre></details>' +
+            '<div class="azioni"><button class="btn" type="button" data-usa-letti>Usa questi dati</button><button class="btn secondario" type="button" data-chiudi-letti>Chiudi</button></div></div>';
+          scelta.querySelector('[data-chiudi-letti]').onclick = function () { scelta.innerHTML = ''; };
+          scelta.querySelector('[data-usa-letti]').onclick = function () {
+            if (letti.numero) form.numero.value = letti.numero;
+            if (letti.rilascio) form.rilascio.value = letti.rilascio;
+            if (letti.scadenza) form.scadenza.value = letti.scadenza;
+            if (letti.rilasciatoDa) form.rilasciatoDa.value = letti.rilasciatoDa;
+            scelta.innerHTML = ''; toast('Dati inseriti: controlla e salva');
+          };
+        }).catch(function (e) { toast('Lettura non riuscita: ' + (e.message || e)); });
+      };
       Viaggi.anteprime(foglio);
       form.onsubmit = function (e) {
         e.preventDefault();

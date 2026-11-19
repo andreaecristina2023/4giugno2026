@@ -804,6 +804,7 @@ var Viaggi = (function () {
     htmlElenco: htmlElenco, htmlDettaglio: htmlDettaglio, htmlConcerti: htmlConcerti,
     apriViaggio: apriViaggio, apriConcerto: apriConcerto, apriAllegato: apriAllegato,
     click: click, change: change, prossimi: prossimi, intervallo: intervallo,
-    allega: allega, togli: togli, htmlAllegati: htmlAllegati, anteprime: anteprime
+    allega: allega, togli: togli, htmlAllegati: htmlAllegati, anteprime: anteprime,
+    blobAllegato: blobAllegato
   };
 })();
