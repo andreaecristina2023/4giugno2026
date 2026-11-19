@@ -144,7 +144,7 @@ details.mesi .riga-reg { margin-top: 8px; }
 /* ---------- moduli ---------- */
 label.campo { display: grid; gap: 6px; font-weight: 700; font-size: 15px; }
 label.campo .aiuto { font-weight: 400; color: var(--muschio); font-size: 14px; }
-input[type=text], input[type=url], input[type=tel], input[type=email], input[type=date], input[type=time], input[type=number], input[type=password], select, textarea {
+input[type=text], input[type=url], input[type=tel], input[type=email], input[type=date], input[type=time], input[type=datetime-local], input[type=number], input[type=password], input[type=search], input:not([type]), select, textarea {
   width: 100%; padding: 12px 14px; border-radius: 12px; border: 1.5px solid var(--confine); background: var(--superficie); min-height: 48px; font-weight: 400;
 }
 textarea { min-height: 80px; resize: vertical; }
@@ -403,3 +403,15 @@ nav.barra-nav .pallino { position: absolute; top: 8px; left: calc(50% + 10px); w
 .contatto { display: inline-flex; align-items: center; justify-content: center; min-width: 34px; height: 34px; padding: 0 6px; border-radius: 17px; font-size: 16px; text-decoration: none; color: inherit; background: var(--superficie); box-shadow: 0 0 0 1px var(--confine); flex: none; }
 .postit { position: relative; }
 .postit .pallino { position: absolute; top: 8px; right: 8px; width: 11px; height: 11px; border-radius: 50%; background: var(--sangiovese); box-shadow: 0 0 0 2px #fff; }
+
+.doc-da-personali { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
+.doc-da-personali select { flex: 1; }
+.wallet-griglia { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+.carta-wallet { display: grid; gap: 6px; justify-items: start; background: var(--superficie); border: 1.5px solid var(--confine); border-radius: 14px; padding: 10px; text-align: left; font: inherit; min-height: 120px; }
+.carta-wallet strong { font-size: 14px; }
+.carta-wallet small { font-size: 12px; color: var(--muschio); word-break: break-all; }
+.carta-miniatura { width: 100%; height: 64px; object-fit: contain; background: #fff; border-radius: 8px; }
+.carta-vuota { font-size: 30px; }
+.carta-codice { font-size: 26px; font-weight: 800; letter-spacing: .08em; text-align: center; word-break: break-all; margin: 8px 0; }
+.carta-foto { display: block; width: 100%; background: none; border: 0; padding: 0; margin-bottom: 10px; font: inherit; }
+.carta-foto img { width: 100%; background: #fff; border-radius: 10px; }

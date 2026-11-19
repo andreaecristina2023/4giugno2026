@@ -18,7 +18,7 @@
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function rifiuti() { return Store.settings().rifiuti; }
-  function voci() { return Store.lista().filter(function (v) { return v.tipo !== 'spesa' && v.tipo !== 'nota'; }); }
+  function voci() { return Store.lista().filter(function (v) { return v.tipo !== 'spesa' && v.tipo !== 'nota' && v.tipo !== 'carta'; }); }
 
   function toast(testo, azione, fn) {
     var z = $('#toast-zona');
@@ -431,6 +431,85 @@
     };
     foglio.showModal();
   }
+  // ---------- wallet: carte fedeltà, check-in e pagamento ----------
+  var CATEGORIE_CARTA = ['Fedeltà', 'Check-in', 'Pagamento'];
+  function vistaWallet() {
+    var carte = Store.lista().filter(function (v) { return v.tipo === 'carta'; });
+    var h = testata('Wallet', carte.length ? carte.length + (carte.length === 1 ? ' carta' : ' carte') : 'Carte e biglietti');
+    CATEGORIE_CARTA.forEach(function (cat) {
+      var gruppo = carte.filter(function (c) { return (c.categoria || 'Fedeltà') === cat; }).sort(function (a, b) { return (a.titolo || '').localeCompare(b.titolo || ''); });
+      if (!gruppo.length) return;
+      h += '<h2>' + cat + ' <small>' + gruppo.length + '</small></h2><div class="wallet-griglia">' + gruppo.map(function (c) {
+        var pf = (c.allegati || []).filter(function (a) { return /^image\//.test(a.mime || ''); })[0];
+        return '<button type="button" class="carta-wallet" data-carta-apri="' + esc(c.id) + '">' + (pf ? '<img class="carta-miniatura" data-anteprima="' + esc(pf.id) + '" data-mime="' + esc(pf.mime) + '" alt="" src="">' : '<span class="carta-vuota">' + (cat === 'Check-in' ? '🎫' : cat === 'Pagamento' ? '💳' : '🏷') + '</span>') +
+          '<strong>' + esc(c.titolo || 'Carta') + '</strong>' + (c.codice && cat !== 'Pagamento' ? '<small>' + esc(c.codice) + '</small>' : '') + '</button>';
+      }).join('') + '</div>';
+    });
+    if (!carte.length) h += '<div class="vuoto">Nessuna carta. Aggiungi le carte fedeltà del supermercato con il codice a barre, i biglietti del check-in o le carte di pagamento (solo nome e banca).</div>';
+    h += '<div class="azioni"><button class="btn" type="button" data-carta-nuova>+ Nuova carta o biglietto</button></div>';
+    vista.innerHTML = h;
+    Viaggi.anteprime(vista);
+  }
+  function apriCartaDettaglio(id) {
+    var c = Store.get(id); if (!c) return;
+    foglio.classList.remove('visore');
+    var foto = (c.allegati || []).map(function (a) {
+      return '<button type="button" class="carta-foto" data-apri-allegato="' + esc(a.id) + '" data-nome="' + esc(a.nome) + '" data-mime="' + esc(a.mime || '') + '">' + (/^image\//.test(a.mime || '') ? '<img class="anteprima" data-anteprima="' + esc(a.id) + '" data-mime="' + esc(a.mime || '') + '" alt="" src="">' : '📄 ' + esc(a.nome)) + '</button>';
+    }).join('');
+    foglio.innerHTML = '<div class="maniglia"></div><h3 id="foglio-titolo">' + esc(c.titolo || 'Carta') + '</h3><div class="campi">' +
+      '<p class="testo-muto" style="margin:0">' + esc(c.categoria || 'Fedeltà') + '</p>' +
+      (c.codice && c.categoria !== 'Pagamento' ? '<p class="carta-codice" aria-label="Codice">' + esc(c.codice) + '</p>' : '') +
+      (foto || '<p class="testo-muto">Nessuna foto.</p>') +
+      (c.note ? '<p style="white-space:pre-wrap;margin:0">' + esc(c.note) + '</p>' : '') +
+      '<div class="azioni"><button class="btn" type="button" data-chiudi>Chiudi</button><button class="btn secondario" type="button" data-modifica-carta>Modifica</button></div></div>';
+    Viaggi.anteprime(foglio);
+    $('[data-chiudi]', foglio).onclick = function () { foglio.close(); };
+    $('[data-modifica-carta]', foglio).onclick = function () { apriCarta(id); };
+    foglio.querySelectorAll('[data-apri-allegato]').forEach(function (b) { b.onclick = function () { Viaggi.apriAllegato(b.dataset.apriAllegato, b.dataset.nome, b.dataset.mime); }; });
+    foglio.showModal();
+  }
+  function apriCarta(id) {
+    var orig = id ? Store.get(id) : null;
+    var c = orig ? JSON.parse(JSON.stringify(orig)) : { id: C.nuovoId(), tipo: 'carta', titolo: '', categoria: 'Fedeltà', codice: '', note: '', allegati: [] };
+    c.allegati = c.allegati || [];
+    var wrap = { carta: [c] }, ctx = 'wallet|carta|' + c.id, form = null;
+    foglio.classList.remove('visore');
+    function snap() { if (!form) return; c.titolo = form.titolo.value.trim(); c.categoria = form.categoria.value; c.codice = form.codice.value.trim(); c.note = form.note.value; }
+    function disegna() {
+      foglio.innerHTML = '<form method="dialog" id="form-carta"><div class="maniglia"></div><h3 id="foglio-titolo">' + (id ? 'Modifica' : 'Nuova carta') + '</h3><div class="campi">' +
+        '<label class="campo">Nome<input type="text" name="titolo" required maxlength="60" value="' + esc(c.titolo) + '" placeholder="Es. Esselunga, Imbarco Volo BLQ"></label>' +
+        '<label class="campo">Tipo<select name="categoria">' + CATEGORIE_CARTA.map(function (k) { return '<option' + (c.categoria === k ? ' selected' : '') + '>' + k + '</option>'; }).join('') + '</select></label>' +
+        (c.categoria === 'Pagamento' ? '<p class="aiuto" style="margin:0">Per le carte di pagamento salva solo nome e banca. Non inserire il numero della carta né il codice.</p>' :
+          '<label class="campo">Codice<span class="aiuto">Il numero sotto il codice a barre, per leggerlo a mano.</span><input type="text" name="codice" maxlength="60" value="' + esc(c.codice) + '" inputmode="text"></label>') +
+        '<label class="campo">Note<textarea name="note" rows="3" maxlength="500">' + esc(c.note) + '</textarea></label>' +
+        '<div class="campo"><span>Foto</span><span class="aiuto">Foto del codice a barre o del biglietto, da mostrare alla cassa o al gate.</span>' + Viaggi.htmlAllegati(c.allegati, ctx, 'Aggiungi foto') + '<div id="scelta-carta"></div></div>' +
+        '<div class="azioni"><button class="btn" type="submit">Salva</button><button class="btn secondario" type="button" data-chiudi>Annulla</button>' + (id ? '<button class="btn pericolo" type="button" data-elimina style="margin-left:auto">Elimina</button>' : '') + '</div></div></form>';
+      form = $('#form-carta', foglio);
+      form.categoria.onchange = function () { snap(); disegna(); };
+      $('[data-chiudi]', form).onclick = function () { foglio.close(); };
+      if (id) $('[data-elimina]', form).onclick = function () {
+        if (!window.confirm('Eliminare questa carta?')) return;
+        if ((orig.allegati || []).length && !window.confirm('Conferma di nuovo: le foto andranno nel cestino di Drive.')) return;
+        Store.elimina(id); foglio.close(); toast('Carta eliminata');
+      };
+      form.querySelectorAll('[data-apri-allegato]').forEach(function (b) { b.onclick = function () { Viaggi.apriAllegato(b.dataset.apriAllegato, b.dataset.nome, b.dataset.mime); }; });
+      form.querySelectorAll('[data-togli-allegato]').forEach(function (b) { b.onclick = function () {
+        var idAll = b.dataset.togliAllegato.split('|').pop();
+        if (window.confirm('Togliere questa foto? Il file va nel cestino di Drive.')) { snap(); Viaggi.togli(wrap, ctx, idAll, false); disegna(); }
+      }; });
+      var inp = form.querySelector('[data-allega]');
+      if (inp) inp.onchange = function () { snap(); Viaggi.allega(wrap, ctx, inp.files, false).then(disegna); };
+      Viaggi.anteprime(foglio);
+      form.onsubmit = function (e) {
+        e.preventDefault(); snap();
+        if (!c.titolo) { form.titolo.focus(); return; }
+        Store.upsert({ id: c.id, tipo: 'carta', titolo: c.titolo, categoria: c.categoria, codice: c.categoria === 'Pagamento' ? '' : c.codice, note: c.note, allegati: c.allegati });
+        foglio.close(); toast(id ? 'Carta salvata' : 'Carta aggiunta');
+      };
+    }
+    disegna();
+    foglio.showModal();
+  }
   function vistaViaggi() { var n = voci().filter(function (v) { return v.tipo === 'viaggio'; }).length; vista.innerHTML = testata('Viaggi', n ? n + (n === 1 ? ' viaggio' : ' viaggi') : 'Voli, hotel e documenti') + Viaggi.htmlElenco(); }
   function vistaViaggio() { var m = location.hash.match(/^#viaggio\/(.+)$/), id = m ? decodeURIComponent(m[1]) : ''; vista.innerHTML = Viaggi.htmlDettaglio(id); Viaggi.disegnaMappa(id); }
   function vistaConcerti() { vista.innerHTML = testata('Concerti', 'Date, cantanti e biglietti') + Viaggi.htmlConcerti(); }
@@ -606,7 +685,7 @@
   function vistaAltro() {
     var conf = Store.conf(), st = Store.stato(), s = Store.settings();
     var h = testata('Altro', 'Impostazioni e app');
-    h += '<h2>Lista e note</h2><p><a href="#lista">🛒 Lista della spesa e note</a></p>';
+    h += '<h2>Lista e note</h2><p><a href="#lista">🛒 Lista della spesa e note</a></p><p><a href="#wallet">💳 Wallet: carte e biglietti</a></p>';
     h += '<h2>Chi sta usando questo telefono</h2><div class="schede" role="group" aria-label="Persona">' + s.persone.map(function (p) { return '<button type="button" data-chi="' + esc(p) + '" aria-pressed="' + (conf.chi === p) + '">' + esc(p) + '</button>'; }).join('') + '</div>';
 
     h += datiPersonali(s);
@@ -754,7 +833,7 @@
   });
 
   // ---------- routing e eventi ----------
-  var VISTE = { lista: vistaLista, oggi: vistaOggi, calendario: vistaCalendario, conti: vistaConti, rifiuti: vistaRifiuti, viaggi: vistaViaggi, viaggio: vistaViaggio, concerti: vistaConcerti, album: vistaAlbum, altro: vistaAltro };
+  var VISTE = { wallet: vistaWallet, lista: vistaLista, oggi: vistaOggi, calendario: vistaCalendario, conti: vistaConti, rifiuti: vistaRifiuti, viaggi: vistaViaggi, viaggio: vistaViaggio, concerti: vistaConcerti, album: vistaAlbum, altro: vistaAltro };
   function rotta() { var r = location.hash.replace('#', '').split('/')[0]; return VISTE[r] ? r : 'oggi'; }
   function disegna() {
     var r = rotta(), y = window.scrollY;
@@ -806,6 +885,8 @@
     else if (d.azione === 'nuova-eccezione') apriEccezione();
     else if (d.spuntaSpesa !== undefined) { var sp = Store.get(d.spuntaSpesa); if (sp) Store.upsert(Object.assign({}, sp, { fatto: !sp.fatto })); vistaLista(); }
     else if (d.eliminaSpesa !== undefined) { Store.elimina(d.eliminaSpesa); vistaLista(); }
+    else if (d.cartaNuova !== undefined) apriCarta(null);
+    else if (d.cartaApri !== undefined) apriCartaDettaglio(d.cartaApri);
     else if (d.notaNuova !== undefined) apriNota(null);
     else if (d.nota !== undefined) apriNota(d.nota);
     else if (d.docNuovo !== undefined) apriDocumento(null);

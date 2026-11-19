@@ -20,6 +20,7 @@ var Casa = (function () {
     appuntamento: { nome: 'Appuntamento', plurale: 'Appuntamenti' },
     spesa:        { nome: 'Spesa',        plurale: 'Spesa' },
     nota:         { nome: 'Nota',         plurale: 'Note' },
+    carta:        { nome: 'Carta',        plurale: 'Carte' },
     pagamento:    { nome: 'Pagamento',    plurale: 'Pagamenti' },
     scadenza:     { nome: 'Scadenza',     plurale: 'Scadenze' },
     promemoria:   { nome: 'Promemoria',   plurale: 'Promemoria' },

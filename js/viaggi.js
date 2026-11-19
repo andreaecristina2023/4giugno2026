@@ -206,6 +206,27 @@ var Viaggi = (function () {
   };
   function naviga(lat, lon) { return 'https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lon; }
   function numeroTel(s) { return (s.prefisso || PREFISSO_PREDEF) + String(s.telefono || '').replace(/[^0-9]/g, ''); }
+  // documenti salvati in «I miei dati» (riferiti dai viaggi, non copiati)
+  function docPersonale(id) {
+    var l = ((Store.settings().anagrafica || {}).documenti); if (!Array.isArray(l)) return null;
+    return l.filter(function (x) { return x.id === id; })[0] || null;
+  }
+  function fotoPersonali(id) {
+    var pd = docPersonale(id), ui_esc = ui.esc;
+    if (!pd || !(pd.allegati || []).length) return '';
+    return '<div class="allegati">' + pd.allegati.map(function (a) {
+      var icona = /^image\//.test(a.mime || '') ? '🖼' : '📄';
+      return '<span class="allegato"><button type="button" data-apri-allegato="' + ui_esc(a.id) + '" data-nome="' + ui_esc(a.nome) + '" data-mime="' + ui_esc(a.mime || '') + '">' + icona + ' ' + ui_esc(a.nome) + '</button></span>';
+    }).join('') + '</div>';
+  }
+  // elenco a tendina dei documenti dei miei dati, con + per aggiungerne uno al viaggio
+  function scegliDocumenti(idViaggio) {
+    var l = ((Store.settings().anagrafica || {}).documenti); if (!Array.isArray(l) || !l.length) return '';
+    var esc = ui.esc;
+    return '<div class="doc-da-personali"><select data-doc-pers aria-label="Documento da I miei dati">' + l.map(function (d) {
+      return '<option value="' + esc(d.id) + '">' + esc((d.tipo || 'Documento') + ' · ' + (d.persona || '')) + '</option>';
+    }).join('') + '</select><button type="button" class="btn piccolo" data-doc-pers-add="' + esc(idViaggio) + '" aria-label="Aggiungi il documento selezionato">+</button></div>';
+  }
   function rigaSotto(v, sez, s) {
     var esc = ui.esc, ctx = v.id + '|' + sez + '|' + s.id, titolo = '', righe = [];
     if (sez === 'voli') {
@@ -223,6 +244,8 @@ var Viaggi = (function () {
       if (s.conferma) righe.push('Conferma ' + s.conferma);
       if (s.telefono) righe.push('Tel ' + (s.prefisso || PREFISSO_PREDEF) + ' ' + s.telefono);
     } else {
+      var pdr = s.docRif ? docPersonale(s.docRif) : null;
+      if (pdr) s = Object.assign({}, s, { tipo: pdr.tipo, persona: pdr.persona, numero: pdr.numero, scadenza: pdr.scadenza });
       titolo = (s.tipo || 'Documento') + (s.persona ? ' · ' + s.persona : '');
       if (s.numero) righe.push('N. ' + s.numero);
       if (s.scadenza) righe.push('Scade ' + C.dataBreve(s.scadenza) + ' ' + s.scadenza.slice(0, 4));
@@ -233,7 +256,7 @@ var Viaggi = (function () {
       (avv ? '<span class="sc-avviso">⚠ ' + esc(avv) + '</span>' : '') + (s.note ? '<span class="sc-riga testo-muto">' + esc(s.note) + '</span>' : '') + '</button>' +
       (sez === 'hotel' && s.telefono ? '<a class="sc-chiama" href="tel:' + esc(numeroTel(s)) + '" aria-label="Chiama ' + esc(s.nome || 'hotel') + '">☎️ Chiama</a>' : '') +
       (sez === 'hotel' && s.lat != null && s.lon != null ? '<a class="sc-mappa" href="' + naviga(s.lat, s.lon) + '" target="_blank" rel="noopener">🧭 Naviga</a>' : (sez === 'hotel' && s.indirizzo ? '<a class="sc-mappa" href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(s.nome + ', ' + s.indirizzo) + '" target="_blank" rel="noopener">Mappa</a>' : '')) +
-      htmlAllegati(s.allegati, ctx, sez === 'documenti' ? 'Allega documento' : sez === 'voli' ? 'Allega carta d\'imbarco' : 'Allega conferma') + '</div>';
+      (sez === 'documenti' && s.docRif ? fotoPersonali(s.docRif) : '') + htmlAllegati(s.allegati, ctx, sez === 'documenti' ? 'Allega documento' : sez === 'voli' ? 'Allega carta d\'imbarco' : 'Allega conferma') + '</div>';
   }
   function htmlDettaglio(id) {
     var esc = ui.esc, v = Store.get(id);
@@ -257,6 +280,7 @@ var Viaggi = (function () {
     Object.keys(SEZIONI).forEach(function (sez) {
       var lista = (v[sez] || []).slice().sort(function (a, b) { var x = a.data || a.checkin || a.scadenza || '', y = b.data || b.checkin || b.scadenza || ''; return x < y ? -1 : 1; });
       h += '<h2>' + SEZIONI[sez].titolo + ' <small>' + lista.length + '</small></h2>' + lista.map(function (s) { return rigaSotto(v, sez, s); }).join('') +
+        (sez === 'documenti' ? scegliDocumenti(v.id) : '') +
         '<button class="btn secondario piccolo aggiungi-sotto" type="button" data-nuovo-sotto="' + sez + '">Aggiungi ' + SEZIONI[sez].uno + '</button>';
     });
     if (v.note) h += '<h2>Note</h2><div class="sezione"><p style="white-space:pre-wrap;margin:0">' + esc(v.note) + '</p></div>';
@@ -412,7 +436,7 @@ var Viaggi = (function () {
       salva: function (o) {
         if (!v[sez]) v[sez] = [];
         if (s) { var t = v[sez].filter(function (x) { return x.id === idSotto; })[0]; Object.keys(o).forEach(function (k) { t[k] = o[k]; }); }
-        else { o.id = C.nuovoId(); o.allegati = []; v[sez].push(o); }
+        else { o.id = C.nuovoId(); o.allegati = []; if (dati.docRif) o.docRif = dati.docRif; v[sez].push(o); }
         if (sez === 'voli') v[sez].forEach(function (x) { if (x.da) x.da = x.da.toUpperCase().slice(0, 1) + x.da.slice(1); });
         Store.upsert(v); ui.toast(s ? 'Salvato' : def.uno.charAt(0).toUpperCase() + def.uno.slice(1) + ' aggiunto: puoi allegare i file');
       },
@@ -495,6 +519,11 @@ var Viaggi = (function () {
     if (d.nuovoViaggio !== undefined) { apriViaggio(null); return true; }
     if (d.modificaViaggio) { apriViaggio(d.modificaViaggio); return true; }
     if (d.nuovoSotto) { apriSotto(idCorrente(), d.nuovoSotto, null); return true; }
+    if (d.docPersAdd) {
+      var selDoc = t.parentElement.querySelector('[data-doc-pers]'), pd = selDoc ? docPersonale(selDoc.value) : null;
+      if (pd) apriSotto(d.docPersAdd, 'documenti', null, { tipo: pd.tipo, persona: pd.persona, numero: pd.numero, rilascio: pd.rilascio, scadenza: pd.scadenza, rilasciatoDa: pd.rilasciatoDa, docRif: pd.id });
+      return true;
+    }
     if (d.modificaSotto) { var q = d.modificaSotto.split('|'); apriSotto(idCorrente(), q[0], q[1]); return true; }
     if (d.aggiungiPunti) { apriPunti(d.aggiungiPunti); return true; }
     if (d.altro) { var k = d.altro.split('|'), vaggio = idCorrente(); if (k[0] === 'luogo') { var lg = (Store.get(vaggio).luoghi || []).filter(function (x) { return x.id === k[1]; })[0]; if (lg) apriLuogo(vaggio, null, JSON.parse(JSON.stringify(lg))); } else apriSotto(vaggio, 'hotel', k[1]); return true; }
