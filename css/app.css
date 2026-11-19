@@ -426,3 +426,8 @@ nav.barra-nav .pallino { position: absolute; top: 8px; left: calc(50% + 10px); w
 .camera-riquadro { position: absolute; left: 50%; top: 50%; width: 82%; transform: translate(-50%, -50%); aspect-ratio: 1.586; border: 3px solid #fff; border-radius: 10px; box-shadow: 0 0 0 100vmax rgba(0,0,0,.45); pointer-events: none; }
 .camera-suggerimento { text-align: center; margin: 0; font-weight: 600; }
 .camera-azioni { display: flex; gap: 12px; justify-content: center; }
+.ritaglio-vista { position: relative; margin: 0 auto; overflow: hidden; border-radius: 10px; touch-action: none; }
+.ritaglio canvas { display: block; touch-action: none; }
+.ritaglio-comandi { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
+.ritaglio-zoom { display: flex; gap: 8px; align-items: center; font-weight: 600; }
+.ritaglio-zoom input { width: 150px; }

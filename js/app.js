@@ -596,44 +596,76 @@
         .catch(function () { if (nota) nota.textContent = 'Non riesco a cercare l\'indirizzo: tocca la mappa.'; });
     };
   }
-  // Ritaglia automaticamente il documento: cerca la zona che si distingue dallo sfondo (bordo della foto).
-  // Se non trova un ritaglio sensato lascia la foto com'è.
-  function ritagliaFoto(file) {
-    if (!/^image\//.test(file.type || '')) return Promise.resolve(file);
+  // Editor di ritaglio: la foto si sposta, si zooma e si ruota dentro il riquadro del documento.
+  // Restituisce il File ritagliato, oppure null se l'utente annulla.
+  function ritagliaManuale(file) {
     return new Promise(function (ok) {
       var url = URL.createObjectURL(file), img = new Image();
-      img.onerror = function () { URL.revokeObjectURL(url); ok(file); };
+      img.onerror = function () { URL.revokeObjectURL(url); ok(null); };
       img.onload = function () {
-        try {
-          var scala = Math.min(1, 900 / Math.max(img.width, img.height));
-          var w = Math.max(2, Math.round(img.width * scala)), h = Math.max(2, Math.round(img.height * scala));
-          var c = document.createElement('canvas'); c.width = w; c.height = h;
-          var g = c.getContext('2d'); g.drawImage(img, 0, 0, w, h);
-          var px = g.getImageData(0, 0, w, h).data;
-          var rs = [], gs = [], bs = [];
-          function campiona(x, y) { var i = (y * w + x) * 4; rs.push(px[i]); gs.push(px[i + 1]); bs.push(px[i + 2]); }
-          for (var x = 0; x < w; x += 3) { campiona(x, 0); campiona(x, h - 1); }
-          for (var y = 0; y < h; y += 3) { campiona(0, y); campiona(w - 1, y); }
-          var mediana = function (a) { a = a.slice().sort(function (p, q) { return p - q; }); return a[a.length >> 1]; };
-          var bg = [mediana(rs), mediana(gs), mediana(bs)];
-          var righe = new Array(h).fill(0), colonne = new Array(w).fill(0);
-          for (var y2 = 0; y2 < h; y2++) for (var x2 = 0; x2 < w; x2++) {
-            var i2 = (y2 * w + x2) * 4;
-            if (Math.abs(px[i2] - bg[0]) + Math.abs(px[i2 + 1] - bg[1]) + Math.abs(px[i2 + 2] - bg[2]) > 90) { righe[y2]++; colonne[x2]++; }
+        var rot = 0, zoom = 1, ox = 0, oy = 0, W = 0, H = 0, fW = 0, fH = 0, fX = 0, fY = 0;
+        var box = document.createElement('div');
+        box.className = 'camera-guida ritaglio';
+        box.innerHTML = '<div class="ritaglio-vista"><canvas></canvas><div class="camera-riquadro" aria-hidden="true"></div></div>' +
+          '<div class="ritaglio-comandi"><button type="button" class="btn secondario piccolo" data-ruota="-90" aria-label="Ruota a sinistra">↺</button>' +
+          '<button type="button" class="btn secondario piccolo" data-ruota="90" aria-label="Ruota a destra">↻</button>' +
+          '<label class="ritaglio-zoom">Zoom <input type="range" min="1" max="4" step="0.01" value="1" data-zoom></label></div>' +
+          '<p class="camera-suggerimento">Trascina e zooma per mettere il documento nel riquadro</p>' +
+          '<div class="camera-azioni"><button class="btn secondario" type="button" data-annulla-rit>Annulla</button><button class="btn" type="button" data-usa-rit>Usa questa foto</button></div>';
+        document.body.appendChild(box);
+        var cv = box.querySelector('canvas'), ctx = cv.getContext('2d'), vista = box.querySelector('.ritaglio-vista');
+        var ov = vista.querySelector('.camera-riquadro'), slider = box.querySelector('[data-zoom]');
+        function misura() {
+          W = Math.round(Math.min(window.innerWidth - 24, 560)); H = Math.round(Math.min(window.innerHeight * 0.6, W * 1.3));
+          cv.width = W; cv.height = H; cv.style.width = W + 'px'; cv.style.height = H + 'px'; vista.style.width = W + 'px'; vista.style.height = H + 'px';
+          fW = W * 0.86; fH = fW / 1.586;
+          if (fH > H * 0.9) { fH = H * 0.9; fW = fH * 1.586; }
+          fX = (W - fW) / 2; fY = (H - fH) / 2;
+          ov.style.cssText = 'left:' + fX + 'px;top:' + fY + 'px;width:' + fW + 'px;height:' + fH + 'px;transform:none;aspect-ratio:auto;';
+        }
+        // disegna l'immagine nel riquadro; f = fattore di scala, (dx,dy) = origine del riquadro sul contesto
+        function disegna(c, f, dx, dy, colore, larg, alt) {
+          c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = colore; c.fillRect(0, 0, larg, alt);
+          c.setTransform(f, 0, 0, f, dx, dy);
+          var ruotata = rot % 180 !== 0, rw = ruotata ? img.height : img.width, rh = ruotata ? img.width : img.height;
+          var base = Math.max(fW / rw, fH / rh) * zoom;
+          c.translate(fW / 2 + ox, fH / 2 + oy); c.rotate(rot * Math.PI / 180); c.scale(base, base);
+          c.drawImage(img, -img.width / 2, -img.height / 2);
+        }
+        function anteprima() { disegna(ctx, 1, fX, fY, '#000', W, H); }
+        misura(); anteprima();
+        // trascinamento e pizzico con due dita
+        var punti = {}, distPrec = 0, ultimo = null;
+        cv.addEventListener('pointerdown', function (e) { cv.setPointerCapture(e.pointerId); punti[e.pointerId] = { x: e.clientX, y: e.clientY }; ultimo = null; });
+        cv.addEventListener('pointermove', function (e) {
+          if (!punti[e.pointerId]) return;
+          punti[e.pointerId] = { x: e.clientX, y: e.clientY };
+          var ids = Object.keys(punti);
+          if (ids.length >= 2) {
+            var p1 = punti[ids[0]], p2 = punti[ids[1]], d = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+            if (distPrec) zoom = Math.max(1, Math.min(4, zoom * d / distPrec));
+            distPrec = d; slider.value = zoom;
+          } else {
+            if (ultimo) { ox += e.clientX - ultimo.x; oy += e.clientY - ultimo.y; }
+            ultimo = { x: e.clientX, y: e.clientY };
           }
-          var estremi = function (arr, soglia) { var a = -1, b = -1; for (var k = 0; k < arr.length; k++) if (arr[k] >= soglia) { if (a < 0) a = k; b = k; } return [a, b]; };
-          var er = estremi(righe, w * 0.2), ec = estremi(colonne, h * 0.2);
-          if (er[0] < 0 || ec[0] < 0) { URL.revokeObjectURL(url); return ok(file); }
-          var m = Math.round(Math.min(w, h) * 0.02);
-          var x0 = Math.max(0, ec[0] - m), x1 = Math.min(w - 1, ec[1] + m), y0 = Math.max(0, er[0] - m), y1 = Math.min(h - 1, er[1] + m);
-          var quota = (x1 - x0) * (y1 - y0) / (w * h);
-          if (quota > 0.95 || quota < 0.15) { URL.revokeObjectURL(url); return ok(file); }
-          var k = img.width / w, out = document.createElement('canvas');
-          out.width = Math.round((x1 - x0) * k); out.height = Math.round((y1 - y0) * k);
-          out.getContext('2d').drawImage(img, x0 * k, y0 * k, (x1 - x0) * k, (y1 - y0) * k, 0, 0, out.width, out.height);
-          URL.revokeObjectURL(url);
-          out.toBlob(function (b) { ok(b ? new File([b], file.name, { type: b.type || file.type }) : file); }, file.type || 'image/jpeg', 0.92);
-        } catch (e) { URL.revokeObjectURL(url); ok(file); }
+          anteprima();
+        });
+        function fine(e) { delete punti[e.pointerId]; distPrec = 0; ultimo = null; }
+        cv.addEventListener('pointerup', fine); cv.addEventListener('pointercancel', fine);
+        cv.addEventListener('wheel', function (e) { e.preventDefault(); zoom = Math.max(1, Math.min(4, zoom - e.deltaY * 0.002)); slider.value = zoom; anteprima(); }, { passive: false });
+        slider.oninput = function () { zoom = +slider.value; anteprima(); };
+        box.querySelectorAll('[data-ruota]').forEach(function (b) { b.onclick = function () { rot = (rot + (+b.dataset.ruota) + 360) % 360; anteprima(); }; });
+        function chiudi() { URL.revokeObjectURL(url); box.remove(); window.removeEventListener('resize', misura); }
+        box.querySelector('[data-annulla-rit]').onclick = function () { chiudi(); ok(null); };
+        box.querySelector('[data-usa-rit]').onclick = function () {
+          var out = document.createElement('canvas'), L = 1400, A = Math.round(L / 1.586);
+          out.width = L; out.height = A;
+          disegna(out.getContext('2d'), L / fW, 0, 0, '#fff', L, A);
+          chiudi();
+          out.toBlob(function (b) { ok(b ? new File([b], 'documento-' + Date.now() + '.jpg', { type: 'image/jpeg' }) : null); }, 'image/jpeg', 0.92);
+        };
+        window.addEventListener('resize', function () { misura(); anteprima(); });
       };
       img.src = url;
     });
@@ -714,35 +746,36 @@
         if (confirm('Togliere questa foto?')) { snap(); Viaggi.togli(wrap, ctx, idAll, false); disegna(); }
       }; });
       var inp = form.querySelector('[data-allega]'), scelta = form.querySelector('#scelta-lati');
+      function elaboraFile(files) {
+        return files.reduce(function (p, f) {
+          return p.then(function (acc) { return ritagliaManuale(f).then(function (r) { if (r) acc.push(r); return acc; }); });
+        }, Promise.resolve([]));
+      }
       function sceltaFile(files) {
         if (!files.length) return;
         snap();
         scelta.innerHTML = '<div class="campo"><span>Di quale lato sono?</span>' + files.map(function (x, i) {
           return '<label class="campo">' + esc(x.name) + '<select data-lato="' + i + '">' + ['Fronte', 'Retro', 'Altro'].map(function (l) { return '<option>' + l + '</option>'; }).join('') + '</select></label>';
-        }).join('') + '<label class="check"><input type="checkbox" data-ritaglia checked> Ritaglia automaticamente il documento</label>' +
+        }).join('') +
           '<div class="azioni"><button class="btn" type="button" data-carica-lati>Carica</button><button class="btn secondario" type="button" data-annulla-lati>Annulla</button></div></div>';
         scelta.querySelector('[data-annulla-lati]').onclick = function () { scelta.innerHTML = ''; inp.value = ''; };
         scelta.querySelector('[data-carica-lati]').onclick = function () {
           var lati = Array.prototype.map.call(scelta.querySelectorAll('[data-lato]'), function (s) { return s.value; });
-          var ritaglia = !!(scelta.querySelector('[data-ritaglia]') || {}).checked;
           var nomi = lati.map(function (l, i) { return nomeFile(l, files[i].name, i); });
-          scelta.innerHTML = '<p class="testo-muto">Carico…</p>';
-          Promise.all(files.map(function (x) { return (ritaglia && !x.guidato) ? ritagliaFoto(x) : x; })).then(function (fs) {
-            scelta.innerHTML = '';
-            return Viaggi.allega(wrap, ctx, fs, false, {
-              nome: function (x) { return nomi[fs.indexOf(x)]; },
-              extra: function (x) { return { lato: lati[fs.indexOf(x)] }; }
-            });
+          scelta.innerHTML = '';
+          Viaggi.allega(wrap, ctx, files, false, {
+            nome: function (x) { return nomi[files.indexOf(x)]; },
+            extra: function (x) { return { lato: lati[files.indexOf(x)] }; }
           }).then(disegna);
         };
       }
-      if (inp) inp.onchange = function () { sceltaFile(Array.prototype.slice.call(inp.files || [])); };
+      if (inp) inp.onchange = function () { elaboraFile(Array.prototype.slice.call(inp.files || [])).then(function (fs) { if (fs.length) sceltaFile(fs); }); };
       var scatta = form.querySelector('[data-scatta]'), scattaFile = form.querySelector('[data-scatta-file]');
       if (scatta) scatta.onclick = function () {
-        scattaConRiquadro().then(function (f) { f.guidato = true; sceltaFile([f]); })
+        scattaConRiquadro().then(function (f) { return elaboraFile([f]); }).then(function (fs) { if (fs.length) sceltaFile(fs); })
           .catch(function (err) { if (err && err.message === 'annullato') return; if (scattaFile) scattaFile.click(); });
       };
-      if (scattaFile) scattaFile.onchange = function () { var f = scattaFile.files[0]; if (f) { f.guidato = true; sceltaFile([f]); } };
+      if (scattaFile) scattaFile.onchange = function () { var f = scattaFile.files[0]; if (f) elaboraFile([f]).then(function (fs) { if (fs.length) sceltaFile(fs); }); };
       Viaggi.anteprime(foglio);
       form.onsubmit = function (e) {
         e.preventDefault();
