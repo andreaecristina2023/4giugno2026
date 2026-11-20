@@ -514,8 +514,8 @@
     foglio.showModal();
   }
   function vistaViaggi() { var n = voci().filter(function (v) { return v.tipo === 'viaggio'; }).length; vista.innerHTML = testata('Viaggi', n ? n + (n === 1 ? ' viaggio' : ' viaggi') : 'Voli, hotel e documenti') + Viaggi.htmlElenco(); }
-  function vistaViaggio() { var m = location.hash.match(/^#viaggio\/(.+)$/), id = m ? decodeURIComponent(m[1]) : ''; vista.innerHTML = Viaggi.htmlDettaglio(id); Viaggi.disegnaMappa(id); }
-  function vistaConcerti() { vista.innerHTML = testata('Concerti', 'Date, cantanti e biglietti') + Viaggi.htmlConcerti(); }
+  function vistaViaggio() { var m = location.hash.match(/^#viaggio\/(.+)$/), id = m ? decodeURIComponent(m[1]) : ''; vista.innerHTML = Viaggi.htmlDettaglio(id); Viaggi.anteprime(vista); Viaggi.disegnaMappa(id); }
+  function vistaConcerti() { vista.innerHTML = testata('Concerti', 'Date, cantanti e biglietti') + Viaggi.htmlConcerti(); Viaggi.anteprime(vista); }
 
   // ---------- ALBUM ----------
   var albumAggiornato = 0;

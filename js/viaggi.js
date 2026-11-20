@@ -215,8 +215,8 @@ var Viaggi = (function () {
     var pd = docPersonale(id), ui_esc = ui.esc;
     if (!pd || !(pd.allegati || []).length) return '';
     return '<div class="allegati">' + pd.allegati.map(function (a) {
-      var icona = /^image\//.test(a.mime || '') ? '🖼' : '📄';
-      return '<span class="allegato"><button type="button" data-apri-allegato="' + ui_esc(a.id) + '" data-nome="' + ui_esc(a.nome) + '" data-mime="' + ui_esc(a.mime || '') + '">' + icona + ' ' + ui_esc(a.nome) + '</button></span>';
+      var anteprima = /^image\//.test(a.mime || '') ? '<img class="anteprima" data-anteprima="' + ui_esc(a.id) + '" data-mime="' + ui_esc(a.mime || '') + '" alt="" src="">' : (/pdf/.test(a.mime || '') ? '📄 ' : '📎 ');
+      return '<span class="allegato"><button type="button" data-apri-allegato="' + ui_esc(a.id) + '" data-nome="' + ui_esc(a.nome) + '" data-mime="' + ui_esc(a.mime || '') + '">' + anteprima + ui_esc(a.nome) + '</button></span>';
     }).join('') + '</div>';
   }
   // i documenti di «I miei dati» raggruppati per persona (Andrea, Cristina, poi gli altri), ordinati per tipo
@@ -341,6 +341,7 @@ var Viaggi = (function () {
       '<div class="azioni"><button class="btn" type="submit">Salva</button><button class="btn secondario" type="button" data-annulla>Annulla</button>' +
       (opz.elimina ? '<button class="btn pericolo" type="button" data-elimina style="margin-left:auto">Elimina</button>' : '') + '</div></div></form>';
     var f = fg.querySelector('form');
+    anteprime(fg);
     f.querySelector('[data-annulla]').onclick = function () { if (opz.annulla) opz.annulla(); fg.close(); };
     if (opz.elimina) f.querySelector('[data-elimina]').onclick = function () { if (window.confirm(opz.confermaElimina || 'Eliminare?') && (!opz.secondaConferma || window.confirm(opz.secondaConferma))) { opz.elimina(); fg.close(); } };
     f.onsubmit = function (e) {
