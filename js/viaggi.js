@@ -170,23 +170,42 @@ var Viaggi = (function () {
   }
 
   // ---------- VIAGGI: elenco ----------
+  // card di un viaggio (usata in lista e in archivio)
+  function cardViaggio(v) {
+    var esc = ui.esc, q = quanto(v.data, v.fine), avvisi = (v.documenti || []).filter(function (d) { return avvisoDocumento(v, d); }).length;
+    var conta = [(v.voli || []).length + ' vol' + ((v.voli || []).length === 1 ? 'o' : 'i'), (v.hotel || []).length + ' hotel', (v.documenti || []).length + ' document' + ((v.documenti || []).length === 1 ? 'o' : 'i')];
+    return '<a class="card-viaggio" href="#viaggio/' + encodeURIComponent(v.id) + '"><span class="cv-alto"><span class="cv-titolo">' + esc(v.titolo) + '</span><span class="cv-quando ' + q.classe + '">' + q.testo + '</span></span>' +
+      '<span class="cv-date">' + esc(intervallo(v.data, v.fine)) + (v.fine && v.fine !== v.data ? ' · ' + (C.diffGiorni(v.data, v.fine) + 1) + ' giorni' : '') + '</span>' +
+      '<span class="cv-conta">' + conta.join(' · ') + (avvisi ? ' · <b class="cv-avviso">⚠ ' + avvisi + ' documento da controllare</b>' : '') + '</span></a>';
+  }
+  // viaggi e concerti conclusi: passano in archivio da soli dopo la data di fine
+  function archivioVoci() {
+    var oggi = C.oggi();
+    return {
+      viaggi: viaggi().filter(function (v) { return (v.fine || v.data) < oggi; }).sort(function (a, b) { return a.data < b.data ? 1 : -1; }),
+      concerti: concerti().filter(function (c) { return c.data < oggi; }).sort(function (a, b) { return a.data < b.data ? 1 : -1; })
+    };
+  }
+  function htmlLinkArchivio() {
+    var a = archivioVoci(), n = a.viaggi.length + a.concerti.length;
+    return n ? '<p class="archivio-link"><a class="btn secondario piccolo" href="#archivio">Archivio · ' + n + '</a></p>' : '';
+  }
   function htmlElenco() {
-    var esc = ui.esc, oggi = C.oggi(), tutti = viaggi();
+    var oggi = C.oggi(), tutti = viaggi();
     var inCorso = tutti.filter(function (v) { return v.data <= oggi && (v.fine || v.data) >= oggi; });
     var futuri = tutti.filter(function (v) { return v.data > oggi; }).sort(function (a, b) { return a.data < b.data ? -1 : 1; });
-    var passati = tutti.filter(function (v) { return (v.fine || v.data) < oggi; }).sort(function (a, b) { return a.data < b.data ? 1 : -1; });
-    function card(v) {
-      var q = quanto(v.data, v.fine), avvisi = (v.documenti || []).filter(function (d) { return avvisoDocumento(v, d); }).length;
-      var conta = [(v.voli || []).length + ' vol' + ((v.voli || []).length === 1 ? 'o' : 'i'), (v.hotel || []).length + ' hotel', (v.documenti || []).length + ' document' + ((v.documenti || []).length === 1 ? 'o' : 'i')];
-      return '<a class="card-viaggio" href="#viaggio/' + encodeURIComponent(v.id) + '"><span class="cv-alto"><span class="cv-titolo">' + esc(v.titolo) + '</span><span class="cv-quando ' + q.classe + '">' + q.testo + '</span></span>' +
-        '<span class="cv-date">' + esc(intervallo(v.data, v.fine)) + (v.fine && v.fine !== v.data ? ' · ' + (C.diffGiorni(v.data, v.fine) + 1) + ' giorni' : '') + '</span>' +
-        '<span class="cv-conta">' + conta.join(' · ') + (avvisi ? ' · <b class="cv-avviso">⚠ ' + avvisi + ' documento da controllare</b>' : '') + '</span></a>';
-    }
-    var h = '';
     if (!tutti.length) return '<div class="vuoto">Nessun viaggio salvato. Aggiungi il primo: poi dentro metti voli, hotel e documenti (eVisa, passaporto) con i file allegati.<br><button class="btn piccolo" type="button" data-nuovo-viaggio>Nuovo viaggio</button></div>';
-    if (inCorso.length) h += '<h2>In corso</h2>' + inCorso.map(card).join('');
-    if (futuri.length) h += '<h2>In programma</h2>' + futuri.map(card).join('');
-    if (passati.length) h += '<details class="passati"><summary><h2>Passati <small>' + passati.length + '</small></h2></summary>' + passati.map(card).join('') + '</details>';
+    var h = '';
+    if (inCorso.length) h += '<h2>In corso</h2>' + inCorso.map(cardViaggio).join('');
+    if (futuri.length) h += '<h2>In programma</h2>' + futuri.map(cardViaggio).join('');
+    if (!inCorso.length && !futuri.length) h += '<p class="testo-muto">Nessun viaggio in programma.</p>';
+    return h + htmlLinkArchivio();
+  }
+  function htmlArchivio() {
+    var a = archivioVoci(), h = '';
+    if (!a.viaggi.length && !a.concerti.length) return '<div class="vuoto">Nessun elemento archiviato. Viaggi e concerti passano qui da soli dopo la data di fine.</div>';
+    if (a.viaggi.length) h += '<h2>Viaggi <small>' + a.viaggi.length + '</small></h2>' + a.viaggi.map(cardViaggio).join('');
+    if (a.concerti.length) h += '<h2>Concerti <small>' + a.concerti.length + '</small></h2>' + a.concerti.map(cardConcerto).join('');
     return h;
   }
 
@@ -505,23 +524,22 @@ var Viaggi = (function () {
       confermaElimina: 'Eliminare il concerto? (i biglietti restano su Drive)'
     });
   }
-  function htmlConcerti() {
-    var esc = ui.esc, oggi = C.oggi(), tutti = concerti();
-    var futuri = tutti.filter(function (c) { return c.data >= oggi; }).sort(function (a, b) { return (a.data + (a.ora || '')) < (b.data + (b.ora || '')) ? -1 : 1; });
-    var passati = tutti.filter(function (c) { return c.data < oggi; }).sort(function (a, b) { return a.data < b.data ? 1 : -1; });
-    function card(c) {
-      var d = C.parse(c.data), n = (c.biglietti || []).length, q = quanto(c.data, c.data);
+  // card di un concerto (usata in lista e in archivio)
+  function cardConcerto(c) {
+      var esc = ui.esc, oggi = C.oggi(), d = C.parse(c.data), n = (c.biglietti || []).length, q = quanto(c.data, c.data);
       return '<div class="card-concerto"><button type="button" class="cc-data" data-modifica-concerto="' + esc(c.id) + '"><b>' + d.getDate() + '</b><span>' + C.MESI[d.getMonth()].slice(0, 3) + '</span><small>' + d.getFullYear() + '</small></button>' +
         '<button type="button" class="cc-corpo" data-modifica-concerto="' + esc(c.id) + '"><span class="cc-artista">' + esc(c.titolo) + '</span>' +
         '<span class="cc-meta">' + esc([C.GIORNI_LUNGHI[d.getDay()], c.ora, c.luogo, c.prenotazione ? 'Prenotazione ' + c.prenotazione : ''].filter(Boolean).join(' · ')) + '</span>' +
         '<span class="cc-meta">' + (c.data >= oggi ? '<span class="cv-quando ' + q.classe + '">' + (c.data === oggi ? 'Stasera' : q.testo) + '</span>' : '') + (c.importo ? ' ' + C.euro(c.importo) : '') + (c.chi ? ' · ' + esc(c.chi) : '') + '</span></button>' +
         (n ? '<button type="button" class="cc-biglietti" data-apri-allegato="' + esc(c.biglietti[0].id) + '" data-nome="' + esc(c.biglietti[0].nome) + '" data-mime="' + esc(c.biglietti[0].mime || '') + '">🎟<small>' + n + '</small></button>' : '') + '</div>' +
         (n > 1 ? '<div class="cc-altri">' + htmlAllegati(c.biglietti, c.id + '||', 'Allega').replace(/<label class="allega">[\s\S]*<\/label>/, '') + '</div>' : '');
-    }
+  }
+  function htmlConcerti() {
+    var oggi = C.oggi(), tutti = concerti();
+    var futuri = tutti.filter(function (c) { return c.data >= oggi; }).sort(function (a, b) { return (a.data + (a.ora || '')) < (b.data + (b.ora || '')) ? -1 : 1; });
     if (!tutti.length) return '<div class="vuoto">Nessun concerto. Aggiungine uno con data, cantante e biglietti digitali (PDF o foto): li apri qui anche senza rete.<br><button class="btn piccolo" type="button" data-nuovo-concerto>Nuovo concerto</button></div>';
-    var h = futuri.length ? '<h2>In arrivo</h2>' + futuri.map(card).join('') : '<p class="testo-muto">Nessun concerto in programma.</p>';
-    if (passati.length) h += '<details class="passati"><summary><h2>Già visti <small>' + passati.length + '</small></h2></summary>' + passati.map(card).join('') + '</details>';
-    return h;
+    var h = futuri.length ? '<h2>In arrivo</h2>' + futuri.map(cardConcerto).join('') : '<p class="testo-muto">Nessun concerto in programma.</p>';
+    return h + htmlLinkArchivio();
   }
 
   // ---------- eventi delle pagine ----------
@@ -819,7 +837,7 @@ var Viaggi = (function () {
   return {
     init: function (u) { ui = u; },
     disegnaMappa: disegnaMappa,
-    htmlElenco: htmlElenco, htmlDettaglio: htmlDettaglio, htmlConcerti: htmlConcerti,
+    htmlElenco: htmlElenco, htmlDettaglio: htmlDettaglio, htmlConcerti: htmlConcerti, htmlArchivio: htmlArchivio,
     apriViaggio: apriViaggio, apriConcerto: apriConcerto, apriAllegato: apriAllegato,
     click: click, change: change, prossimi: prossimi, intervallo: intervallo,
     allega: allega, togli: togli, htmlAllegati: htmlAllegati, anteprime: anteprime,

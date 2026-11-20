@@ -516,6 +516,7 @@
   function vistaViaggi() { var n = voci().filter(function (v) { return v.tipo === 'viaggio'; }).length; vista.innerHTML = testata('Viaggi', n ? n + (n === 1 ? ' viaggio' : ' viaggi') : 'Voli, hotel e documenti') + Viaggi.htmlElenco(); }
   function vistaViaggio() { var m = location.hash.match(/^#viaggio\/(.+)$/), id = m ? decodeURIComponent(m[1]) : ''; vista.innerHTML = Viaggi.htmlDettaglio(id); Viaggi.anteprime(vista); Viaggi.disegnaMappa(id); }
   function vistaConcerti() { vista.innerHTML = testata('Concerti', 'Date, cantanti e biglietti') + Viaggi.htmlConcerti(); Viaggi.anteprime(vista); }
+  function vistaArchivio() { vista.innerHTML = testata('Archivio', 'Viaggi e concerti conclusi') + Viaggi.htmlArchivio(); Viaggi.anteprime(vista); }
 
   // ---------- ALBUM ----------
   var albumAggiornato = 0;
@@ -1040,7 +1041,7 @@
   });
 
   // ---------- routing e eventi ----------
-  var VISTE = { wallet: vistaWallet, lista: vistaLista, oggi: vistaOggi, calendario: vistaCalendario, conti: vistaConti, rifiuti: vistaRifiuti, viaggi: vistaViaggi, viaggio: vistaViaggio, concerti: vistaConcerti, album: vistaAlbum, altro: vistaAltro };
+  var VISTE = { wallet: vistaWallet, lista: vistaLista, oggi: vistaOggi, calendario: vistaCalendario, conti: vistaConti, rifiuti: vistaRifiuti, viaggi: vistaViaggi, viaggio: vistaViaggio, concerti: vistaConcerti, archivio: vistaArchivio, album: vistaAlbum, altro: vistaAltro };
   function rotta() { var r = location.hash.replace('#', '').split('/')[0]; return VISTE[r] ? r : 'oggi'; }
   function disegna() {
     var r = rotta(), y = window.scrollY;
