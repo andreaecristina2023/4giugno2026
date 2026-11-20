@@ -339,7 +339,7 @@ var Viaggi = (function () {
     if (tipo === 'textarea') return '<label class="campo">' + et + '<textarea name="' + nome + '" maxlength="2000">' + esc(val || '') + '</textarea></label>';
     if (tipo === 'select' || tipo === 'persone') {
       var op = tipo === 'persone' ? [''].concat(Store.settings().persone) : extra;
-      return '<label class="campo">' + et + '<select name="' + nome + '">' + op.map(function (o) { return '<option value="' + esc(o) + '"' + (o === (val || '') ? ' selected' : '') + '>' + (o ? esc(o) : 'Tutti e due') + '</option>'; }).join('') + '</select></label>';
+      return '<label class="campo">' + et + '<select class="sel-pers" name="' + nome + '">' + C.opzioni(op.filter(Boolean), val || '', op.indexOf('') >= 0 ? 'Tutti e due' : null) + '</select></label>';
     }
     if (tipo === 'compagnia') return '<label class="campo">' + et + '<input type="text" name="' + nome + '" list="lista-compagnie" value="' + esc(val || '') + '" placeholder="Scegli o scrivi"></label>';
     if (tipo === 'prefisso') return '<label class="campo">' + et + '<select name="' + nome + '">' + PREFISSI.map(function (p) { return '<option value="' + p[0] + '"' + ((val || PREFISSO_PREDEF) === p[0] ? ' selected' : '') + '>' + p[0] + ' ' + p[1] + '</option>'; }).join('') + '</select></label>';

@@ -375,7 +375,17 @@ var Casa = (function () {
   function nuovoId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
   function euro(n) { return '€ ' + Number(n || 0).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 
+  // opzioni di un menu a tendina: la lista, il valore salvato (anche se personalizzato) e la voce «Personalizzato»
+  function opzioni(lista, selezionato, vuota) {
+    var l = (lista || []).slice(), h = vuota != null ? '<option value="">' + escHtml(vuota) + '</option>' : '';
+    if (selezionato && l.indexOf(selezionato) < 0) l.push(selezionato);
+    h += l.map(function (x) { return '<option value="' + escHtml(x) + '"' + (x === selezionato ? ' selected' : '') + '>' + escHtml(x) + '</option>'; }).join('');
+    return h + '<option value="__pers__">Personalizzato</option>';
+  }
+  function escHtml(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
   return {
+    opzioni: opzioni,
     GIORNI: GIORNI, GIORNI_LUNGHI: GIORNI_LUNGHI, MESI: MESI, FRAZIONI: FRAZIONI, TIPI: TIPI, TIPI_BASE: TIPI_BASE, UNITA: UNITA, UNITA_RIPETI: UNITA_RIPETI, UNITA_AVVISO: UNITA_AVVISO,
     STATI_TURNO: STATI_TURNO, turnoDel: turnoDel, testoTurno: testoTurno, turniDelGiorno: turniDelGiorno, servizioDel: servizioDel,
     leggiDurata: leggiDurata, testoDurata: testoDurata, nomeRipeti: nomeRipeti, volteAnno: volteAnno, anticipoMinuti: anticipoMinuti,

@@ -18,7 +18,30 @@
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function rifiuti() { return Store.settings().rifiuti; }
-  function voci() { return Store.lista().filter(function (v) { return v.tipo !== 'spesa' && v.tipo !== 'nota' && v.tipo !== 'carta'; }); }
+  function voci() { return Store.lista().filter(function (v) { return v.tipo !== 'spesa' && v.tipo !== 'nota' && v.tipo !== 'carta' && v.tipo !== 'bolletta' && v.tipo !== 'iban'; }); }
+
+  // «Personalizzato» in tutti i menu a tendina (classe sel-pers): compare un campo per scrivere il valore
+  document.addEventListener('change', function (e) {
+    var s = e.target;
+    if (!s || s.tagName !== 'SELECT' || !s.classList.contains('sel-pers')) return;
+    var campo = s.nextElementSibling && s.nextElementSibling.classList.contains('pers-testo') ? s.nextElementSibling : null;
+    if (s.value === '__pers__') {
+      var op = s.querySelector('option[data-pers]');
+      if (!op) { op = document.createElement('option'); op.setAttribute('data-pers', ''); s.insertBefore(op, s.querySelector('option[value="__pers__"]')); }
+      op.value = ''; op.textContent = 'Personalizzato'; op.selected = true;
+      if (!campo) { campo = document.createElement('input'); campo.type = 'text'; campo.className = 'pers-testo'; campo.maxLength = 60; campo.placeholder = 'Scrivi il valore'; campo.setAttribute('aria-label', 'Valore personalizzato'); s.insertAdjacentElement('afterend', campo); }
+      campo.focus();
+    } else if (campo) campo.remove();
+  });
+  document.addEventListener('input', function (e) {
+    var t = e.target;
+    if (!t || !t.classList || !t.classList.contains('pers-testo')) return;
+    var s = t.previousElementSibling;
+    if (!s || s.tagName !== 'SELECT') return;
+    var v = t.value.trim(), op = s.querySelector('option[data-pers]');
+    if (!op) return;
+    op.value = v; op.textContent = v || 'Personalizzato'; op.selected = true;
+  });
 
   function toast(testo, azione, fn) {
     var z = $('#toast-zona');
@@ -241,7 +264,7 @@
     return '<div class="campo">Il tuo turno<div class="riga-reg" style="display:flex;gap:8px">' + ['A', 'B', 'C', 'D'].map(function (x) { return '<label class="chip"><input type="radio" name="turno" value="' + x + '"' + (t.turno === x ? ' checked' : '') + ' class="sr">' + x + '</label>'; }).join('') + '</div></div>' +
       '<label class="campo">Saltoturno<span class="aiuto">Il numero del tuo gruppo di salto (1–8): quei turni vengono segnati come salto.</span><select name="saltoturno"><option value="">Non indicato</option>' + [1, 2, 3, 4, 5, 6, 7, 8].map(function (n) { return '<option value="' + n + '"' + (String(t.saltoturno || '') === String(n) ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select></label>' +
       '<div class="due"><label class="campo">Diurno<input type="text" name="diurno" value="' + esc(t.diurno || '08:00-20:00') + '" placeholder="08:00-20:00"></label><label class="campo">Notte<input type="text" name="notte" value="' + esc(t.notte || '20:00-08:00') + '" placeholder="20:00-08:00"></label></div>' +
-      '<label class="campo">Di chi è il turno<select name="persona">' + s.persone.map(function (p) { return '<option' + (t.persona === p ? ' selected' : '') + '>' + esc(p) + '</option>'; }).join('') + '</select></label>';
+      '<label class="campo">Di chi è il turno<select class="sel-pers" name="persona">' + C.opzioni(s.persone, t.persona) + '</select></label>';
   }
   function apriGiornoTurno(data) {
     var t = turni(), tt = C.turnoDel(t, data), ecc = (t.eccezioni || []).filter(function (e) { return e.data === data; })[0];
@@ -311,7 +334,66 @@
         .concat(C.agenda(tutti, null, oggi, C.addGiorni(oggi, 60), oggi).filter(function (x) { return !x.fatto; }));
       h += lista.length ? elencoPerGiorno(lista, oggi) : '<div class="vuoto" style="margin-top:14px">Nessun pagamento nei prossimi 60 giorni.<br><button class="btn piccolo" type="button" data-azione="nuovo" data-tipo="pagamento">Aggiungi un pagamento</button></div>';
     }
+    h += htmlBolletteIban();
     vista.innerHTML = h;
+  }
+
+  // ---------- BOLLETTE E IBAN (in Pagamenti) ----------
+  var SERVIZI_BOLLETTA = ['Luce', 'Gas', 'Acqua', 'Internet', 'Telefono', 'Rifiuti', 'Altro'];
+  function htmlBolletteIban() {
+    var tutti = Store.lista(), bollette = tutti.filter(function (v) { return v.tipo === 'bolletta'; }), ibans = tutti.filter(function (v) { return v.tipo === 'iban'; });
+    var h = '<h2>Bollette <small>' + bollette.length + '</small></h2><div class="sezione">' + (bollette.length ? bollette.map(function (b) {
+      return '<button type="button" class="sotto-card doc-riga" data-bolletta-apri="' + esc(b.id) + '"><span class="sc-titolo">' + esc((b.fornitore || 'Fornitore') + ' · ' + (b.servizio || 'Utenza')) + '</span>' +
+        (b.codice || b.numeroCliente ? '<span class="sc-riga">' + (b.codice ? 'POD/PDR ' + esc(b.codice) : '') + (b.codice && b.numeroCliente ? ' · ' : '') + (b.numeroCliente ? 'Cliente ' + esc(b.numeroCliente) : '') + '</span>' : '') + '</button>';
+    }).join('') : '<p class="testo-muto">Nessuna bolletta. Salva luce e gas con fornitore, POD o PDR e numero cliente.</p>') +
+      '<button type="button" class="btn secondario piccolo" data-bolletta-nuova>+ Nuova bolletta</button></div>';
+    h += '<h2>IBAN <small>' + ibans.length + '</small></h2><div class="sezione">' + (ibans.length ? ibans.map(function (c) {
+      return '<button type="button" class="sotto-card doc-riga" data-iban-apri="' + esc(c.id) + '"><span class="sc-titolo">' + esc(c.titolo || c.banca || 'Conto') + '</span>' +
+        (c.intestatario ? '<span class="sc-riga">' + esc(c.intestatario) + '</span>' : '') + (c.iban ? '<span class="sc-riga">' + esc(c.iban) + '</span>' : '') + '</button>';
+    }).join('') : '<p class="testo-muto">Nessun IBAN salvato.</p>') +
+      '<button type="button" class="btn secondario piccolo" data-iban-nuovo>+ Nuovo IBAN</button></div>';
+    return h;
+  }
+  function apriSchedaConti(tipo, id) {
+    var orig = id ? Store.get(id) : null, PERS = ['Andrea', 'Cristina'];
+    var d = orig ? JSON.parse(JSON.stringify(orig)) : { id: C.nuovoId(), tipo: tipo, persona: 'Andrea' };
+    var campi = tipo === 'bolletta' ? [
+      ['servizio', 'Tipo di utenza', 'sel', SERVIZI_BOLLETTA],
+      ['fornitore', 'Fornitore', 'text', ''],
+      ['codice', 'POD (luce) o PDR (gas)', 'text', ''],
+      ['numeroCliente', 'Numero cliente', 'text', ''],
+      ['persona', 'Intestata a', 'sel', PERS],
+      ['titolo', 'Nome (facoltativo)', 'text', ''],
+      ['note', 'Note', 'area', '']
+    ] : [
+      ['titolo', 'Nome del conto', 'text', ''],
+      ['intestatario', 'Intestatario', 'sel', PERS],
+      ['banca', 'Banca', 'text', ''],
+      ['iban', 'IBAN', 'text', 'IT + 25 caratteri'],
+      ['note', 'Note', 'area', '']
+    ];
+    foglio.classList.remove('visore');
+    var corpo = campi.map(function (c) {
+      var k = c[0], v = d[k] == null ? '' : d[k];
+      if (c[2] === 'sel') return '<label class="campo">' + esc(c[1]) + '<select class="sel-pers" name="' + k + '">' + C.opzioni(c[3], v, k === 'persona' || k === 'intestatario' ? null : '') + '</select></label>';
+      if (c[2] === 'area') return '<label class="campo">' + esc(c[1]) + '<textarea name="' + k + '" rows="2" maxlength="500">' + esc(v) + '</textarea></label>';
+      return '<label class="campo">' + esc(c[1]) + '<input type="text" name="' + k + '" maxlength="120" value="' + esc(v) + '"' + (c[3] ? ' placeholder="' + esc(c[3]) + '"' : '') + (k === 'iban' ? ' autocapitalize="characters"' : '') + '></label>';
+    }).join('');
+    foglio.innerHTML = '<form method="dialog" id="form-conti"><div class="maniglia"></div><h3 id="foglio-titolo">' + (tipo === 'bolletta' ? (id ? 'Modifica bolletta' : 'Nuova bolletta') : (id ? 'Modifica IBAN' : 'Nuovo IBAN')) + '</h3><div class="campi">' + corpo +
+      '<div class="azioni"><button class="btn" type="submit">Salva</button><button class="btn secondario" type="button" data-chiudi>Annulla</button>' + (id ? '<button class="btn pericolo" type="button" data-elimina style="margin-left:auto">Elimina</button>' : '') + '</div></div></form>';
+    var form = $('#form-conti', foglio);
+    $('[data-chiudi]', form).onclick = function () { foglio.close(); };
+    if (id) $('[data-elimina]', form).onclick = function () {
+      if (!window.confirm('Eliminare questa voce?')) return;
+      Store.elimina(id); foglio.close(); toast('Eliminato');
+    };
+    form.onsubmit = function (e) {
+      e.preventDefault();
+      campi.forEach(function (c) { d[c[0]] = form.elements[c[0]] ? form.elements[c[0]].value.trim() : ''; });
+      d.tipo = tipo;
+      Store.upsert(d); foglio.close(); toast(id ? 'Salvato' : 'Aggiunto');
+    };
+    foglio.showModal();
   }
 
   // ---------- RIFIUTI ----------
@@ -437,7 +519,8 @@
   function vistaWallet() {
     var carte = Store.lista().filter(function (v) { return v.tipo === 'carta'; });
     var h = testata('Wallet', carte.length ? carte.length + (carte.length === 1 ? ' carta' : ' carte') : 'Carte e biglietti');
-    CATEGORIE_CARTA.forEach(function (cat) {
+    var catCarte = CATEGORIE_CARTA.concat(carte.map(function (c) { return c.categoria || 'Fedeltà'; }).filter(function (x, i, a) { return CATEGORIE_CARTA.indexOf(x) < 0 && a.indexOf(x) === i; }));
+    catCarte.forEach(function (cat) {
       var gruppo = carte.filter(function (c) { return (c.categoria || 'Fedeltà') === cat; }).sort(function (a, b) { return (a.titolo || '').localeCompare(b.titolo || ''); });
       if (!gruppo.length) return;
       h += '<h2>' + cat + ' <small>' + gruppo.length + '</small></h2><div class="wallet-griglia">' + gruppo.map(function (c) {
@@ -480,7 +563,7 @@
     function disegna() {
       foglio.innerHTML = '<form method="dialog" id="form-carta"><div class="maniglia"></div><h3 id="foglio-titolo">' + (id ? 'Modifica' : 'Nuova carta') + '</h3><div class="campi">' +
         '<label class="campo">Nome<input type="text" name="titolo" required maxlength="60" value="' + esc(c.titolo) + '" placeholder="Es. Esselunga, Imbarco Volo BLQ"></label>' +
-        '<label class="campo">Tipo<select name="categoria">' + CATEGORIE_CARTA.map(function (k) { return '<option' + (c.categoria === k ? ' selected' : '') + '>' + k + '</option>'; }).join('') + '</select></label>' +
+        '<label class="campo">Tipo<select class="sel-pers" name="categoria">' + C.opzioni(CATEGORIE_CARTA, c.categoria) + '</select></label>' +
         (c.categoria === 'Pagamento' ? '<p class="aiuto" style="margin:0">Per le carte di pagamento salva solo nome e banca. Non inserire il numero della carta né il codice.</p>' :
           '<label class="campo">Codice<span class="aiuto">Il numero sotto il codice a barre, per leggerlo a mano.</span><input type="text" name="codice" maxlength="60" value="' + esc(c.codice) + '" inputmode="text"></label>') +
         '<label class="campo">Note<textarea name="note" rows="3" maxlength="500">' + esc(c.note) + '</textarea></label>' +
@@ -543,7 +626,7 @@
       var p = pp[nome] || {};
       var telPredef = p.telefono || (nome === 'Andrea' ? '41460039' : '');
       var chiama = telPredef ? '<a class="contatto" href="tel:' + esc(numeroChiamata((p.prefisso || '+39') + telPredef)) + '" aria-label="Chiama ' + esc(nome) + '">📞 Chiama</a>' : '';
-      return '<div class="campo"><span>' + esc(nome) + ' ' + chiama + '</span><div class="due"><label class="campo">Prefisso<select name="' + nome + '_prefisso">' + PREFISSI_DATI.map(function (x) { return '<option' + ((p.prefisso || '+39') === x ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select></label>' +
+      return '<div class="campo"><span>' + esc(nome) + ' ' + chiama + '</span><div class="due"><label class="campo">Prefisso<select class="sel-pers" name="' + nome + '_prefisso">' + C.opzioni(PREFISSI_DATI, p.prefisso || '+39') + '</select></label>' +
         '<label class="campo">Telefono<input type="tel" name="' + nome + '_telefono" value="' + esc(telPredef) + '"></label></div>' +
         '<div class="due">' + campo(nome + '_nome', 'Nome e cognome', p.nomeCompleto) + '<label class="campo">Data di nascita<input type="date" name="' + nome + '_nascita" value="' + esc(p.nascita || '') + '"></label></div>' +
         '<div class="due">' + campo(nome + '_email', 'Email', p.email, 'email') + campo(nome + '_cf', 'Codice fiscale', p.cf) + '</div></div>';
@@ -776,8 +859,8 @@
     }
     function disegna() {
       foglio.innerHTML = '<form method="dialog" id="form-documento"><div class="maniglia"></div><h3 id="foglio-titolo">' + (id ? 'Modifica documento' : 'Nuovo documento') + '</h3><div class="campi">' +
-        '<label class="campo">Tipo<select name="tipo">' + TIPI_DOCUMENTO.map(function (t) { return '<option' + (d.tipo === t ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select></label>' +
-        '<label class="campo">Intestato a<select name="persona">' + PERSONE.map(function (p) { return '<option' + (d.persona === p ? ' selected' : '') + '>' + p + '</option>'; }).join('') + '</select><span class="aiuto">Nome e data di nascita si prendono da «I miei dati».</span></label>' +
+        '<label class="campo">Tipo<select class="sel-pers" name="tipo">' + C.opzioni(TIPI_DOCUMENTO, d.tipo) + '</select></label>' +
+        '<label class="campo">Intestato a<select class="sel-pers" name="persona">' + C.opzioni(PERSONE, d.persona) + '</select><span class="aiuto">Nome e data di nascita si prendono da «I miei dati».</span></label>' +
         '<label class="campo">Numero<input type="text" name="numero" maxlength="60" value="' + esc(d.numero) + '"></label>' +
         '<div class="due"><label class="campo">Data di rilascio<input type="date" name="rilascio" value="' + esc(d.rilascio) + '"></label><label class="campo">Data di scadenza<input type="date" name="scadenza" value="' + esc(d.scadenza) + '"></label></div>' +
         '<label class="campo">Rilasciato da<input type="text" name="rilasciatoDa" maxlength="120" value="' + esc(d.rilasciatoDa) + '" placeholder="Es. Comune di Bertinoro"></label>' +
@@ -809,7 +892,7 @@
         snap();
         inAttesa = inAttesa.concat(files);
         scelta.innerHTML = '<div class="campo"><span>Di quale lato sono?</span>' + inAttesa.map(function (x, i) {
-          return '<label class="campo">' + esc(x.name) + '<select data-lato="' + i + '">' + ['Fronte', 'Retro', 'Altro'].map(function (l) { return '<option>' + l + '</option>'; }).join('') + '</select></label>';
+          return '<label class="campo">' + esc(x.name) + '<select class="sel-pers" data-lato="' + i + '">' + C.opzioni(['Fronte', 'Retro', 'Altro']) + '</select></label>';
         }).join('') +
           '<div class="azioni"><button class="btn" type="button" data-carica-lati>Carica</button><button class="btn secondario" type="button" data-annulla-lati>Annulla</button></div></div>';
         scelta.querySelector('[data-annulla-lati]').onclick = function () { inAttesa = []; scelta.innerHTML = ''; inp.value = ''; };
@@ -935,12 +1018,12 @@
         '<div class="tipi" role="group" aria-label="Tipo">' + C.TIPI_BASE.map(function (t) { return '<button type="button" data-tipo="' + t + '" style="--c:' + COLORE_TIPO[t] + '" aria-pressed="' + (it.tipo === t) + '">' + C.TIPI[t].nome + '</button>'; }).join('') + '</div>' +
         '<label class="campo">Titolo<input type="text" name="titolo" required maxlength="120" value="' + esc(it.titolo) + '" placeholder="' + { appuntamento: 'Es. Dentista Cristina', pagamento: 'Es. Spese condominiali', scadenza: 'Es. Revisione Panda', promemoria: 'Es. Cambiare filtro caldaia' }[it.tipo] + '"></label>' +
         '<div class="due"><label class="campo">' + (conImporto ? 'Scadenza' : 'Data') + '<input type="date" name="data" required value="' + esc(it.data) + '"></label><label class="campo">Ora<input type="time" name="ora" value="' + esc(it.ora) + '"></label></div>' +
-        (conImporto ? '<div class="due"><label class="campo">Importo €<input type="number" name="importo" inputmode="decimal" step="0.01" min="0" value="' + esc(it.importo) + '"></label><label class="campo">Categoria<select name="categoria"><option value=""></option>' + s.categorie.map(function (c) { return '<option' + (it.categoria === c ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('') + '</select></label></div>' : '') +
+        (conImporto ? '<div class="due"><label class="campo">Importo €<input type="number" name="importo" inputmode="decimal" step="0.01" min="0" value="' + esc(it.importo) + '"></label><label class="campo">Categoria<select class="sel-pers" name="categoria">' + C.opzioni(s.categorie, it.categoria, '') + '</select></label></div>' : '') +
         (veicolo ? '<label class="campo">Targa<span class="aiuto">Auto o moto a cui si riferisce.</span><input type="text" name="targa" list="lista-targhe" maxlength="12" autocapitalize="characters" value="' + esc(it.targa || '') + '" placeholder="Es. AB123CD"><datalist id="lista-targhe">' + Object.keys(targhe).map(function (t) { return '<option value="' + esc(t) + '">'; }).join('') + '</datalist></label>' : '') +
         '<div class="due"><label class="campo">Ripeti ogni<span class="durata"><input type="number" name="ripN" min="0" max="999" inputmode="numeric" value="' + esc(rip.n) + '" placeholder="—" aria-label="Quanti">' + selUnita('ripU', C.UNITA_RIPETI, rip.u) + '</span></label>' +
         '<label class="campo">Fino al<input type="date" name="fine" value="' + esc(it.fine || '') + '"' + (rip.n ? '' : ' disabled') + '></label></div>' +
         '<label class="campo">Avviso prima<span class="aiuto">Vuoto = ' + predef + (it.tipo === 'appuntamento' ? ' prima' : (it.tipo === 'promemoria' ? '' : ' prima, più il giorno stesso')) + '.</span><span class="durata"><input type="number" name="avvN" min="0" max="999" inputmode="numeric" value="' + esc(avv.n) + '" placeholder="—" aria-label="Quanti">' + selUnita('avvU', C.UNITA_AVVISO, avv.u) + '</span></label>' +
-        '<label class="campo">Per chi<select name="chi"><option value="">Tutti e due</option>' + s.persone.map(function (p) { return '<option' + (it.chi === p ? ' selected' : '') + '>' + esc(p) + '</option>'; }).join('') + '</select></label>' +
+        '<label class="campo">Per chi<select class="sel-pers" name="chi">' + C.opzioni(s.persone, it.chi, 'Tutti e due') + '</select></label>' +
         '<div class="due"><label class="campo">Telefono<input type="tel" name="telefono" value="' + esc(it.telefono || '') + '"></label><label class="campo">Email<input type="email" name="email" value="' + esc(it.email || '') + '"></label></div>' +
         '<label class="campo">Indirizzo<input type="text" name="indirizzo" maxlength="160" value="' + esc(it.indirizzo || '') + '"></label>' +
         '<div class="posizione-azioni"><button type="button" class="btn secondario piccolo" data-mappa-voce>📍 ' + (it.lat != null ? 'Cambia posizione' : 'Scegli sulla mappa') + '</button>' +
@@ -1137,6 +1220,10 @@
     else if (d.azione === 'nuova-eccezione') apriEccezione();
     else if (d.spuntaSpesa !== undefined) { var sp = Store.get(d.spuntaSpesa); if (sp) Store.upsert(Object.assign({}, sp, { fatto: !sp.fatto })); vistaLista(); }
     else if (d.eliminaSpesa !== undefined) { Store.elimina(d.eliminaSpesa); vistaLista(); }
+    else if (d.bollettaNuova !== undefined) apriSchedaConti('bolletta', null);
+    else if (d.bollettaApri) apriSchedaConti('bolletta', d.bollettaApri);
+    else if (d.ibanNuovo !== undefined) apriSchedaConti('iban', null);
+    else if (d.ibanApri) apriSchedaConti('iban', d.ibanApri);
     else if (d.cartaNuova !== undefined) apriCarta(null);
     else if (d.cartaApri !== undefined) apriCartaDettaglio(d.cartaApri);
     else if (d.notaNuova !== undefined) apriNota(null);
