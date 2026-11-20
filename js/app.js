@@ -18,7 +18,16 @@
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function rifiuti() { return Store.settings().rifiuti; }
-  function voci() { return Store.lista().filter(function (v) { return v.tipo !== 'spesa' && v.tipo !== 'nota' && v.tipo !== 'carta' && v.tipo !== 'bolletta' && v.tipo !== 'iban'; }); }
+  function voci() { return Store.lista().filter(function (v) { return v.tipo !== 'spesa' && v.tipo !== 'nota' && v.tipo !== 'carta' && v.tipo !== 'bolletta' && v.tipo !== 'iban' && v.tipo !== 'prodotto'; }); }
+  // nomi per il suggerimento della lista della spesa: catalogo + prodotti salvati dall'utente (senza doppioni)
+  function nomiCatalogoSpesa() {
+    var visti = {}, out = [];
+    CATALOGO_SPESA.concat(Store.lista().filter(function (v) { return v.tipo === 'prodotto'; }).map(function (v) { return v.titolo; })).forEach(function (n) {
+      var k = String(n || '').trim().toLowerCase();
+      if (k && !visti[k]) { visti[k] = true; out.push(String(n).trim()); }
+    });
+    return out;
+  }
 
   // «Personalizzato» in tutti i menu a tendina (classe sel-pers): compare un campo per scrivere il valore
   document.addEventListener('change', function (e) {
@@ -481,7 +490,7 @@
     var note = tutte.filter(function (v) { return v.tipo === 'nota'; }).sort(function (a, b) { return b.aggiornato - a.aggiornato; });
     segnaLette(note);
     var h = testata('Lista e note', daFare.length ? daFare.length + ' da comprare' : 'Tutto preso');
-    h += '<h2>Lista della spesa</h2><form id="form-spesa" class="sezione" style="display:flex;gap:8px"><input type="text" name="voce" maxlength="80" placeholder="Aggiungi alla lista" aria-label="Aggiungi alla lista" style="flex:1"><button class="btn" type="submit">Aggiungi</button></form>';
+    h += '<h2>Lista della spesa</h2><form id="form-spesa" class="sezione" style="display:flex;gap:8px"><input type="text" name="voce" maxlength="80" placeholder="Aggiungi alla lista" aria-label="Aggiungi alla lista" list="catalogo-spesa" autocomplete="off" style="flex:1"><datalist id="catalogo-spesa">' + nomiCatalogoSpesa().map(function (n) { return '<option value="' + esc(n) + '">'; }).join('') + '</datalist><button class="btn" type="submit">Aggiungi</button></form>';
     h += '<div class="sezione lista-spesa">' + daFare.concat(fatte).map(function (x) {
       return '<div class="spesa-riga' + (x.fatto ? ' fatta' : '') + '"><button type="button" class="spunta" data-spunta-spesa="' + esc(x.id) + '" aria-pressed="' + (!!x.fatto) + '" aria-label="Segna ' + esc(x.titolo) + '">' + (x.fatto ? '✓' : '') + '</button>' +
         '<span class="spesa-testo">' + esc(x.titolo) + '</span><button type="button" class="togli" data-elimina-spesa="' + esc(x.id) + '" aria-label="Elimina ' + esc(x.titolo) + '">✕</button></div>';
@@ -1279,7 +1288,12 @@
     if (e.target.id === 'form-spesa') {
       e.preventDefault();
       var v = e.target.voce.value.trim();
-      if (v) Store.upsert({ tipo: 'spesa', titolo: v, fatto: false });
+      if (v) {
+        Store.upsert({ tipo: 'spesa', titolo: v, fatto: false });
+        // se il prodotto non è nel catalogo, lo salvo nel database per la prossima volta
+        var gia = nomiCatalogoSpesa().some(function (n) { return n.toLowerCase() === v.toLowerCase(); });
+        if (!gia) { Store.upsert({ tipo: 'prodotto', titolo: v }); toast('Aggiunto anche ai suggerimenti'); }
+      }
       e.target.reset(); vistaLista(); return;
     }
     if (e.target.id === 'form-turni') {
