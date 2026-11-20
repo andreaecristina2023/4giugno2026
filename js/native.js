@@ -98,13 +98,15 @@ var Native = (function () {
     // in servizio (tutti i turni) per i prossimi 35 giorni: il widget mostra quello di oggi
     var servizio = {};
     if (tcfg && tcfg.attivo) for (var gs = da; gs <= Casa.addGiorni(da, 35); gs = Casa.addGiorni(gs, 1)) servizio[gs] = Casa.servizioDel(gs);
+    var eventiGiorni = {};
+    righe.forEach(function (r) { if (!r.rifiuti && !r.turno) eventiGiorni[r.data] = (eventiGiorni[r.data] || 0) + 1; });
     var json = JSON.stringify({ aggiornato: Date.now(), righe: righe.slice(0, 12), servizio: servizio, mioTurno: (tcfg && tcfg.attivo && tcfg.turno) || '' });
     // widget solo rifiuti: giorni di ritiro delle prossime 3 settimane
     var giorni = (cfgRifiuti && cfgRifiuti.attivo !== false) ? Casa.calendarioRifiuti(cfgRifiuti, da, Casa.addGiorni(da, 21)).map(function (x) {
       return { data: x.data, nota: x.nota || '', frazioni: x.frazioni.map(function (f) { var fr = Casa.FRAZIONI[f] || { nome: f, colore: '#6B6F73' }; return { n: fr.nome.split(' ')[0], c: fr.colore }; }) };
     }) : [];
     return Prefs.set({ key: 'widget', value: json })
-      .then(function () { return Prefs.set({ key: 'widgetRifiuti', value: JSON.stringify({ aggiornato: Date.now(), giorni: giorni }) }); })
+      .then(function () { return Prefs.set({ key: 'widgetRifiuti', value: JSON.stringify({ aggiornato: Date.now(), giorni: giorni, eventi: eventiGiorni }) }); })
       .then(function () { return Widget.aggiorna().catch(function () {}); }).catch(function () {});
   }
 

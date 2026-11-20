@@ -25,9 +25,10 @@ import java.util.Locale;
  */
 public class RifiutiWidget extends AppWidgetProvider {
 
-    private static final int[] BOX = { R.id.r_box1, R.id.r_box2, R.id.r_box3 };
-    private static final int[] BIN = { R.id.r_bin1, R.id.r_bin2, R.id.r_bin3 };
-    private static final int[] NOME = { R.id.r_nome1, R.id.r_nome2, R.id.r_nome3 };
+    // al massimo due bidoni
+    private static final int[] BOX = { R.id.r_box1, R.id.r_box2 };
+    private static final int[] BIN = { R.id.r_bin1, R.id.r_bin2 };
+    private static final int[] NOME = { R.id.r_nome1, R.id.r_nome2 };
     private static final String[] GIORNI = { "dom", "lun", "mar", "mer", "gio", "ven", "sab" };
 
     @Override
@@ -56,6 +57,17 @@ public class RifiutiWidget extends AppWidgetProvider {
         }
     }
 
+    private static String prima(String data) {
+        try {
+            Calendar c = Calendar.getInstance();
+            c.setTime(new SimpleDateFormat("yyyy-MM-dd", Locale.ITALY).parse(data));
+            c.add(Calendar.DAY_OF_MONTH, -1);
+            return iso(c);
+        } catch (Exception e) {
+            return data;
+        }
+    }
+
     static void disegna(Context context, AppWidgetManager manager, int widgetId) {
         RemoteViews v = new RemoteViews(context.getPackageName(), R.layout.widget_rifiuti);
 
@@ -72,16 +84,21 @@ public class RifiutiWidget extends AppWidgetProvider {
 
         String quando = "Nessun ritiro in vista";
         JSONObject scelto = null;
+        // giorno al quale si riferisce il widget: oggi per «Stasera» e «Fuori adesso», la sera prima per gli altri
+        String dataMostrata = oggi;
+        JSONObject mappaEventi = null;
         try {
             SharedPreferences prefs = context.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
             String json = prefs.getString("widgetRifiuti", null);
-            JSONArray giorni = json == null ? null : new JSONObject(json).optJSONArray("giorni");
+            JSONObject radice = json == null ? null : new JSONObject(json);
+            JSONArray giorni = radice == null ? null : radice.optJSONArray("giorni");
+            mappaEventi = radice == null ? null : radice.optJSONObject("eventi");
             for (int i = 0; giorni != null && i < giorni.length(); i++) {
                 JSONObject g = giorni.getJSONObject(i);
                 String data = g.optString("data", "");
                 if (ora < 5 && data.equals(oggi)) { scelto = g; quando = "Fuori adesso"; break; }
                 if (data.equals(domani)) { scelto = g; quando = "Stasera fuori"; break; }
-                if (data.compareTo(domani) > 0) { scelto = g; quando = "Fuori " + giornoPrima(data) + " sera"; break; }
+                if (data.compareTo(domani) > 0) { scelto = g; quando = "Fuori " + giornoPrima(data) + " sera"; dataMostrata = prima(data); break; }
             }
         } catch (Exception e) {
             scelto = null;
@@ -121,6 +138,15 @@ public class RifiutiWidget extends AppWidgetProvider {
         if (serv != null) v.setTextViewText(R.id.r_servizio, serv);
         v.setViewVisibility(R.id.r_colonna_turno, serv == null ? View.GONE : View.VISIBLE);
         if (scelto == null) v.setTextViewText(R.id.r_quando, "Apri A&C per aggiornare");
+        // eventi (appuntamenti, pagamenti, viaggi) del giorno: un segnale che apre l'app
+        int eventi = mappaEventi == null ? 0 : mappaEventi.optInt(dataMostrata, 0);
+        if (eventi > 0) {
+            v.setTextViewText(R.id.r_eventi, "● " + eventi + (eventi == 1 ? " evento" : " eventi"));
+            v.setViewVisibility(R.id.r_eventi, View.VISIBLE);
+            v.setOnClickPendingIntent(R.id.r_eventi, pi);
+        } else {
+            v.setViewVisibility(R.id.r_eventi, View.GONE);
+        }
         v.setViewVisibility(R.id.r_nota, View.GONE);
         manager.updateAppWidget(widgetId, v);
     }

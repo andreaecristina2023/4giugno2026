@@ -21,13 +21,9 @@
                 <TextView android:id="@+id/r_nome2" android:layout_width="wrap_content" android:layout_height="wrap_content"
                     android:textSize="11sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:maxLines="1" android:shadowColor="#CC000000" android:shadowRadius="4" android:shadowDx="0" android:shadowDy="1"/>
             </LinearLayout>
-            <LinearLayout android:id="@+id/r_box3" android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:orientation="vertical" android:gravity="center_horizontal" android:paddingEnd="8dp" android:visibility="gone">
-                <ImageView android:id="@+id/r_bin3" android:layout_width="26dp" android:layout_height="30dp" android:src="@drawable/bidone" android:scaleType="fitCenter" android:contentDescription="Bidone"/>
-                <TextView android:id="@+id/r_nome3" android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:textSize="11sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:maxLines="1" android:shadowColor="#CC000000" android:shadowRadius="4" android:shadowDx="0" android:shadowDy="1"/>
-            </LinearLayout>
         </LinearLayout>
+        <TextView android:id="@+id/r_eventi" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:textSize="11sp" android:textStyle="bold" android:textColor="#FFFFD54F" android:maxLines="1" android:paddingTop="2dp" android:visibility="gone" android:shadowColor="#CC000000" android:shadowRadius="4" android:shadowDx="0" android:shadowDy="1"/>
         <TextView android:id="@+id/r_nota" android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:textSize="10sp" android:textColor="#FFFFFFFF" android:maxLines="1" android:visibility="gone" android:shadowColor="#CC000000" android:shadowRadius="4" android:shadowDx="0" android:shadowDy="1"/>
     </LinearLayout>

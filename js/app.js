@@ -525,6 +525,9 @@
   }
   // ---------- wallet: carte fedeltà, check-in e pagamento ----------
   var CATEGORIE_CARTA = ['Fedeltà', 'Check-in', 'Pagamento'];
+  var COLORI_CORNICE = ['', '#2F6DB5', '#2E8B57', '#E3B505', '#D7263D', '#8A5A2B', '#7D4FA8', '#1E7F8C'];
+  // colore e bordo attorno al codice (foto) della carta; senza colore nessuna cornice
+  function cornicStyle(col) { return col ? ' style="background:' + col + ';border:6px solid ' + col + ';border-radius:16px"' : ''; }
   function vistaWallet() {
     var carte = Store.lista().filter(function (v) { return v.tipo === 'carta'; });
     var h = testata('Wallet', carte.length ? carte.length + (carte.length === 1 ? ' carta' : ' carte') : 'Carte e biglietti');
@@ -534,7 +537,7 @@
       if (!gruppo.length) return;
       h += '<h2>' + cat + ' <small>' + gruppo.length + '</small></h2><div class="wallet-griglia">' + gruppo.map(function (c) {
         var pf = (c.allegati || []).filter(function (a) { return /^image\//.test(a.mime || ''); })[0];
-        return '<button type="button" class="carta-wallet" data-carta-apri="' + esc(c.id) + '">' + (pf ? '<img class="carta-miniatura" data-anteprima="' + esc(pf.id) + '" data-mime="' + esc(pf.mime) + '" alt="" src="">' : '<span class="carta-vuota">' + (cat === 'Check-in' ? '🎫' : cat === 'Pagamento' ? '💳' : '🏷') + '</span>') +
+        return '<button type="button" class="carta-wallet" data-carta-apri="' + esc(c.id) + '">' + (pf ? '<img class="carta-miniatura"' + cornicStyle(c.cornice) + ' data-anteprima="' + esc(pf.id) + '" data-mime="' + esc(pf.mime) + '" alt="" src="">' : '<span class="carta-vuota">' + (cat === 'Check-in' ? '🎫' : cat === 'Pagamento' ? '💳' : '🏷') + '</span>') +
           '<strong>' + esc(c.titolo || 'Carta') + '</strong>' + (c.codice && cat !== 'Pagamento' ? '<small>' + esc(c.codice) + '</small>' : '') + '</button>';
       }).join('') + '</div>';
     });
@@ -547,7 +550,7 @@
     var c = Store.get(id); if (!c) return;
     foglio.classList.remove('visore');
     var foto = (c.allegati || []).map(function (a) {
-      return '<button type="button" class="carta-foto" data-apri-allegato="' + esc(a.id) + '" data-nome="' + esc(a.nome) + '" data-mime="' + esc(a.mime || '') + '">' + (/^image\//.test(a.mime || '') ? '<img class="anteprima" data-anteprima="' + esc(a.id) + '" data-mime="' + esc(a.mime || '') + '" alt="" src="">' : '📄 ' + esc(a.nome)) + '</button>';
+      return '<button type="button" class="carta-foto"' + cornicStyle(c.cornice) + ' data-apri-allegato="' + esc(a.id) + '" data-nome="' + esc(a.nome) + '" data-mime="' + esc(a.mime || '') + '">' + (/^image\//.test(a.mime || '') ? '<img class="anteprima" data-anteprima="' + esc(a.id) + '" data-mime="' + esc(a.mime || '') + '" alt="" src="">' : '📄 ' + esc(a.nome)) + '</button>';
     }).join('');
     foglio.innerHTML = '<div class="maniglia"></div><h3 id="foglio-titolo">' + esc(c.titolo || 'Carta') + '</h3><div class="campi">' +
       '<p class="testo-muto" style="margin:0">' + esc(c.categoria || 'Fedeltà') + '</p>' +
@@ -568,7 +571,7 @@
     c.allegati = c.allegati || [];
     var wrap = { carta: [c] }, ctx = 'wallet|carta|' + c.id, form = null;
     foglio.classList.remove('visore');
-    function snap() { if (!form) return; c.titolo = form.titolo.value.trim(); c.categoria = form.categoria.value; c.codice = form.codice.value.trim(); c.note = form.note.value; c.docRif = form.docRif.value; }
+    function snap() { if (!form) return; c.titolo = form.titolo.value.trim(); c.categoria = form.categoria.value; c.codice = form.codice.value.trim(); c.note = form.note.value; c.docRif = form.docRif.value; c.cornice = form.cornice ? form.cornice.value : (c.cornice || ''); }
     function disegna() {
       foglio.innerHTML = '<form method="dialog" id="form-carta"><div class="maniglia"></div><h3 id="foglio-titolo">' + (id ? 'Modifica' : 'Nuova carta') + '</h3><div class="campi">' +
         '<label class="campo">Nome<input type="text" name="titolo" required maxlength="60" value="' + esc(c.titolo) + '" placeholder="Es. Esselunga, Imbarco Volo BLQ"></label>' +
@@ -577,6 +580,7 @@
           '<label class="campo">Codice<span class="aiuto">Il numero sotto il codice a barre, per leggerlo a mano.</span><input type="text" name="codice" maxlength="60" value="' + esc(c.codice) + '" inputmode="text"></label>') +
         '<label class="campo">Note<textarea name="note" rows="3" maxlength="500">' + esc(c.note) + '</textarea></label>' +
         '<label class="campo">Documento collegato<span class="aiuto">Un documento da «I miei dati»: le sue foto si vedono anche qui.</span><select name="docRif">' + Viaggi.opzioniDocumenti(c.docRif, 'Nessun documento') + '</select></label>' +
+        '<fieldset class="campo colore-campo"><legend>Colore e bordo del codice</legend><div class="colori">' + COLORI_CORNICE.map(function (col) { return '<label class="colore-pallino" style="--c:' + (col || '#8A9A90') + '"><input type="radio" name="cornice" value="' + col + '"' + ((c.cornice || '') === col ? ' checked' : '') + '><span>' + (col ? '' : 'Nessuno') + '</span></label>'; }).join('') + '</div></fieldset>' +
         '<div class="campo"><span>Foto</span><span class="aiuto">Foto del codice a barre o del biglietto, da mostrare alla cassa o al gate.</span>' + Viaggi.htmlAllegati(c.allegati, ctx, 'Aggiungi foto') + '<div id="scelta-carta"></div></div>' +
         '<div class="azioni"><button class="btn" type="submit">Salva</button><button class="btn secondario" type="button" data-chiudi>Annulla</button>' + (id ? '<button class="btn pericolo" type="button" data-elimina style="margin-left:auto">Elimina</button>' : '') + '</div></div></form>';
       form = $('#form-carta', foglio);
@@ -598,7 +602,7 @@
       form.onsubmit = function (e) {
         e.preventDefault(); snap();
         if (!c.titolo) { form.titolo.focus(); return; }
-        Store.upsert({ id: c.id, tipo: 'carta', titolo: c.titolo, categoria: c.categoria, codice: c.categoria === 'Pagamento' ? '' : c.codice, note: c.note, allegati: c.allegati, docRif: c.docRif || '' });
+        Store.upsert({ id: c.id, tipo: 'carta', titolo: c.titolo, categoria: c.categoria, codice: c.categoria === 'Pagamento' ? '' : c.codice, note: c.note, allegati: c.allegati, docRif: c.docRif || '', cornice: c.cornice || '' });
         foglio.close(); toast(id ? 'Carta salvata' : 'Carta aggiunta');
       };
     }
