@@ -527,6 +527,10 @@
   var CATEGORIE_CARTA = ['Fedeltà', 'Check-in', 'Pagamento'];
   var COLORI_CORNICE = ['', '#2F6DB5', '#2E8B57', '#E3B505', '#D7263D', '#8A5A2B', '#7D4FA8', '#1E7F8C'];
   // colore e bordo attorno al codice (foto) della carta; senza colore nessuna cornice
+  // QR generato dal codice della carta (SVG); vuoto se il codice non è valido
+  function qrCarta(codice) {
+    try { var q = qrcode(0, 'M'); q.addData(String(codice)); q.make(); return q.createSvgTag({ cellSize: 5, margin: 0, scalable: true }); } catch (e) { return ''; }
+  }
   function cornicStyle(col) { return col ? ' style="background:' + col + ';border:6px solid ' + col + ';border-radius:16px"' : ''; }
   function vistaWallet() {
     var carte = Store.lista().filter(function (v) { return v.tipo === 'carta'; });
@@ -537,7 +541,7 @@
       if (!gruppo.length) return;
       h += '<h2>' + cat + ' <small>' + gruppo.length + '</small></h2><div class="wallet-griglia">' + gruppo.map(function (c) {
         var pf = (c.allegati || []).filter(function (a) { return /^image\//.test(a.mime || ''); })[0];
-        return '<button type="button" class="carta-wallet" data-carta-apri="' + esc(c.id) + '">' + (pf ? '<img class="carta-miniatura"' + cornicStyle(c.cornice) + ' data-anteprima="' + esc(pf.id) + '" data-mime="' + esc(pf.mime) + '" alt="" src="">' : '<span class="carta-vuota">' + (cat === 'Check-in' ? '🎫' : cat === 'Pagamento' ? '💳' : '🏷') + '</span>') +
+        return '<button type="button" class="carta-wallet" data-carta-apri="' + esc(c.id) + '">' + (pf ? '<img class="carta-miniatura"' + cornicStyle(c.cornice) + ' data-anteprima="' + esc(pf.id) + '" data-mime="' + esc(pf.mime) + '" alt="" src="">' : (c.codice && cat !== 'Pagamento' ? '<span class="carta-qr-mini"' + cornicStyle(c.cornice) + '><span class="carta-qr-bianco">' + qrCarta(c.codice) + '</span></span>' : '<span class="carta-vuota">' + (cat === 'Check-in' ? '🎫' : cat === 'Pagamento' ? '💳' : '🏷') + '</span>')) +
           '<strong>' + esc(c.titolo || 'Carta') + '</strong>' + (c.codice && cat !== 'Pagamento' ? '<small>' + esc(c.codice) + '</small>' : '') + '</button>';
       }).join('') + '</div>';
     });
@@ -555,6 +559,7 @@
     foglio.innerHTML = '<div class="maniglia"></div><h3 id="foglio-titolo">' + esc(c.titolo || 'Carta') + '</h3><div class="campi">' +
       '<p class="testo-muto" style="margin:0">' + esc(c.categoria || 'Fedeltà') + '</p>' +
       (c.codice && c.categoria !== 'Pagamento' ? '<p class="carta-codice" aria-label="Codice">' + esc(c.codice) + '</p>' : '') +
+      (c.codice && c.categoria !== 'Pagamento' ? '<div class="carta-qr-box"' + cornicStyle(c.cornice) + '><div class="carta-qr-bianco">' + qrCarta(c.codice) + '</div></div>' : '') +
       (foto || '<p class="testo-muto">Nessuna foto.</p>') +
       (c.docRif && Viaggi.docPersonale(c.docRif) ? '<p class="testo-muto" style="margin:0">Documento: ' + esc(Viaggi.docPersonale(c.docRif).tipo || 'Documento') + ' · ' + esc(Viaggi.docPersonale(c.docRif).persona || '') + '</p>' + Viaggi.fotoPersonali(c.docRif) : '') +
       (c.note ? '<p style="white-space:pre-wrap;margin:0">' + esc(c.note) + '</p>' : '') +
