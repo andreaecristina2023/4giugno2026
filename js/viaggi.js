@@ -557,7 +557,13 @@ var Viaggi = (function () {
     if (d.nuovoSotto) { apriSotto(idCorrente(), d.nuovoSotto, null); return true; }
     if (d.docPersAdd) {
       var selDoc = t.parentElement.querySelector('[data-doc-pers]'), pd = selDoc ? docPersonale(selDoc.value) : null;
-      if (pd) apriSotto(d.docPersAdd, 'documenti', null, { tipo: pd.tipo, persona: pd.persona, numero: pd.numero, rilascio: pd.rilascio, scadenza: pd.scadenza, rilasciatoDa: pd.rilasciatoDa, docRif: pd.id });
+      // il documento è già in «I miei dati»: lo aggiungo al viaggio senza chiedere altri dati
+      if (pd) {
+        var vDoc = JSON.parse(JSON.stringify(Store.get(d.docPersAdd)));
+        if (!vDoc.documenti) vDoc.documenti = [];
+        vDoc.documenti.push({ id: C.nuovoId(), allegati: [], tipo: pd.tipo, persona: pd.persona, numero: pd.numero, rilascio: pd.rilascio, scadenza: pd.scadenza, rilasciatoDa: pd.rilasciatoDa, docRif: pd.id });
+        Store.upsert(vDoc); ui.toast('Documento aggiunto al viaggio');
+      } else ui.toast('Prima salva il documento in «I miei dati»');
       return true;
     }
     if (d.modificaSotto) { var q = d.modificaSotto.split('|'); apriSotto(idCorrente(), q[0], q[1]); return true; }
