@@ -446,3 +446,4 @@ nav.barra-nav .pallino { position: absolute; top: 8px; left: calc(50% + 10px); w
 dialog.camera-guida { width: 100vw; height: 100vh; max-width: 100vw; max-height: 100vh; margin: 0; padding: 12px; border: 0; background: #000; color: #fff; }
 dialog.camera-guida::backdrop { background: #000; }
 .archivio-link { margin: 18px 0 8px; }
+.sc-togli { align-self: flex-end; background: none; border: 0; color: var(--muschio); font-size: 13px; padding: 4px 6px; cursor: pointer; }

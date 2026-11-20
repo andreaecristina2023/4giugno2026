@@ -290,6 +290,7 @@ var Viaggi = (function () {
     return '<div class="sotto-card"><button type="button" class="sc-corpo" data-modifica-sotto="' + esc(sez) + '|' + esc(s.id) + '"><span class="sc-titolo">' + esc(titolo) + '</span>' +
       righe.map(function (r) { return '<span class="sc-riga">' + esc(r) + '</span>'; }).join('') +
       (avv ? '<span class="sc-avviso">⚠ ' + esc(avv) + '</span>' : '') + (s.note ? '<span class="sc-riga testo-muto">' + esc(s.note) + '</span>' : '') + '</button>' +
+      (sez === 'documenti' ? '<button type="button" class="sc-togli" data-togli-documento="' + esc(v.id + '|' + s.id) + '" aria-label="Togli ' + esc(titolo) + ' dal viaggio">✕ Togli</button>' : '') +
       (sez === 'hotel' && s.telefono ? '<a class="sc-chiama" href="tel:' + esc(numeroTel(s)) + '" aria-label="Chiama ' + esc(s.nome || 'hotel') + '">☎️ Chiama</a>' : '') +
       (sez === 'hotel' && s.lat != null && s.lon != null ? '<a class="sc-mappa" href="' + naviga(s.lat, s.lon) + '" target="_blank" rel="noopener">🧭 Naviga</a>' : (sez === 'hotel' && s.indirizzo ? '<a class="sc-mappa" href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(s.nome + ', ' + s.indirizzo) + '" target="_blank" rel="noopener">Mappa</a>' : '')) +
       (sez === 'documenti' && s.docRif ? fotoPersonali(s.docRif) : '') + htmlAllegati(s.allegati, ctx, sez === 'documenti' ? 'Allega documento' : sez === 'voli' ? 'Allega carta d\'imbarco' : 'Allega conferma') + '</div>';
@@ -555,6 +556,17 @@ var Viaggi = (function () {
     if (d.nuovoViaggio !== undefined) { apriViaggio(null); return true; }
     if (d.modificaViaggio) { apriViaggio(d.modificaViaggio); return true; }
     if (d.nuovoSotto) { apriSotto(idCorrente(), d.nuovoSotto, null); return true; }
+    if (d.togliDocumento) {
+      // toglie il documento dal viaggio: le foto in «I miei dati» restano, gli allegati propri del viaggio vanno nel cestino di Drive
+      var qd = d.togliDocumento.split('|'), vd = JSON.parse(JSON.stringify(Store.get(qd[0]))), itd = (vd.documenti || []).filter(function (x) { return x.id === qd[1]; })[0];
+      if (!itd) return true;
+      if (!window.confirm('Togliere questo documento dal viaggio? Le foto in «I miei dati» restano.')) return true;
+      if ((itd.allegati || []).length && !window.confirm('Conferma di nuovo: gli allegati propri del viaggio andranno nel cestino di Drive.')) return true;
+      (itd.allegati || []).forEach(function (a) { Store.chiama('allegato_elimina', { id: a.id }).catch(function () {}); });
+      vd.documenti = vd.documenti.filter(function (x) { return x.id !== qd[1]; });
+      Store.upsert(vd); ui.toast('Documento tolto dal viaggio');
+      return true;
+    }
     if (d.docPersAdd) {
       var selDoc = t.parentElement.querySelector('[data-doc-pers]'), pd = selDoc ? docPersonale(selDoc.value) : null;
       // il documento è già in «I miei dati»: lo aggiungo al viaggio senza chiedere altri dati
