@@ -219,13 +219,30 @@ var Viaggi = (function () {
       return '<span class="allegato"><button type="button" data-apri-allegato="' + ui_esc(a.id) + '" data-nome="' + ui_esc(a.nome) + '" data-mime="' + ui_esc(a.mime || '') + '">' + icona + ' ' + ui_esc(a.nome) + '</button></span>';
     }).join('') + '</div>';
   }
+  // i documenti di «I miei dati» raggruppati per persona (Andrea, Cristina, poi gli altri), ordinati per tipo
+  function docsPerPersona(lista) {
+    var ordine = ['Andrea', 'Cristina'], gruppi = {};
+    (lista || []).forEach(function (d) { var p = d.persona || 'Altro'; (gruppi[p] = gruppi[p] || []).push(d); });
+    var chiavi = ordine.filter(function (p) { return gruppi[p]; }).concat(Object.keys(gruppi).filter(function (p) { return ordine.indexOf(p) < 0; }));
+    return chiavi.map(function (p) {
+      return { persona: p, docs: gruppi[p].slice().sort(function (a, b) { return String(a.tipo || '').localeCompare(String(b.tipo || '')); }) };
+    });
+  }
+  // opzioni per un menu a tendina di documenti, con un gruppo per persona
+  function opzioniDocumenti(selezionato, etichettaVuota) {
+    var esc = ui.esc, lista = (Store.settings().anagrafica || {}).documenti, opz = etichettaVuota ? '<option value="">' + esc(etichettaVuota) + '</option>' : '';
+    docsPerPersona(Array.isArray(lista) ? lista : []).forEach(function (g) {
+      opz += '<optgroup label="' + esc(g.persona) + '">' + g.docs.map(function (d) {
+        return '<option value="' + esc(d.id) + '"' + (d.id === selezionato ? ' selected' : '') + '>' + esc((d.tipo || 'Documento') + (d.numero ? ' · ' + d.numero : '')) + '</option>';
+      }).join('') + '</optgroup>';
+    });
+    return opz;
+  }
   // elenco a tendina dei documenti dei miei dati, con + per aggiungerne uno al viaggio
   function scegliDocumenti(idViaggio) {
     var l = ((Store.settings().anagrafica || {}).documenti); if (!Array.isArray(l) || !l.length) return '';
-    var esc = ui.esc;
-    return '<div class="doc-da-personali"><select data-doc-pers aria-label="Documento da I miei dati">' + l.map(function (d) {
-      return '<option value="' + esc(d.id) + '">' + esc((d.tipo || 'Documento') + ' · ' + (d.persona || '')) + '</option>';
-    }).join('') + '</select><button type="button" class="btn piccolo" data-doc-pers-add="' + esc(idViaggio) + '" aria-label="Aggiungi il documento selezionato">+</button></div>';
+    return '<div class="doc-da-personali"><select data-doc-pers aria-label="Documento da I miei dati">' + opzioniDocumenti(null, null) +
+      '</select><button type="button" class="btn piccolo" data-doc-pers-add="' + ui.esc(idViaggio) + '" aria-label="Aggiungi il documento selezionato">+</button></div>';
   }
   function rigaSotto(v, sez, s) {
     var esc = ui.esc, ctx = v.id + '|' + sez + '|' + s.id, titolo = '', righe = [];
@@ -805,6 +822,7 @@ var Viaggi = (function () {
     apriViaggio: apriViaggio, apriConcerto: apriConcerto, apriAllegato: apriAllegato,
     click: click, change: change, prossimi: prossimi, intervallo: intervallo,
     allega: allega, togli: togli, htmlAllegati: htmlAllegati, anteprime: anteprime,
-    blobAllegato: blobAllegato
+    blobAllegato: blobAllegato, docPersonale: docPersonale, fotoPersonali: fotoPersonali,
+    docsPerPersona: docsPerPersona, opzioniDocumenti: opzioniDocumenti
   };
 })();

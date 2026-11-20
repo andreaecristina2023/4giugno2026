@@ -375,6 +375,8 @@ details.passati[open] summary h2::after { content: ' ⌄'; }
 .casa-righe-3 { grid-template-columns: minmax(0,1.2fr) minmax(0,0.7fr) minmax(0,0.6fr); }
 .mappa-casa { height: 240px; }
 .doc-riga { width: 100%; text-align: left; background: none; border: 0; cursor: pointer; color: inherit; margin-bottom: 8px; }
+.persona-titolo { margin: 14px 0 6px; font-weight: 600; display: flex; gap: 8px; align-items: baseline; }
+.persona-titolo small { font-weight: 400; opacity: .7; }
 @media (max-width: 440px) { .casa-righe-3 { grid-template-columns: 1fr 1fr; } .casa-righe-3 label:first-child { grid-column: 1 / -1; } }
 .tappa-testa { grid-template-columns: minmax(0,0.9fr) minmax(0,0.6fr) minmax(0,0.8fr) minmax(0,0.8fr) auto; }
 .tappa-due { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }

@@ -461,6 +461,7 @@
       '<p class="testo-muto" style="margin:0">' + esc(c.categoria || 'Fedeltà') + '</p>' +
       (c.codice && c.categoria !== 'Pagamento' ? '<p class="carta-codice" aria-label="Codice">' + esc(c.codice) + '</p>' : '') +
       (foto || '<p class="testo-muto">Nessuna foto.</p>') +
+      (c.docRif && Viaggi.docPersonale(c.docRif) ? '<p class="testo-muto" style="margin:0">Documento: ' + esc(Viaggi.docPersonale(c.docRif).tipo || 'Documento') + ' · ' + esc(Viaggi.docPersonale(c.docRif).persona || '') + '</p>' + Viaggi.fotoPersonali(c.docRif) : '') +
       (c.note ? '<p style="white-space:pre-wrap;margin:0">' + esc(c.note) + '</p>' : '') +
       '<div class="azioni"><button class="btn" type="button" data-chiudi>Chiudi</button><button class="btn secondario" type="button" data-modifica-carta>Modifica</button></div></div>';
     Viaggi.anteprime(foglio);
@@ -475,7 +476,7 @@
     c.allegati = c.allegati || [];
     var wrap = { carta: [c] }, ctx = 'wallet|carta|' + c.id, form = null;
     foglio.classList.remove('visore');
-    function snap() { if (!form) return; c.titolo = form.titolo.value.trim(); c.categoria = form.categoria.value; c.codice = form.codice.value.trim(); c.note = form.note.value; }
+    function snap() { if (!form) return; c.titolo = form.titolo.value.trim(); c.categoria = form.categoria.value; c.codice = form.codice.value.trim(); c.note = form.note.value; c.docRif = form.docRif.value; }
     function disegna() {
       foglio.innerHTML = '<form method="dialog" id="form-carta"><div class="maniglia"></div><h3 id="foglio-titolo">' + (id ? 'Modifica' : 'Nuova carta') + '</h3><div class="campi">' +
         '<label class="campo">Nome<input type="text" name="titolo" required maxlength="60" value="' + esc(c.titolo) + '" placeholder="Es. Esselunga, Imbarco Volo BLQ"></label>' +
@@ -483,6 +484,7 @@
         (c.categoria === 'Pagamento' ? '<p class="aiuto" style="margin:0">Per le carte di pagamento salva solo nome e banca. Non inserire il numero della carta né il codice.</p>' :
           '<label class="campo">Codice<span class="aiuto">Il numero sotto il codice a barre, per leggerlo a mano.</span><input type="text" name="codice" maxlength="60" value="' + esc(c.codice) + '" inputmode="text"></label>') +
         '<label class="campo">Note<textarea name="note" rows="3" maxlength="500">' + esc(c.note) + '</textarea></label>' +
+        '<label class="campo">Documento collegato<span class="aiuto">Un documento da «I miei dati»: le sue foto si vedono anche qui.</span><select name="docRif">' + Viaggi.opzioniDocumenti(c.docRif, 'Nessun documento') + '</select></label>' +
         '<div class="campo"><span>Foto</span><span class="aiuto">Foto del codice a barre o del biglietto, da mostrare alla cassa o al gate.</span>' + Viaggi.htmlAllegati(c.allegati, ctx, 'Aggiungi foto') + '<div id="scelta-carta"></div></div>' +
         '<div class="azioni"><button class="btn" type="submit">Salva</button><button class="btn secondario" type="button" data-chiudi>Annulla</button>' + (id ? '<button class="btn pericolo" type="button" data-elimina style="margin-left:auto">Elimina</button>' : '') + '</div></div></form>';
       form = $('#form-carta', foglio);
@@ -504,7 +506,7 @@
       form.onsubmit = function (e) {
         e.preventDefault(); snap();
         if (!c.titolo) { form.titolo.focus(); return; }
-        Store.upsert({ id: c.id, tipo: 'carta', titolo: c.titolo, categoria: c.categoria, codice: c.categoria === 'Pagamento' ? '' : c.codice, note: c.note, allegati: c.allegati });
+        Store.upsert({ id: c.id, tipo: 'carta', titolo: c.titolo, categoria: c.categoria, codice: c.categoria === 'Pagamento' ? '' : c.codice, note: c.note, allegati: c.allegati, docRif: c.docRif || '' });
         foglio.close(); toast(id ? 'Carta salvata' : 'Carta aggiunta');
       };
     }
@@ -553,10 +555,14 @@
       persona('Andrea') + persona('Cristina') +
       '<label class="campo">Altro<span class="aiuto">Quello che ti serve spesso: codici, numeri utili, note.</span><textarea name="altro" maxlength="2000">' + esc(a.altro || '') + '</textarea></label>' +
       '<div class="azioni"><button class="btn" type="submit">Salva i dati</button></div></form>';
-    h += '<h2>Documenti <small>' + docs.length + '</small></h2><div class="sezione">' + docs.map(function (d) {
+    function docRiga(d) {
       var pf = (d.allegati || []).filter(function (a) { return /^image\//.test(a.mime || ''); })[0];
       return '<button type="button" class="sotto-card doc-riga" data-doc-modifica="' + esc(d.id) + '">' + (pf ? '<img class="doc-miniatura" data-anteprima="' + esc(pf.id) + '" data-mime="' + esc(pf.mime) + '" alt="" src="">' : '') + '<span class="sc-titolo">' + esc(d.tipo || 'Documento') + (d.numero ? ' · ' + esc(d.numero) : '') + (d.allegati && d.allegati.length ? ' · 🖼 ' + d.allegati.length : '') + '</span>' +
         (d.scadenza ? '<span class="sc-riga">Scade ' + esc(d.scadenza) + (d.rilasciatoDa ? ' · ' + esc(d.rilasciatoDa) : '') + '</span>' : (d.rilasciatoDa ? '<span class="sc-riga">' + esc(d.rilasciatoDa) + '</span>' : '')) + '</button>';
+    }
+    // raggruppati per persona: ogni gruppo ha il suo titolo con il conteggio
+    h += '<h2>Documenti <small>' + docs.length + '</small></h2><div class="sezione">' + Viaggi.docsPerPersona(docs).map(function (g) {
+      return '<p class="persona-titolo">' + esc(g.persona) + ' <small>' + g.docs.length + '</small></p>' + g.docs.map(docRiga).join('');
     }).join('') + '<button type="button" class="btn secondario piccolo" data-doc-nuovo aria-label="Aggiungi documento">+ Aggiungi documento</button></div>';
     setTimeout(function () { initCasa(); Viaggi.anteprime(document); }, 0);
     return h;
