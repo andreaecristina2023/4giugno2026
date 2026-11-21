@@ -449,8 +449,8 @@ dialog.camera-guida::backdrop { background: #000; }
 .sc-togli { align-self: flex-end; background: none; border: 0; color: var(--muschio); font-size: 13px; padding: 4px 6px; cursor: pointer; }
 .carta-qr-bianco { background: #fff; border-radius: 8px; padding: 8px; display: inline-block; line-height: 0; }
 .carta-qr-bianco svg { display: block; width: 100%; height: auto; }
-.carta-qr-box { display: block; max-width: 300px; margin: 0 auto 12px; padding: 10px; border-radius: 18px; }
+.carta-qr-box { display: block; max-width: 360px; margin: 0 auto 12px; padding: 10px; border-radius: 18px; }
 .carta-qr-box .carta-qr-bianco { display: block; }
-.carta-qr-mini { display: inline-block; width: 96px; padding: 4px; border-radius: 10px; }
+.carta-qr-mini { display: inline-block; width: 150px; padding: 4px; border-radius: 10px; }
 .carta-qr-mini .carta-qr-bianco { padding: 4px; border-radius: 6px; display: block; }
 .carta-qr-mini svg { display: block; width: 100%; height: auto; }
