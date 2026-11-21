@@ -585,6 +585,18 @@
     foglio.querySelectorAll('[data-apri-allegato]').forEach(function (b) { b.onclick = function () { Viaggi.apriAllegato(b.dataset.apriAllegato, b.dataset.nome, b.dataset.mime); }; });
     foglio.showModal();
   }
+  // tocco semplice sulla carta: codice a barre ingrandito a tutto schermo
+  function apriCodiceGrande(id) {
+    var c = Store.get(id); if (!c) return;
+    if (!c.codice || c.categoria === 'Pagamento') return apriCartaDettaglio(id);
+    foglio.classList.add('visore');
+    foglio.innerHTML = '<div class="visore-corpo"><div class="visore-barra"><span>' + esc(c.titolo || 'Carta') + '</span><button class="btn secondario" type="button" data-chiudi>Chiudi</button></div>' +
+      '<div class="codice-grande"><div class="codice-grande-cornice"' + cornicStyle(c.cornice) + '><div class="carta-qr-bianco">' + barcodeCarta(c.codice, c.formato) + '</div></div></div>' +
+      '<div class="azioni"><button class="btn secondario" type="button" data-dettagli>Dettagli della carta</button></div></div>';
+    $('[data-chiudi]', foglio).onclick = function () { foglio.close(); };
+    $('[data-dettagli]', foglio).onclick = function () { foglio.close(); apriCartaDettaglio(id); };
+    foglio.showModal();
+  }
   function apriCarta(id) {
     var orig = id ? Store.get(id) : null;
     var c = orig ? JSON.parse(JSON.stringify(orig)) : { id: C.nuovoId(), tipo: 'carta', titolo: '', categoria: 'Fedeltà', codice: '', note: '', allegati: [] };
@@ -1224,7 +1236,28 @@
   }
   foglio.addEventListener('click', function (e) { if (e.target === foglio) foglio.close(); });
 
+  // pressione prolungata su una carta: chiede se modificarla (il clic che segue viene ignorato)
+  var pressTimer = null, pressoLungo = false, pressoX = 0, pressoY = 0;
+  function annullaPressione() { clearTimeout(pressTimer); pressTimer = null; }
+  vista.addEventListener('pointerdown', function (e) {
+    pressoLungo = false; annullaPressione();
+    var b = e.target.closest('.carta-wallet'); if (!b) return;
+    var id = b.dataset.cartaApri; pressoX = e.clientX; pressoY = e.clientY;
+    pressTimer = setTimeout(function () {
+      pressTimer = null; pressoLungo = true;
+      if (window.confirm('Modificare questa carta?')) apriCarta(id);
+    }, 550);
+  });
+  vista.addEventListener('pointermove', function (e) {
+    if (pressTimer && Math.abs(e.clientX - pressoX) + Math.abs(e.clientY - pressoY) > 12) annullaPressione();
+  });
+  vista.addEventListener('pointerup', annullaPressione);
+  vista.addEventListener('pointercancel', annullaPressione);
+  vista.addEventListener('pointerleave', annullaPressione);
+  vista.addEventListener('contextmenu', function (e) { if (e.target.closest('.carta-wallet')) e.preventDefault(); });
+
   vista.addEventListener('click', function (e) {
+    if (pressoLungo) { pressoLungo = false; return; }
     if (Viaggi.click(e)) return;
     var t = e.target.closest('button, a'); if (!t) return;
     var d = t.dataset;
@@ -1258,7 +1291,7 @@
     else if (d.ibanNuovo !== undefined) apriSchedaConti('iban', null);
     else if (d.ibanApri) apriSchedaConti('iban', d.ibanApri);
     else if (d.cartaNuova !== undefined) apriCarta(null);
-    else if (d.cartaApri !== undefined) apriCartaDettaglio(d.cartaApri);
+    else if (d.cartaApri !== undefined) apriCodiceGrande(d.cartaApri);
     else if (d.notaNuova !== undefined) apriNota(null);
     else if (d.nota !== undefined) apriNota(d.nota);
     else if (d.docNuovo !== undefined) apriDocumento(null);
