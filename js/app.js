@@ -528,14 +528,14 @@
   var COLORI_CORNICE = ['', '#2F6DB5', '#2E8B57', '#E3B505', '#D7263D', '#8A5A2B', '#7D4FA8', '#1E7F8C'];
   // colore e bordo attorno al codice (foto) della carta; senza colore nessuna cornice
   // codice a barre del codice della carta (SVG): EAN-13/EAN-8 se il codice è numerico di quella lunghezza, altrimenti Code 128
-  function barcodeCarta(codice) {
+  function barcodeCarta(codice, formato) {
     var valore = String(codice || '').trim();
     if (!valore || !window.JsBarcode) return '';
     var opz = { displayValue: true, fontSize: 14, margin: 6, height: 60, width: 2, background: '#ffffff', lineColor: '#000000' };
-    var formato = /^\d{13}$/.test(valore) ? 'EAN13' : /^\d{8}$/.test(valore) ? 'EAN8' : 'CODE128';
+    var jsb = formato === 'EAN-13' ? 'EAN13' : formato === 'EAN-8' ? 'EAN8' : 'CODE128';
     try {
       var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      JsBarcode(svg, valore, Object.assign({ format: formato }, opz));
+      JsBarcode(svg, valore, Object.assign({ format: jsb }, opz));
       return svg.outerHTML;
     } catch (e) {
       // il codice non rispetta il formato scelto (per esempio il controllo EAN): uso Code 128
@@ -556,7 +556,7 @@
       if (!gruppo.length) return;
       h += '<h2>' + cat + ' <small>' + gruppo.length + '</small></h2><div class="wallet-griglia">' + gruppo.map(function (c) {
         var pf = (c.allegati || []).filter(function (a) { return /^image\//.test(a.mime || ''); })[0];
-        return '<button type="button" class="carta-wallet" data-carta-apri="' + esc(c.id) + '">' + (pf ? '<img class="carta-miniatura"' + cornicStyle(c.cornice) + ' data-anteprima="' + esc(pf.id) + '" data-mime="' + esc(pf.mime) + '" alt="" src="">' : (c.codice && cat !== 'Pagamento' ? '<span class="carta-qr-mini"' + cornicStyle(c.cornice) + '><span class="carta-qr-bianco">' + barcodeCarta(c.codice) + '</span></span>' : '<span class="carta-vuota">' + (cat === 'Check-in' ? '🎫' : cat === 'Pagamento' ? '💳' : '🏷') + '</span>')) +
+        return '<button type="button" class="carta-wallet" data-carta-apri="' + esc(c.id) + '">' + (pf ? '<img class="carta-miniatura"' + cornicStyle(c.cornice) + ' data-anteprima="' + esc(pf.id) + '" data-mime="' + esc(pf.mime) + '" alt="" src="">' : (c.codice && cat !== 'Pagamento' ? '<span class="carta-qr-mini"' + cornicStyle(c.cornice) + '><span class="carta-qr-bianco">' + barcodeCarta(c.codice, c.formato) + '</span></span>' : '<span class="carta-vuota">' + (cat === 'Check-in' ? '🎫' : cat === 'Pagamento' ? '💳' : '🏷') + '</span>')) +
           '<strong>' + esc(c.titolo || 'Carta') + '</strong>' + (c.codice && cat !== 'Pagamento' ? '<small>' + esc(c.codice) + '</small>' : '') + '</button>';
       }).join('') + '</div>';
     });
@@ -574,7 +574,7 @@
     foglio.innerHTML = '<div class="maniglia"></div><h3 id="foglio-titolo">' + esc(c.titolo || 'Carta') + '</h3><div class="campi">' +
       '<p class="testo-muto" style="margin:0">' + esc(c.categoria || 'Fedeltà') + '</p>' +
       (c.codice && c.categoria !== 'Pagamento' ? '<p class="carta-codice" aria-label="Codice">' + esc(c.codice) + '</p>' : '') +
-      (c.codice && c.categoria !== 'Pagamento' ? '<div class="carta-qr-box"' + cornicStyle(c.cornice) + '><div class="carta-qr-bianco">' + barcodeCarta(c.codice) + '</div></div>' : '') +
+      (c.codice && c.categoria !== 'Pagamento' ? '<div class="carta-qr-box"' + cornicStyle(c.cornice) + '><div class="carta-qr-bianco">' + barcodeCarta(c.codice, c.formato) + '</div></div>' : '') +
       (foto || '<p class="testo-muto">Nessuna foto.</p>') +
       (c.docRif && Viaggi.docPersonale(c.docRif) ? '<p class="testo-muto" style="margin:0">Documento: ' + esc(Viaggi.docPersonale(c.docRif).tipo || 'Documento') + ' · ' + esc(Viaggi.docPersonale(c.docRif).persona || '') + '</p>' + Viaggi.fotoPersonali(c.docRif) : '') +
       (c.note ? '<p style="white-space:pre-wrap;margin:0">' + esc(c.note) + '</p>' : '') +
@@ -591,13 +591,13 @@
     c.allegati = c.allegati || [];
     var wrap = { carta: [c] }, ctx = 'wallet|carta|' + c.id, form = null;
     foglio.classList.remove('visore');
-    function snap() { if (!form) return; c.titolo = form.titolo.value.trim(); c.categoria = form.categoria.value; c.codice = form.codice.value.trim(); c.note = form.note.value; c.docRif = form.docRif.value; c.cornice = form.cornice ? form.cornice.value : (c.cornice || ''); }
+    function snap() { if (!form) return; c.titolo = form.titolo.value.trim(); c.categoria = form.categoria.value; c.codice = form.codice.value.trim(); c.note = form.note.value; c.docRif = form.docRif.value; c.cornice = form.cornice ? form.cornice.value : (c.cornice || ''); c.formato = form.formato ? form.formato.value : (c.formato || ''); }
     function disegna() {
       foglio.innerHTML = '<form method="dialog" id="form-carta"><div class="maniglia"></div><h3 id="foglio-titolo">' + (id ? 'Modifica' : 'Nuova carta') + '</h3><div class="campi">' +
         '<label class="campo">Nome<input type="text" name="titolo" required maxlength="60" value="' + esc(c.titolo) + '" placeholder="Es. Esselunga, Imbarco Volo BLQ"></label>' +
         '<label class="campo">Tipo<select class="sel-pers" name="categoria">' + C.opzioni(CATEGORIE_CARTA, c.categoria) + '</select></label>' +
         (c.categoria === 'Pagamento' ? '<p class="aiuto" style="margin:0">Per le carte di pagamento salva solo nome e banca. Non inserire il numero della carta né il codice.</p>' :
-          '<label class="campo">Codice<span class="aiuto">Il numero sotto il codice a barre, per leggerlo a mano.</span><input type="text" name="codice" maxlength="60" value="' + esc(c.codice) + '" inputmode="text"></label>') +
+          '<label class="campo">Codice<span class="aiuto">Il numero sotto il codice a barre, per leggerlo a mano.</span><input type="text" name="codice" maxlength="60" value="' + esc(c.codice) + '" inputmode="text"></label>' + (c.categoria === 'Pagamento' ? '' : '<label class="campo">Formato del codice a barre<span class="aiuto">Di solito Code 128: cambialo solo se la cassa non legge il codice.</span><select name="formato"><option value=""' + (!c.formato ? ' selected' : '') + '>Code 128</option><option value="EAN-13"' + (c.formato === 'EAN-13' ? ' selected' : '') + '>EAN-13</option><option value="EAN-8"' + (c.formato === 'EAN-8' ? ' selected' : '') + '>EAN-8</option></select></label>')) +
         '<label class="campo">Note<textarea name="note" rows="3" maxlength="500">' + esc(c.note) + '</textarea></label>' +
         '<label class="campo">Documento collegato<span class="aiuto">Un documento da «I miei dati»: le sue foto si vedono anche qui.</span><select name="docRif">' + Viaggi.opzioniDocumenti(c.docRif, 'Nessun documento') + '</select></label>' +
         '<fieldset class="campo colore-campo"><legend>Colore e bordo del codice</legend><div class="colori">' + COLORI_CORNICE.map(function (col) { return '<label class="colore-pallino" style="--c:' + (col || '#8A9A90') + '"><input type="radio" name="cornice" value="' + col + '"' + ((c.cornice || '') === col ? ' checked' : '') + '><span>' + (col ? '' : 'Nessuno') + '</span></label>'; }).join('') + '</div></fieldset>' +
@@ -622,7 +622,7 @@
       form.onsubmit = function (e) {
         e.preventDefault(); snap();
         if (!c.titolo) { form.titolo.focus(); return; }
-        Store.upsert({ id: c.id, tipo: 'carta', titolo: c.titolo, categoria: c.categoria, codice: c.categoria === 'Pagamento' ? '' : c.codice, note: c.note, allegati: c.allegati, docRif: c.docRif || '', cornice: c.cornice || '' });
+        Store.upsert({ id: c.id, tipo: 'carta', titolo: c.titolo, categoria: c.categoria, codice: c.categoria === 'Pagamento' ? '' : c.codice, note: c.note, allegati: c.allegati, docRif: c.docRif || '', cornice: c.cornice || '', formato: c.formato || '' });
         foglio.close(); toast(id ? 'Carta salvata' : 'Carta aggiunta');
       };
     }
