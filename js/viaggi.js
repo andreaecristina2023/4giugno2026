@@ -223,7 +223,12 @@ var Viaggi = (function () {
       ['tipo', 'Tipo', 'select', ['eVisa', 'Passaporto', 'Carta d\'identità', 'Assicurazione viaggio', 'Patente internazionale', 'Vaccinazioni', 'ESTA / ETA', 'Altro']],
       ['persona', 'Di chi', 'persone'], ['numero', 'Numero', 'text'], ['scadenza', 'Scadenza', 'date'], ['note', 'Note', 'textarea']] }
   };
-  function naviga(lat, lon) { return 'https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lon; }
+  // destinazione per la navigazione: coordinate se segnate, altrimenti l'indirizzo scritto
+  function destinazione(x, nomeInIndirizzo) {
+    if (x && x.lat != null && x.lon != null) return { lat: x.lat, lon: x.lon };
+    if (x && x.indirizzo) return { q: (nomeInIndirizzo && x.nome ? x.nome + ', ' : '') + x.indirizzo };
+    return null;
+  }
   function numeroTel(s) { return (s.prefisso || PREFISSO_PREDEF) + String(s.telefono || '').replace(/[^0-9]/g, ''); }
   // documenti salvati in «I miei dati» (riferiti dai viaggi, non copiati)
   function docPersonale(id) {
@@ -292,7 +297,7 @@ var Viaggi = (function () {
       (avv ? '<span class="sc-avviso">⚠ ' + esc(avv) + '</span>' : '') + (s.note ? '<span class="sc-riga testo-muto">' + esc(s.note) + '</span>' : '') + '</button>' +
       (sez === 'documenti' ? '<button type="button" class="sc-togli" data-togli-documento="' + esc(v.id + '|' + s.id) + '" aria-label="Togli ' + esc(titolo) + ' dal viaggio">✕ Togli</button>' : '') +
       (sez === 'hotel' && s.telefono ? '<a class="sc-chiama" href="tel:' + esc(numeroTel(s)) + '" aria-label="Chiama ' + esc(s.nome || 'hotel') + '">☎️ Chiama</a>' : '') +
-      (sez === 'hotel' && s.lat != null && s.lon != null ? '<a class="sc-mappa" href="' + naviga(s.lat, s.lon) + '" target="_blank" rel="noopener">🧭 Naviga</a>' : (sez === 'hotel' && s.indirizzo ? '<a class="sc-mappa" href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(s.nome + ', ' + s.indirizzo) + '" target="_blank" rel="noopener">Mappa</a>' : '')) +
+      (sez === 'hotel' ? Native.linkNaviga(destinazione(s, true), '🧭 Naviga', 'sc-mappa', 'Naviga a ' + (s.nome || 'hotel')) : '') +
       (sez === 'documenti' && s.docRif ? fotoPersonali(s.docRif) : '') + htmlAllegati(s.allegati, ctx, sez === 'documenti' ? 'Allega documento' : sez === 'voli' ? 'Allega carta d\'imbarco' : 'Allega conferma') + '</div>';
   }
   function htmlDettaglio(id) {
@@ -304,12 +309,12 @@ var Viaggi = (function () {
       '<div class="azioni"><button class="btn piccolo secondario" type="button" data-modifica-viaggio="' + esc(v.id) + '">Modifica</button></div></header>';
     h += '<section class="mappa-viaggio"><div id="mappa-viaggio" class="mappa"></div><p id="mappa-nota" class="testo-muto"></p></section>';
     var altri = (v.luoghi || []).map(function (x) { return { tipo: 'luogo', id: x.id, emoji: emojiDi(x.simbolo), nome: x.nome, sub: x.note || '', lat: x.lat, lon: x.lon }; })
-      .concat((v.hotel || []).map(function (x) { return { tipo: 'hotel', id: x.id, emoji: '🏨', nome: x.nome || 'Hotel', sub: [x.indirizzo, x.lat != null ? 'posizione segnata' : 'posizione non segnata'].filter(Boolean).join(' · '), tel: x.telefono ? numeroTel(x) : '', lat: x.lat, lon: x.lon }; }));
+      .concat((v.hotel || []).map(function (x) { return { tipo: 'hotel', id: x.id, emoji: '🏨', nome: x.nome || 'Hotel', indirizzo: x.indirizzo ? (x.nome ? x.nome + ', ' : '') + x.indirizzo : '', sub: [x.indirizzo, x.lat != null ? 'posizione segnata' : 'posizione non segnata'].filter(Boolean).join(' · '), tel: x.telefono ? numeroTel(x) : '', lat: x.lat, lon: x.lon }; }));
     if (altri.length) {
       h += '<h2>Altri punti <small>' + altri.length + '</small></h2>' + altri.map(function (x) {
         return '<div class="sotto-card altro-punto"><span class="altro-simbolo" aria-hidden="true">' + x.emoji + '</span><button type="button" class="sc-corpo altro-corpo" data-altro="' + esc(x.tipo + '|' + x.id) + '"><span class="sc-titolo">' + esc(x.nome) + '</span>' +
           (x.sub ? '<span class="sc-riga">' + esc(x.sub) + '</span>' : '') + '</button>' +
-          (x.lat != null && x.lon != null ? '<a class="sc-chiama" href="' + naviga(x.lat, x.lon) + '" target="_blank" rel="noopener" aria-label="Naviga a ' + esc(x.nome) + '">🧭 Naviga</a>' : '') +
+          Native.linkNaviga(x.lat != null && x.lon != null ? { lat: x.lat, lon: x.lon } : (x.indirizzo ? { q: x.indirizzo } : null), '🧭 Naviga', 'sc-chiama', 'Naviga a ' + x.nome) +
           (x.tel ? '<a class="sc-chiama" href="tel:' + esc(x.tel) + '" aria-label="Chiama ' + esc(x.nome) + '">☎️ Chiama</a>' : '') + '</div>';
       }).join('');
     }
@@ -532,6 +537,7 @@ var Viaggi = (function () {
         '<button type="button" class="cc-corpo" data-modifica-concerto="' + esc(c.id) + '"><span class="cc-artista">' + esc(c.titolo) + '</span>' +
         '<span class="cc-meta">' + esc([C.GIORNI_LUNGHI[d.getDay()], c.ora, c.luogo, c.prenotazione ? 'Prenotazione ' + c.prenotazione : ''].filter(Boolean).join(' · ')) + '</span>' +
         '<span class="cc-meta">' + (c.data >= oggi ? '<span class="cv-quando ' + q.classe + '">' + (c.data === oggi ? 'Stasera' : q.testo) + '</span>' : '') + (c.importo ? ' ' + C.euro(c.importo) : '') + (c.chi ? ' · ' + esc(c.chi) : '') + '</span></button>' +
+        (c.luogo ? Native.linkNaviga({ q: c.luogo }, '🧭', 'cc-biglietti cc-naviga', 'Naviga a ' + c.luogo) : '') +
         (n ? '<button type="button" class="cc-biglietti" data-apri-allegato="' + esc(c.biglietti[0].id) + '" data-nome="' + esc(c.biglietti[0].nome) + '" data-mime="' + esc(c.biglietti[0].mime || '') + '">🎟<small>' + n + '</small></button>' : '') + '</div>' +
         (n > 1 ? '<div class="cc-altri">' + htmlAllegati(c.biglietti, c.id + '||', 'Allega').replace(/<label class="allega">[\s\S]*<\/label>/, '') + '</div>' : '');
   }
@@ -813,7 +819,7 @@ var Viaggi = (function () {
     var casaMia = (Store.settings().anagrafica || {}).casa || {};
     if (casaMia.lat != null && casaMia.lon != null) {
       var casaPos = [casaMia.lat, casaMia.lon];
-      L.marker(casaPos, { icon: icona('🏠', '#1E7F8C'), zIndexOffset: 500 }).bindTooltip('Casa').addTo(m);
+      L.marker(casaPos, { icon: icona('🏠', '#1E7F8C'), zIndexOffset: 500 }).bindTooltip('Casa').bindPopup('<b>Casa</b><br>' + Native.linkNaviga({ lat: casaPos[0], lon: casaPos[1] }, '🧭 Naviga', 'naviga-popup')).addTo(m);
       punti.push(casaPos);
     }
     (v && v.luoghi || []).forEach(function (x) {
@@ -823,7 +829,7 @@ var Viaggi = (function () {
     });
     function piazza(pos, l) {
       if (!el.isConnected || mappaCorrente !== m) return;
-      L.marker(pos, { icon: icona(EMOJI_FISSI[l.tipo] || '📍', l.col) }).bindTooltip(l.etichetta).addTo(m);
+      L.marker(pos, { icon: icona(EMOJI_FISSI[l.tipo] || '📍', l.col) }).bindTooltip(l.etichetta).bindPopup('<b>' + esc(l.etichetta) + '</b><br>' + Native.linkNaviga({ lat: pos[0], lon: pos[1] }, '🧭 Naviga', 'naviga-popup')).addTo(m);
       punti.push(pos);
       m.fitBounds(punti, { padding: [24, 24], maxZoom: 13 });
     }
@@ -860,6 +866,7 @@ var Viaggi = (function () {
     click: click, change: change, prossimi: prossimi, intervallo: intervallo,
     allega: allega, togli: togli, htmlAllegati: htmlAllegati, anteprime: anteprime,
     blobAllegato: blobAllegato, docPersonale: docPersonale, fotoPersonali: fotoPersonali,
-    docsPerPersona: docsPerPersona, opzioniDocumenti: opzioniDocumenti
+    docsPerPersona: docsPerPersona, opzioniDocumenti: opzioniDocumenti,
+    cercaCoordinata: function (t) { try { var c = cercaCoordinata(String(t || '')); return c && isFinite(c.lat) && isFinite(c.lon) && Math.abs(c.lat) <= 90 && Math.abs(c.lon) <= 180 ? c : null; } catch (e) { return null; } }
   };
 })();

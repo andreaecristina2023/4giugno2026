@@ -125,6 +125,34 @@ public class AudioModiPlugin extends Plugin {
         }
     }
 
+    /**
+     * Navigazione in auto con Google Maps: { lat, lon } oppure { q: indirizzo }.
+     * Parte subito la guida (google.navigation, mode=d); senza Google Maps apre il link delle indicazioni.
+     */
+    @PluginMethod
+    public void naviga(PluginCall call) {
+        Double lat = call.getDouble("lat"), lon = call.getDouble("lon");
+        String q = call.getString("q", "");
+        String dest = lat != null && lon != null ? lat + "," + lon : android.net.Uri.encode(q);
+        try {
+            android.content.Intent i = new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("google.navigation:q=" + dest + "&mode=d"));
+            i.setPackage("com.google.android.apps.maps");
+            i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(i);
+            call.resolve();
+        } catch (Exception e) {
+            try {
+                android.content.Intent w = new android.content.Intent(android.content.Intent.ACTION_VIEW,
+                    android.net.Uri.parse("https://www.google.com/maps/dir/?api=1&destination=" + dest + "&travelmode=driving&dir_action=navigate"));
+                w.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(w);
+                call.resolve();
+            } catch (Exception e2) {
+                call.reject("Google Maps non disponibile");
+            }
+        }
+    }
+
     /** Il sito ha salvato modi o impostazioni: ridisegno il widget. */
     @PluginMethod
     public void aggiornaWidget(PluginCall call) {

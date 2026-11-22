@@ -87,6 +87,10 @@ Permessi che Android chiede la prima volta (l'app apre da sola la pagina giusta)
 
 **Widget "A&C Comandi"** (tieni premuto sulla home → Widget → A&C): sopra il modo attivo con ▾ — un tocco apre sopra la home l'**elenco a comparsa** di tutti i modi, si sceglie e si chiude; sotto Rotazione (un tocco la cambia), ⏰ Sveglie (apre l'Orologio) e, per Andrea, VPN (collega/scollega) e DNS (colorato quando è disattivato o in pausa per la VPN, normale quando è attivo).
 
+## Naviga (Google Maps in auto)
+
+Ovunque ci sia un indirizzo o una posizione c'è il tasto **🧭 Naviga**: voci (indirizzo o punto segnato, oppure un indirizzo scritto nelle note della voce), check-in degli hotel, concerti (luogo), hotel e luoghi dei viaggi, segnaposto sulla mappa del viaggio, casa (Impostazioni → anagrafica), e le **note** che contengono coordinate (es. `44.123456, 12.345678` o in gradi °), un link di Google Maps o un indirizzo che inizia con Via, Viale, Piazza, Corso, Largo, Strada, Località… Nell'app Android si apre Google Maps già in **navigazione in auto** (`google.navigation:…&mode=d`); nel browser il link delle indicazioni in auto con avvio della navigazione. Un link corto di Maps (maps.app.goo.gl) si apre in Maps, dove si tocca Avvia.
+
 ## Voci
 
 Ripeti e avviso hanno le unità di misura: minuti, ore, giorni, settimane, mesi, anni (la ripetizione va da giorni ad anni). Le categorie Bollo auto/moto, Assicurazione e Revisione mostrano il campo **Targa** e propongono da sole la ripetizione (1 anno, revisione 2 anni). Ci sono anche le categorie Condominio, Viaggi e Concerti.

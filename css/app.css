@@ -325,7 +325,7 @@ details.passati[open] summary h2::after { content: ' ⌄'; }
 .titolo-allegato { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 
 /* ---------- concerti ---------- */
-.card-concerto { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px; margin-bottom: 10px; border-radius: 16px; background: var(--superficie); border: 1px solid var(--confine); }
+.card-concerto { display: grid; grid-template-columns: 64px minmax(0, 1fr); grid-auto-flow: column; grid-auto-columns: auto; gap: 12px; align-items: center; padding: 12px; margin-bottom: 10px; border-radius: 16px; background: var(--superficie); border: 1px solid var(--confine); }
 .cc-data { display: grid; justify-items: center; line-height: 1; padding: 8px 0; border-radius: 12px; border: 0; background: #A3307A; color: #fff; cursor: pointer; }
 .cc-data b { font-family: var(--titolo); font-size: 26px; font-weight: 800; }
 .cc-data span { font-size: 13px; font-weight: 700; text-transform: lowercase; margin-top: 2px; }
@@ -499,3 +499,12 @@ dialog.camera-guida::backdrop { background: #000; }
 .rotazione-rapida.turno-auto .due { grid-column: 1 / -1; }
 .vpn-auto { margin: 6px 0 0; grid-column: 1 / -1; }
 .vpn-auto:empty { display: none; }
+
+/* ---------- naviga (Google Maps in auto) ---------- */
+a.contatto[data-naviga-lat], a.contatto[data-naviga-q] { text-decoration: none; }
+.cc-naviga { border-color: var(--ardesia); background: #E3EEF2; text-decoration: none; display: grid; place-items: center; padding-top: 0; }
+.postit-con-naviga { display: grid; gap: 6px; align-content: start; }
+.postit-naviga { justify-self: start; font-size: 14px; font-weight: 700; color: var(--ardesia); text-decoration: none; padding: 4px 8px; border-radius: 10px; background: var(--superficie); border: 1px solid var(--confine); }
+.postit-griglia > .postit-con-naviga:nth-child(even) .postit { transform: rotate(1deg); }
+.postit-griglia > .postit-con-naviga:nth-child(odd) .postit { transform: rotate(-1.2deg); }
+.naviga-popup { display: inline-block; margin-top: 6px; font-weight: 700; color: var(--ardesia); text-decoration: none; }

@@ -67,6 +67,26 @@
     }).join('') + '</div>';
   }
 
+  // ---------- navigazione: destinazione trovata in un testo libero (note) ----------
+  // coordinate (link Google Maps, decimali con almeno 4 cifre, gradi °), link di Maps senza coordinate, oppure un indirizzo "Via…"
+  var RE_INDIRIZZO = /^[ \t]*(?:indirizzo\s*:\s*)?((?:via|viale|v\.le|piazza|p\.zza|piazzale|corso|c\.so|largo|vicolo|strada|località|loc\.|contrada|borgo|frazione|fraz\.)\s+[^\n]{3,})$/im;
+  function destinazioneTesto(t) {
+    t = String(t || '');
+    var m = t.match(/@(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/) || t.match(/[?&](?:q|ll|query|destination|daddr)=(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)/) || t.match(/(?:^|[^\d.])(-?\d{1,2}\.\d{4,})\s*[,;\s]\s*(-?\d{1,3}\.\d{4,})(?![\d.])/);
+    if (m && Math.abs(+m[1]) <= 90 && Math.abs(+m[2]) <= 180) return { lat: +m[1], lon: +m[2] };
+    if (/°/.test(t)) { var c = Viaggi.cercaCoordinata(t); if (c) return { lat: c.lat, lon: c.lon }; }
+    var link = t.match(/https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|(?:www\.)?google\.[a-z.]+\/maps)[^\s]*/i);
+    if (link) return { url: link[0] };
+    var ind = t.match(RE_INDIRIZZO);
+    if (ind) return { q: ind[1].trim().replace(/[.;]+$/, '') };
+    return null;
+  }
+  function tastoNaviga(d, testo, classe, aria) {
+    if (!d) return '';
+    if (d.url) return '<a class="' + esc(classe || 'naviga') + '" href="' + esc(d.url) + '" target="_blank" rel="noopener" aria-label="Apri in Google Maps">' + (testo || '🧭 Naviga') + '</a>';
+    return Native.linkNaviga(d, testo, classe, aria);
+  }
+
   // numero da chiamare: solo cifre e + (es. +39 0543 460039 → +390543460039)
   function numeroChiamata(t) { return String(t || '').replace(/[^0-9+]/g, ''); }
   function rigaVoce(x) {
@@ -85,8 +105,9 @@
     var contatti = '';
     if (it.telefono) contatti += '<a class="contatto" href="tel:' + esc(numeroChiamata(it.telefono)) + '" aria-label="Chiama ' + esc(it.telefono) + '">📞</a>';
     if (it.email) contatti += '<a class="contatto" href="mailto:' + esc(it.email) + '" aria-label="Scrivi a ' + esc(it.email) + '">✉️</a>';
-    if (it.lat != null && it.lon != null) contatti += '<a class="contatto" href="https://www.google.com/maps/dir/?api=1&destination=' + it.lat + ',' + it.lon + '" target="_blank" rel="noopener" aria-label="Naviga al punto segnato">🧭</a>';
-    else if (it.indirizzo) contatti += '<a class="contatto" href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(it.indirizzo) + '" target="_blank" rel="noopener" aria-label="Apri ' + esc(it.indirizzo) + ' in mappa">📍</a>';
+    if (it.lat != null && it.lon != null) contatti += Native.linkNaviga({ lat: it.lat, lon: it.lon }, '🧭', 'contatto', 'Naviga al punto segnato');
+    else if (it.indirizzo) contatti += Native.linkNaviga({ q: it.indirizzo }, '🧭', 'contatto', 'Naviga a ' + it.indirizzo);
+    else contatti += tastoNaviga(destinazioneTesto(it.note), '🧭', 'contatto', 'Naviga all\'indirizzo nelle note');
     return '<li class="' + cls + '" style="--c:' + colVoce(it) + '"><span class="barra"></span>' +
       '<button class="corpo-riga" type="button" data-apri="' + esc(it.id) + '"><span class="titolo">' + esc(it.titolo) + '</span><span class="meta">' + esc(meta.join(' · ')) + '</span></button>' +
       '<span class="destra">' + contatti + destra + '</span></li>';
@@ -102,11 +123,15 @@
     else if (x.tipo === 'volo') {
       var v = x.volo; titolo = 'Volo ' + [v.compagnia, v.numero].filter(Boolean).join(' ') + (v.da || v.a ? ' · ' + [v.da, v.a].filter(Boolean).join(' → ') : '');
       if (v.ora) meta.push(v.ora + (v.arrivo ? ' → ' + v.arrivo : '')); if (v.pnr) meta.push('PNR ' + v.pnr); meta.push(it.titolo);
-    } else if (x.tipo === 'hotel') { titolo = 'Check-in: ' + (x.hotel.nome || 'hotel'); if (x.hotel.indirizzo) meta.push(x.hotel.indirizzo); meta.push(it.titolo); }
+    } else if (x.tipo === 'hotel') {
+      titolo = 'Check-in: ' + (x.hotel.nome || 'hotel'); if (x.hotel.indirizzo) meta.push(x.hotel.indirizzo); meta.push(it.titolo);
+      destra = Native.linkNaviga(x.hotel.lat != null && x.hotel.lon != null ? { lat: x.hotel.lat, lon: x.hotel.lon } : (x.hotel.indirizzo ? { q: (x.hotel.nome ? x.hotel.nome + ', ' : '') + x.hotel.indirizzo } : null), '🧭', 'contatto', 'Naviga all\'hotel');
+    }
     else if (x.tipo === 'concerto') {
       titolo = it.titolo; if (x.ora) meta.push(x.ora); if (it.luogo) meta.push(it.luogo); href = '';
+      if (it.luogo) destra += Native.linkNaviga({ q: it.luogo }, '🧭', 'contatto', 'Naviga a ' + it.luogo);
       var n = (it.biglietti || []).length;
-      if (n) destra = '<button type="button" class="spunta biglietto" data-apri-allegato="' + esc(it.biglietti[0].id) + '" data-nome="' + esc(it.biglietti[0].nome) + '" data-mime="' + esc(it.biglietti[0].mime || '') + '" aria-label="Apri il biglietto">🎟</button>';
+      if (n) destra += '<button type="button" class="spunta biglietto" data-apri-allegato="' + esc(it.biglietti[0].id) + '" data-nome="' + esc(it.biglietti[0].nome) + '" data-mime="' + esc(it.biglietti[0].mime || '') + '" aria-label="Apri il biglietto">🎟</button>';
       meta.push('Concerto');
     }
     var corpo = '<span class="titolo">' + esc(titolo) + '</span><span class="meta">' + esc(meta.join(' · ')) + '</span>';
@@ -497,7 +522,9 @@
         '<span class="spesa-testo">' + esc(x.titolo) + '</span><button type="button" class="togli" data-elimina-spesa="' + esc(x.id) + '" aria-label="Elimina ' + esc(x.titolo) + '">✕</button></div>';
     }).join('') + (spese.length ? '' : '<p class="vuoto">La lista è vuota.</p>') + '</div>';
     h += '<h2>Note</h2><div class="postit-griglia">' + note.map(function (n) {
-      return '<button type="button" class="postit" style="--p:' + esc(n.colore || COLORI_POSTIT[0]) + '" data-nota="' + esc(n.id) + '"><strong>' + esc(n.titolo || 'Nota') + '</strong><span>' + esc(n.testo || '') + '</span>' + (notaNuova(n) ? '<span class="pallino" aria-label="Non letta"></span>' : '') + '</button>';
+      var dn = destinazioneTesto((n.titolo || '') + '\n' + (n.testo || ''));
+      var pi = '<button type="button" class="postit" style="--p:' + esc(n.colore || COLORI_POSTIT[0]) + '" data-nota="' + esc(n.id) + '"><strong>' + esc(n.titolo || 'Nota') + '</strong><span>' + esc(n.testo || '') + '</span>' + (notaNuova(n) ? '<span class="pallino" aria-label="Non letta"></span>' : '') + '</button>';
+      return dn ? '<div class="postit-con-naviga">' + pi + tastoNaviga(dn, '🧭 Naviga', 'postit-naviga', 'Naviga dalla nota ' + (n.titolo || '')) + '</div>' : pi;
     }).join('') + '<button type="button" class="postit nuovo" data-nota-nuova>+ Nuova nota</button></div>';
     vista.innerHTML = h;
   }
@@ -512,6 +539,7 @@
       '<fieldset class="colore-campo"><legend>Colore</legend><div class="colori">' + COLORI_POSTIT.map(function (c) {
         return '<label><input type="radio" name="colore" value="' + c + '"' + (n.colore === c ? ' checked' : '') + ' class="sr"><span class="colore-pallino" style="--c:' + c + '"></span></label>';
       }).join('') + '</div></fieldset>' +
+      (function () { var dn = destinazioneTesto((n.titolo || '') + '\n' + (n.testo || '')); return dn ? '<div class="azioni">' + tastoNaviga(dn, '🧭 Naviga in auto', 'btn secondario') + '</div>' : ''; })() +
       '<div class="azioni"><button class="btn" type="submit">Salva</button><button class="btn secondario" type="button" data-chiudi>Annulla</button>' + (id ? '<button class="btn pericolo" type="button" data-elimina style="margin-left:auto">Elimina</button>' : '') + '</div></div></form>';
     var f = $('#form-nota', foglio);
     $('[data-chiudi]', f).onclick = function () { foglio.close(); };
@@ -680,7 +708,8 @@
     var h = '<h2>I miei dati</h2><form id="form-dati" class="sezione campi" style="display:grid;gap:12px">' +
       '<div class="campo"><span>Indirizzo di casa</span><div class="casa-righe"><label class="campo">Via<input type="text" name="via" value="' + esc(casa.via || '') + '"></label><label class="campo">Civico<input type="text" name="civico" value="' + esc(casa.civico || '') + '"></label></div>' +
       '<div class="casa-righe casa-righe-3"><label class="campo">Comune<input type="text" name="comune" value="' + esc(casa.comune || '') + '"></label><label class="campo">CAP<input type="text" name="cap" inputmode="numeric" maxlength="5" value="' + esc(casa.cap || '') + '"></label><label class="campo">Provincia<input type="text" name="provincia" maxlength="2" autocapitalize="characters" value="' + esc(casa.provincia || '') + '"></label></div>' +
-      '<div class="posizione-azioni"><button type="button" class="btn secondario piccolo" id="loc-casa">📍 Localizza l\'indirizzo</button></div>' +
+      '<div class="posizione-azioni"><button type="button" class="btn secondario piccolo" id="loc-casa">📍 Localizza l\'indirizzo</button>' +
+        Native.linkNaviga(casa.lat != null && casa.lon != null ? { lat: casa.lat, lon: casa.lon } : (casa.via ? { q: [[casa.via, casa.civico].filter(Boolean).join(' '), [casa.cap, casa.comune].filter(Boolean).join(' ')].filter(Boolean).join(', ') } : null), '🧭 Naviga verso casa', 'btn secondario piccolo') + '</div>' +
       '<div id="mappa-casa" class="mappa mappa-casa"></div><p id="casa-nota" class="testo-muto" style="margin:0;font-size:13px">Tocca la mappa per posizionare la casa, oppure usa «Localizza».</p></div>' +
       persona('Andrea') + persona('Cristina') +
       '<label class="campo">Altro<span class="aiuto">Quello che ti serve spesso: codici, numeri utili, note.</span><textarea name="altro" maxlength="2000">' + esc(a.altro || '') + '</textarea></label>' +
@@ -1073,7 +1102,8 @@
         '<div class="due"><label class="campo">Telefono<input type="tel" name="telefono" value="' + esc(it.telefono || '') + '"></label><label class="campo">Email<input type="email" name="email" value="' + esc(it.email || '') + '"></label></div>' +
         '<label class="campo">Indirizzo<input type="text" name="indirizzo" maxlength="160" value="' + esc(it.indirizzo || '') + '"></label>' +
         '<div class="posizione-azioni"><button type="button" class="btn secondario piccolo" data-mappa-voce>📍 ' + (it.lat != null ? 'Cambia posizione' : 'Scegli sulla mappa') + '</button>' +
-          (it.lat != null ? '<span class="testo-muto">Posizione segnata</span><button type="button" class="btn secondario piccolo" data-mappa-togli>Togli</button>' : '') + '</div>' +
+          (it.lat != null ? '<span class="testo-muto">Posizione segnata</span><button type="button" class="btn secondario piccolo" data-mappa-togli>Togli</button>' : '') +
+          Native.linkNaviga(it.lat != null && it.lon != null ? { lat: it.lat, lon: it.lon } : (it.indirizzo ? { q: it.indirizzo } : null), '🧭 Naviga', 'btn secondario piccolo') + '</div>' +
         '<div class="campo"><span>Note</span><div class="note-elenco">' + it.annotazioni.map(function (n, i) {
           return '<div class="nota-riga"><input type="text" name="ntesto" maxlength="300" value="' + esc(n.testo) + '" placeholder="Es. Portare la tessera sanitaria" aria-label="Nota ' + (i + 1) + '">' +
             '<input type="datetime-local" name="nquando" value="' + esc(n.quando) + '" aria-label="Promemoria nota ' + (i + 1) + ' (facoltativo)">' +

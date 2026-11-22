@@ -163,5 +163,33 @@ var Native = (function () {
     }
   };
 
-  return { isApp: isApp, audio: audio, permesso: permesso, aggiorna: aggiorna, creaCanale: creaCanale, aggiornaFoto: aggiornaFoto };
+  // ---------- navigazione con Google Maps, in auto ----------
+  // d = { lat, lon } oppure { q: 'indirizzo' }. Nell'app parte subito la navigazione (google.navigation, mode=d);
+  // nel browser il link "indicazioni in auto" con avvio della navigazione.
+  function urlNaviga(d) {
+    var dest = d.lat != null && d.lon != null ? (+d.lat) + ',' + (+d.lon) : encodeURIComponent(String(d.q || ''));
+    return 'https://www.google.com/maps/dir/?api=1&destination=' + dest + '&travelmode=driving&dir_action=navigate';
+  }
+  function naviga(d) {
+    if (!d || (d.lat == null && !d.q)) return;
+    if (AudioPl) AudioPl.naviga({ lat: d.lat != null ? +d.lat : null, lon: d.lon != null ? +d.lon : null, q: d.q || '' }).catch(function () { window.open(urlNaviga(d), '_blank'); });
+    else window.open(urlNaviga(d), '_blank', 'noopener');
+  }
+  function escAttr(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  // link "Naviga" da mettere in qualsiasi elenco: href per il browser, data-naviga-* per l'app
+  function linkNaviga(d, testo, classe, aria) {
+    if (!d || (d.lat == null && !d.q)) return '';
+    return '<a class="' + escAttr(classe || 'naviga') + '" href="' + escAttr(urlNaviga(d)) + '" target="_blank" rel="noopener"' +
+      (d.lat != null ? ' data-naviga-lat="' + (+d.lat) + '" data-naviga-lon="' + (+d.lon) + '"' : ' data-naviga-q="' + escAttr(d.q) + '"') +
+      ' aria-label="' + escAttr(aria || 'Naviga in auto con Google Maps') + '">' + (testo || '🧭 Naviga') + '</a>';
+  }
+  // un solo gestore per tutta l'app (fase di cattura: arriva prima degli altri)
+  document.addEventListener('click', function (e) {
+    var a = e.target && e.target.closest && e.target.closest('[data-naviga-lat], [data-naviga-q]');
+    if (!a) return;
+    e.preventDefault(); e.stopPropagation();
+    naviga(a.dataset.navigaQ ? { q: a.dataset.navigaQ } : { lat: a.dataset.navigaLat, lon: a.dataset.navigaLon });
+  }, true);
+
+  return { isApp: isApp, audio: audio, naviga: naviga, linkNaviga: linkNaviga, urlNaviga: urlNaviga, permesso: permesso, aggiorna: aggiorna, creaCanale: creaCanale, aggiornaFoto: aggiornaFoto };
 })();
