@@ -24,6 +24,7 @@ cp -r native/res/. android/app/src/main/res/
 rm -rf android/vpn && cp -r vpn-app android/vpn
 grep -q "include ':vpn'" android/settings.gradle || printf "\ninclude ':vpn'\n" >> android/settings.gradle
 for d in android/app/src/main/res/mipmap-*; do mkdir -p "android/vpn/src/main/res/$(basename "$d")"; cp "$d"/ic_launcher*.* "android/vpn/src/main/res/$(basename "$d")/" 2>/dev/null || true; done
+cp native/res/values/ic_launcher_background.xml android/vpn/src/main/res/values/
 sed -i "s/versionCode 1$/versionCode ${GITHUB_RUN_NUMBER:-1}/; s/versionName \"1.0\"/versionName \"1.0.${GITHUB_RUN_NUMBER:-1}\"/" android/vpn/build.gradle
 
 # 4. manifest: widget, permessi notifiche e sveglie esatte
