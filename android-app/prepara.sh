@@ -56,6 +56,15 @@ if 'CasaWidget' not in s:
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+        <activity android:name=".ModiPopup" android:exported="false" android:taskAffinity="" android:excludeFromRecents="true" android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" android:label="Modi" />
+        <service android:name=".VpnAutomatico" android:exported="false" android:label="@string/vpn_automatico_nome"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/vpn_automatico" />
+        </service>
         <service android:name=".FotoWidgetService" android:exported="false" android:permission="android.permission.BIND_REMOTEVIEWS" />
     </application>'''
     s = s.replace('</application>', ricevitore, 1)

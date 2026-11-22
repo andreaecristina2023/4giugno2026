@@ -2,6 +2,7 @@ package it.andreaecristina.casa;
 
 import android.Manifest;
 import android.app.NotificationManager;
+import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
@@ -116,10 +117,61 @@ public final class ComandiTelefono {
         return h == null ? "" : h;
     }
 
+    /** "VPN in un tocco": il servizio di accessibilità di A&C è attivo? */
+    static boolean vpnAutoAttivo(Context c) {
+        String s = Settings.Secure.getString(c.getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+        if (s == null) return false;
+        ComponentName cn = new ComponentName(c, VpnAutomatico.class);
+        for (String x : s.split(":")) if (x.equalsIgnoreCase(cn.flattenToString()) || x.equalsIgnoreCase(cn.flattenToShortString())) return true;
+        return false;
+    }
+
+    /**
+     * Tasto VPN: apre FortiClient e, se "VPN in un tocco" è attivo, chiede al servizio di premere Connetti o Disconnetti.
+     * ritorno: "home" (dal widget) o "app" (dall'app). Restituisce "connetti", "scollega" o "manuale".
+     */
+    /** Prima di collegare la VPN: se il DNS privato è attivo lo spengo e ricordo l'indirizzo per riaccenderlo dopo. */
+    static void spegniDnsPerVpn(Context c) {
+        if (!permessoDns(c) || !"host".equals(dnsModo(c))) return;
+        String host = dnsHost(c);
+        try {
+            impostaDns(c, "off", null);
+            prefs(c).edit().putString("dnsDaRipristinare", host).putLong("dnsSpentoAlle", System.currentTimeMillis()).putBoolean("vpnVista", false).apply();
+        } catch (Exception e) { /* niente */ }
+    }
+
+    /**
+     * Riaccende il DNS privato spento per la VPN, quando la VPN non c'è più: dopo che è stata vista collegata,
+     * oppure se dopo 3 minuti non si è mai collegata (connessione annullata). Restituisce true se l'ha riacceso.
+     */
+    static boolean ripristinaDns(Context c) {
+        SharedPreferences p = prefs(c);
+        String host = p.getString("dnsDaRipristinare", "");
+        if (host.isEmpty()) return false;
+        if (vpnAttiva(c)) { p.edit().putBoolean("vpnVista", true).apply(); return false; }
+        boolean vista = p.getBoolean("vpnVista", false);
+        if (!vista && System.currentTimeMillis() - p.getLong("dnsSpentoAlle", 0) < 180000) return false;
+        try {
+            if (permessoDns(c) && !"host".equals(dnsModo(c))) impostaDns(c, "host", host);
+        } catch (Exception e) { return false; }
+        p.edit().remove("dnsDaRipristinare").remove("dnsSpentoAlle").remove("vpnVista").apply();
+        return true;
+    }
+
+    static String avviaVpn(Context c, String ritorno) {
+        String azione = vpnAttiva(c) ? "scollega" : "connetti";
+        if ("connetti".equals(azione)) spegniDnsPerVpn(c);
+        boolean auto = vpnAutoAttivo(c) && pacchettoForti(c) != null;
+        if (auto) prefs(c).edit().putString("vpnRichiesta", azione).putLong("vpnScade", System.currentTimeMillis() + 25000).putString("vpnRitorno", ritorno).apply();
+        c.startActivity(intentFortiClient(c));
+        return auto ? azione : "manuale";
+    }
+
     static String modoAttivo(Context c) { return prefs(c).getString("modoAttivo", ""); }
     static void segnaAttivo(Context c, String id) { prefs(c).edit().putString("modoAttivo", id == null ? "" : id).apply(); }
 
     static JSONObject stato(Context c) {
+        ripristinaDns(c);
         JSONObject r = new JSONObject();
         try {
             AudioManager am = audio(c);
@@ -131,6 +183,8 @@ public final class ComandiTelefono {
             r.put("permessoSistema", permessoSistema(c));
             r.put("vpn", vpnAttiva(c));
             r.put("forticlient", pacchettoForti(c) != null);
+            r.put("vpnAuto", vpnAutoAttivo(c));
+            r.put("dnsInPausa", prefs(c).getString("dnsDaRipristinare", ""));
             r.put("dnsModo", dnsModo(c));
             r.put("dnsHost", dnsHost(c));
             r.put("permessoDns", permessoDns(c));
@@ -237,6 +291,8 @@ public final class ComandiTelefono {
         if ("sistema".equals(quale)) i = new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, Uri.parse("package:" + c.getPackageName()));
         else if ("rete".equals(quale)) i = new Intent(Settings.ACTION_WIRELESS_SETTINGS);
         else if ("vpn".equals(quale)) i = new Intent(Settings.ACTION_VPN_SETTINGS);
+        else if ("accessibilita".equals(quale)) i = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+        else if ("app".equals(quale)) i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + c.getPackageName()));
         else i = new Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS);
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         return i;

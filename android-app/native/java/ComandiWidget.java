@@ -14,7 +14,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 /**
- * Widget "A&C Comandi": fino a 6 modi audio (un tocco applica il modo), poi rotazione schermo,
+ * Widget "A&C Comandi": il modo attivo (un tocco apre l'elenco a comparsa dei modi), poi rotazione schermo,
  * sveglie (apre l'elenco dell'orologio) e, sul telefono di Andrea, VPN (apre FortiClient) e DNS privato (acceso/spento).
  * I modi arrivano dall'app in SharedPreferences "CapacitorStorage", chiave "comandi":
  * { modi: [ {id, nome, icona, suoneria, dnd, rotazione, volumi} ], andrea: true, dnsHost: "dns.example.it" }
@@ -22,10 +22,6 @@ import org.json.JSONObject;
 public class ComandiWidget extends AppWidgetProvider {
 
     static final String AZIONE = "it.andreaecristina.casa.COMANDO";
-    private static final int[] MODI = { R.id.c_m1, R.id.c_m2, R.id.c_m3, R.id.c_m4, R.id.c_m5, R.id.c_m6 };
-    private static final int[] MODI_I = { R.id.c_m1_i, R.id.c_m2_i, R.id.c_m3_i, R.id.c_m4_i, R.id.c_m5_i, R.id.c_m6_i };
-    private static final int[] MODI_T = { R.id.c_m1_t, R.id.c_m2_t, R.id.c_m3_t, R.id.c_m4_t, R.id.c_m5_t, R.id.c_m6_t };
-
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] ids) {
         for (int id : ids) disegna(context, manager, id);
@@ -46,7 +42,7 @@ public class ComandiWidget extends AppWidgetProvider {
     }
 
     /** Il modo segnato come attivo vale solo se suoneria e Non disturbare non sono stati cambiati a mano. */
-    private static String attivoVero(Context c, JSONArray modi) {
+    static String attivoVero(Context c, JSONArray modi) {
         String id = ComandiTelefono.modoAttivo(c);
         if (id.isEmpty() || modi == null) return "";
         for (int i = 0; i < modi.length(); i++) {
@@ -61,33 +57,23 @@ public class ComandiWidget extends AppWidgetProvider {
     }
 
     static void disegna(Context c, AppWidgetManager manager, int widgetId) {
+        ComandiTelefono.ripristinaDns(c);
         RemoteViews v = new RemoteViews(c.getPackageName(), R.layout.widget_comandi);
         JSONObject conf = ComandiTelefono.configurazione(c);
         JSONArray modi = conf.optJSONArray("modi");
         String attivo = attivoVero(c, modi);
 
-        int n = 0;
-        for (int i = 0; modi != null && i < modi.length() && n < MODI.length; i++) {
-            JSONObject m = modi.optJSONObject(i);
-            if (m == null) continue;
-            String id = m.optString("id");
-            v.setViewVisibility(MODI[n], View.VISIBLE);
-            v.setTextViewText(MODI_I[n], m.optString("icona", "🔔"));
-            v.setTextViewText(MODI_T[n], m.optString("nome", "Modo"));
-            v.setInt(MODI[n], "setBackgroundResource", id.equals(attivo) ? R.drawable.widget_tasto_attivo : R.drawable.widget_tasto);
-            v.setOnClickPendingIntent(MODI[n], comando(c, n, "modo", id));
-            n++;
-        }
-        if (n == 0) {
-            // l'app non ha ancora salvato i modi: il tasto apre l'app
-            Intent apri = new Intent(c, MainActivity.class);
-            apri.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-            v.setViewVisibility(MODI[0], View.VISIBLE);
-            v.setTextViewText(MODI_I[0], "🔔");
-            v.setTextViewText(MODI_T[0], "Apri A&C");
-            v.setOnClickPendingIntent(MODI[0], PendingIntent.getActivity(c, 99, apri, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
-        }
-        for (int k = Math.max(n, 1); k < MODI.length; k++) v.setViewVisibility(MODI[k], View.GONE);
+        // tasto del modo: mostra quello attivo, il tocco apre l'elenco a comparsa (ModiPopup)
+        JSONObject mAtt = null;
+        for (int i = 0; modi != null && i < modi.length(); i++) { JSONObject m = modi.optJSONObject(i); if (m != null && m.optString("id").equals(attivo)) mAtt = m; }
+        v.setTextViewText(R.id.c_modo_i, mAtt != null ? mAtt.optString("icona", "🔔") : "🔈");
+        v.setTextViewText(R.id.c_modo_t, mAtt != null ? mAtt.optString("nome", "Modo") : (modi == null || modi.length() == 0 ? "Apri A&C" : "Nessun modo"));
+        v.setTextViewText(R.id.c_modo_s, modi == null || modi.length() == 0 ? "per preparare i modi" : "Tocca per cambiare modo");
+        v.setInt(R.id.c_modo, "setBackgroundResource", mAtt != null ? R.drawable.widget_tasto_attivo : R.drawable.widget_tasto);
+        Intent pop = new Intent(c, (modi == null || modi.length() == 0) ? MainActivity.class : ModiPopup.class);
+        // ModiPopup vive in un task a parte (taskAffinity ""), quindi CLEAR_TASK non chiude l'app
+        pop.addFlags((modi == null || modi.length() == 0) ? Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP : Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        v.setOnClickPendingIntent(R.id.c_modo, PendingIntent.getActivity(c, 98, pop, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
 
         boolean auto = "auto".equals(ComandiTelefono.rotazione(c));
         v.setTextViewText(R.id.c_rot_i, auto ? "🔄" : "🔒");
@@ -101,11 +87,15 @@ public class ComandiWidget extends AppWidgetProvider {
         v.setViewVisibility(R.id.c_dns, andrea ? View.VISIBLE : View.GONE);
         if (andrea) {
             boolean vpn = ComandiTelefono.vpnAttiva(c);
-            v.setTextViewText(R.id.c_vpn_t, vpn ? "VPN attiva" : "FortiClient");
+            v.setTextViewText(R.id.c_vpn_t, vpn ? "VPN attiva" : "VPN spenta");
             v.setInt(R.id.c_vpn, "setBackgroundResource", vpn ? R.drawable.widget_tasto_attivo : R.drawable.widget_tasto);
-            v.setOnClickPendingIntent(R.id.c_vpn, PendingIntent.getActivity(c, 111, ComandiTelefono.intentFortiClient(c), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+            // il tocco passa da ModiPopup: spegne il DNS se serve, apre FortiClient e (con "VPN in un tocco") preme Connetti/Disconnetti
+            Intent vi = new Intent(c, ModiPopup.class).putExtra("vpn", true);
+            vi.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            v.setOnClickPendingIntent(R.id.c_vpn, PendingIntent.getActivity(c, 111, vi, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
             boolean dns = "host".equals(ComandiTelefono.dnsModo(c));
-            v.setTextViewText(R.id.c_dns_t, dns ? "DNS attivo" : "DNS spento");
+            boolean pausa = !ComandiTelefono.prefs(c).getString("dnsDaRipristinare", "").isEmpty();
+            v.setTextViewText(R.id.c_dns_t, dns ? "DNS attivo" : pausa ? "DNS in pausa" : "DNS spento");
             v.setInt(R.id.c_dns, "setBackgroundResource", dns ? R.drawable.widget_tasto_attivo : R.drawable.widget_tasto);
             v.setOnClickPendingIntent(R.id.c_dns, comando(c, 12, "dns", null));
         }
@@ -143,6 +133,7 @@ public class ComandiWidget extends AppWidgetProvider {
                 boolean acceso = "host".equals(ComandiTelefono.dnsModo(c));
                 String host = ComandiTelefono.configurazione(c).optString("dnsHost", "");
                 ComandiTelefono.impostaDns(c, acceso ? "auto" : "host", host);
+                ComandiTelefono.prefs(c).edit().remove("dnsDaRipristinare").apply();
                 Toast.makeText(c, acceso ? "DNS privato spento" : "DNS privato: " + host, Toast.LENGTH_SHORT).show();
             }
         } catch (ComandiTelefono.Errore e) {

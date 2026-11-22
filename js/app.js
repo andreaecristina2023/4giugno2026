@@ -1520,6 +1520,19 @@
     $('[data-rete]', foglio).onclick = function () { foglio.close(); Native.audio.apriPermesso('rete'); };
     if (!foglio.open) foglio.showModal();
   }
+  function istruzioniVpnAuto() {
+    foglio.classList.remove('visore');
+    foglio.innerHTML = '<form method="dialog"><div class="maniglia"></div><h3 id="foglio-titolo">VPN in un tocco</h3>' +
+      '<p>Il tasto VPN apre FortiClient, preme <b>Connetti</b> (o <b>Disconnetti</b>) e ti riporta dov\'eri. Prima di collegare spegne il DNS privato e lo riaccende quando la VPN si scollega.</p>' +
+      '<ol class="passi"><li>In <b>FortiClient</b>: apri il profilo VPN, spunta <b>Salva password</b> e fai una connessione a mano.</li>' +
+      '<li><b>Impostazioni → Accessibilità → App installate</b> (su Samsung: <i>Servizi installati</i>) → <b>A&amp;C · VPN in un tocco</b> → attiva.</li>' +
+      '<li>Se Android dice <i>«Impostazione con restrizioni»</i> (succede perché A&amp;C è installata da file): <b>Impostazioni → App → A&amp;C → ⋮ in alto a destra → Consenti impostazioni con restrizioni</b>, poi ripeti il passo 2.</li></ol>' +
+      '<p class="testo-muto">Il servizio legge solo le schermate di FortiClient e solo nei 25 secondi dopo il tuo tocco. La password resta in FortiClient: A&amp;C non la vede. Se FortiClient chiede un codice (FortiToken, SMS) lo inserisci tu.</p>' +
+      '<div class="azioni"><button class="btn" type="button" data-acc>Apri Accessibilità</button><button class="btn secondario" type="button" data-app-info>Info app A&amp;C</button><button class="btn secondario" type="submit">Chiudi</button></div></form>';
+    $('[data-acc]', foglio).onclick = function () { Native.audio.apriPermesso('accessibilita'); };
+    $('[data-app-info]', foglio).onclick = function () { Native.audio.apriPermesso('app'); };
+    if (!foglio.open) foglio.showModal();
+  }
   function permessoMancante(quale) {
     var dnd = quale === 'dnd';
     foglio.classList.remove('visore');
@@ -1565,7 +1578,7 @@
           '<span class="tipi due-tasti" role="group" aria-label="Modo automatico nei turni"><button type="button" data-tauto="1" style="--c:var(--sangiovese)" aria-pressed="' + ta.attivo + '">Sì</button><button type="button" data-tauto="0" style="--c:var(--sangiovese)" aria-pressed="' + !ta.attivo + '">No</button></span>' +
           '<div class="due"><label class="campo">Durante il turno<select name="ta-in">' + opz(ta.inTurno, '') + '</select></label><label class="campo">A fine turno<select name="ta-dopo">' + opz(ta.dopo, '<option value="">Il modo di prima</option>') + '</select></label></div></div>';
       })() : '') +
-      (isAndrea() ? '<div class="rotazione-rapida"><span><b>VPN FortiClient</b><span class="testo-muto" id="vpn-stato">…</span></span><button type="button" class="btn piccolo" data-forti>Apri FortiClient</button></div>' +
+      (isAndrea() ? '<div class="rotazione-rapida"><span><b>VPN FortiClient</b><span class="testo-muto" id="vpn-stato">…</span></span><button type="button" class="btn piccolo" data-forti>VPN</button></div><div class="vpn-auto" id="vpn-auto"></div>' +
         '<div class="rotazione-rapida dns"><span><b>DNS privato</b><span class="testo-muto" id="dns-stato">…</span></span>' +
         '<span class="tipi due-tasti" role="group" aria-label="DNS privato"><button type="button" data-dns="host" style="--c:var(--ardesia)">Attivo</button><button type="button" data-dns="auto" style="--c:var(--ardesia)">Spento</button></span>' +
         '<label class="campo dns-host">Indirizzo del DNS<input type="text" name="dnshost" inputmode="url" autocapitalize="off" spellcheck="false" maxlength="120" value="' + esc(dnsHost()) + '" placeholder="es. dns.adguard-dns.com"></label></div>' : '') +
@@ -1574,7 +1587,12 @@
     function segnaRete(st) {
       var v = $('#vpn-stato', f), d = $('#dns-stato', f);
       if (v) v.textContent = st.vpn ? 'Collegata' : (st.forticlient === false ? 'FortiClient non installato' : 'Non collegata');
-      if (d) d.textContent = st.dnsModo === 'host' ? (st.dnsHost || 'attivo') : st.dnsModo === 'off' ? 'Disattivato' : 'Automatico (quello della rete)';
+      var bf2 = $('[data-forti]', f); if (bf2) bf2.textContent = st.vpn ? 'Scollega' : (st.vpnAuto ? 'Collega' : 'Apri FortiClient');
+      var va = $('#vpn-auto', f);
+      if (va) va.innerHTML = st.vpnAuto ? '<span class="testo-muto">✓ VPN in un tocco attiva' + (st.dnsHost || st.dnsInPausa ? ' · il DNS privato si spegne durante la VPN' : '') + '</span>'
+        : '<button type="button" class="btn secondario piccolo" data-vpn-auto>Attiva «VPN in un tocco»</button>';
+      var bva = $('[data-vpn-auto]', f); if (bva) bva.onclick = istruzioniVpnAuto;
+      if (d) d.textContent = st.dnsInPausa ? 'In pausa per la VPN: torna ' + st.dnsInPausa + ' a VPN spenta' : st.dnsModo === 'host' ? (st.dnsHost || 'attivo') : st.dnsModo === 'off' ? 'Disattivato' : 'Automatico (quello della rete)';
       f.querySelectorAll('[data-dns]').forEach(function (b) { b.setAttribute('aria-pressed', String(st.dnsModo === 'host' ? b.dataset.dns === 'host' : b.dataset.dns === 'auto')); });
     }
     function segnaRot(r) {
@@ -1604,7 +1622,9 @@
     if (taIn) taIn.onchange = function () { salvaTurnoAuto({ inTurno: taIn.value }); };
     if (taDopo) taDopo.onchange = function () { salvaTurnoAuto({ dopo: taDopo.value }); };
     var bf = $('[data-forti]', f);
-    if (bf) bf.onclick = function () { Native.audio.apriFortiClient().catch(function () { toast('FortiClient non trovato'); }); };
+    if (bf) bf.onclick = function () {
+      Native.audio.apriFortiClient().then(function (r) { if (r && r.azione === 'manuale') toast('Tocca Connetti in FortiClient'); }).catch(function () { toast('FortiClient non trovato'); });
+    };
     var campoDns = $('[name=dnshost]', f);
     if (campoDns) campoDns.onchange = function () { scriviLocale('aec.dnsHost', campoDns.value.trim()); datiWidgetComandi(); };
     f.querySelectorAll('[data-dns]').forEach(function (b) {

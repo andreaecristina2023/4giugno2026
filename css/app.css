@@ -497,3 +497,5 @@ dialog.camera-guida::backdrop { background: #000; }
 #form-sveglie .spunta-vol { display: flex; gap: 8px; align-items: center; font-weight: 700; font-size: 15px; }
 #form-sveglie .spunta-vol input { width: 22px; height: 22px; accent-color: var(--sangiovese); }
 .rotazione-rapida.turno-auto .due { grid-column: 1 / -1; }
+.vpn-auto { margin: 6px 0 0; grid-column: 1 / -1; }
+.vpn-auto:empty { display: none; }

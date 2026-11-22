@@ -60,6 +60,7 @@ public class AudioModiPlugin extends Plugin {
     public void dns(PluginCall call) {
         try {
             ComandiTelefono.impostaDns(getContext(), call.getString("modo"), call.getString("host"));
+            ComandiTelefono.prefs(getContext()).edit().remove("dnsDaRipristinare").apply(); // scelta a mano: vince lei
             rispondi(call, ComandiTelefono.stato(getContext()));
         } catch (ComandiTelefono.Errore e) {
             call.reject(e.getMessage(), e.codice);
@@ -68,10 +69,14 @@ public class AudioModiPlugin extends Plugin {
         }
     }
 
+    /** Tasto VPN dell'app: collega o scollega (con "VPN in un tocco" attivo), altrimenti apre FortiClient. */
     @PluginMethod
     public void apriFortiClient(PluginCall call) {
-        try { getContext().startActivity(ComandiTelefono.intentFortiClient(getContext())); call.resolve(); }
-        catch (Exception e) { call.reject("FortiClient non trovato"); }
+        try {
+            JSObject r = new JSObject();
+            r.put("azione", ComandiTelefono.avviaVpn(getContext(), "app"));
+            call.resolve(r);
+        } catch (Exception e) { call.reject("FortiClient non trovato"); }
     }
 
     /** { quale: "dnd" | "sistema" | "rete" | "vpn" } */

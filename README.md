@@ -76,12 +76,13 @@ Permessi che Android chiede la prima volta (l'app apre da sola la pagina giusta)
 
 **Solo sul telefono di Andrea** (Impostazioni → Chi sta usando questo telefono = Andrea):
 - **🚒 Modo automatico nei turni**: con il turnario VVF attivo (Calendario → Turni VVF), a inizio turno il telefono passa da solo al modo scelto (predefinito Lavoro) e a fine turno torna al modo di prima (o a quello scelto). Vale per diurni, notti, straordinari, corsi, addestramenti, presidi e AIB con il loro orario; turni attaccati contano come uno solo. Funziona ad app chiusa e dopo il riavvio; i turni vengono riletti ogni volta che apri l'app (copre le 3 settimane successive). Se durante il turno cambi modo a mano, a fine turno non lo tocca.
-- **VPN FortiClient**: mostra se la VPN è collegata e apre FortiClient. FortiClient non permette ad altre app di collegare la VPN da sole, quindi lì si tocca "Connetti" (con la password salvata in FortiClient basta un tocco).
+- **VPN FortiClient**: il tasto mostra se la VPN è collegata. Con **"VPN in un tocco"** attivo, un tocco apre FortiClient, preme Connetti (o Disconnetti) e torna alla schermata di prima. Per attivarlo: in FortiClient spunta "Salva password" e collegati una volta a mano; poi Impostazioni → Accessibilità → App installate (Samsung: Servizi installati) → **A&C · VPN in un tocco** → attiva. Se Android dice "Impostazione con restrizioni": Impostazioni → App → A&C → ⋮ → Consenti impostazioni con restrizioni, poi riprova. Il servizio riceve solo le schermate di FortiClient e agisce solo nei 25 secondi dopo il tuo tocco; la password resta in FortiClient. Se FortiClient chiede un codice (FortiToken/SMS) lo inserisci tu. Senza il servizio il tasto apre solo FortiClient.
+- **DNS privato durante la VPN**: se il DNS privato è attivo, al tocco su VPN viene spento un attimo prima di collegare e riacceso con lo stesso indirizzo quando la VPN si scollega (anche se la scolleghi a mano in FortiClient). Se la connessione non parte, torna da solo dopo 3 minuti.
 - **DNS privato**: Attivo (con l'indirizzo scritto, es. `dns.adguard-dns.com`) / Spento (torna ad automatico). Android lo lascia cambiare solo alle app autorizzate dal computer, una volta sola: attiva Debug USB, collega il cavo e lancia
   `adb shell pm grant it.andreaecristina.casa android.permission.WRITE_SECURE_SETTINGS`
   (il permesso resta anche dopo gli aggiornamenti dell'app, si perde solo disinstallandola).
 
-**Widget "A&C Comandi"** (tieni premuto sulla home → Widget → A&C): sopra i primi 6 modi (quello attivo è colorato, un tocco lo applica), sotto Rotazione (un tocco la cambia), ⏰ Sveglie (apre l'Orologio) e, per Andrea, VPN (apre FortiClient) e DNS (un tocco lo accende o spegne).
+**Widget "A&C Comandi"** (tieni premuto sulla home → Widget → A&C): sopra il modo attivo con ▾ — un tocco apre sopra la home l'**elenco a comparsa** di tutti i modi, si sceglie e si chiude; sotto Rotazione (un tocco la cambia), ⏰ Sveglie (apre l'Orologio) e, per Andrea, VPN (collega/scollega) e DNS (acceso / spento / in pausa per la VPN).
 
 ## Voci
 
