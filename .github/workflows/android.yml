@@ -63,12 +63,18 @@ jobs:
           "$BT/zipalign" -f -p 4 "$UNSIGNED" allineato.apk
           "$BT/apksigner" sign --ks casa.jks --ks-pass "pass:$KS_PASS" --out Casa.apk allineato.apk
           "$BT/apksigner" verify Casa.apk
+          # A&C VPN: firmata con la stessa chiave, così le due app si riconoscono
+          "$BT/zipalign" -f -p 4 android-app/android/vpn/build/outputs/apk/release/vpn-release-unsigned.apk allineato-vpn.apk
+          "$BT/apksigner" sign --ks casa.jks --ks-pass "pass:$KS_PASS" --out A-C-VPN.apk allineato-vpn.apk
+          "$BT/apksigner" verify A-C-VPN.apk
           rm -f casa.jks
 
       - uses: actions/upload-artifact@v4
         with:
           name: Casa-apk
-          path: Casa.apk
+          path: |
+            Casa.apk
+            A-C-VPN.apk
 
       - name: Pubblica nella release "app"
         env:
@@ -77,4 +83,4 @@ jobs:
           NOTE="App Android di Casa, build ${{ github.run_number }} ($(date -u +%Y-%m-%d)). Firma: ${FIRMA}. Scarica Casa.apk dal telefono e aprilo per installare."
           gh release view app >/dev/null 2>&1 || gh release create app --title "App Android" --notes "$NOTE" --latest
           gh release edit app --notes "$NOTE" --latest
-          gh release upload app Casa.apk --clobber
+          gh release upload app Casa.apk A-C-VPN.apk --clobber

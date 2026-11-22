@@ -4,7 +4,4 @@
     <string name="widget_rifiuti_descrizione">Solo i bidoni da portare fuori, sfondo trasparente</string>
     <string name="widget_foto_descrizione">Foto a caso dal vostro album, cambiano da sole</string>
     <string name="widget_comandi_descrizione">Modo audio con elenco a comparsa, rotazione, sveglie, VPN e DNS</string>
-    <string name="vpn_automatico_nome">A&amp;C · VPN in un tocco</string>
-    <string name="vpn_automatico_riassunto">Preme Connetti/Disconnetti in FortiClient quando tocchi VPN in A&amp;C</string>
-    <string name="vpn_automatico_descrizione">Quando tocchi il tasto VPN di A&amp;C (nell\'app o nel widget), A&amp;C apre FortiClient e preme Connetti o Disconnetti al posto tuo, poi torna alla schermata di prima. Legge solo le schermate di FortiClient e solo nei 25 secondi dopo il tuo tocco. Le credenziali restano salvate in FortiClient: A&amp;C non le legge né le salva. Riattiva anche il DNS privato quando la VPN si scollega.</string>
 </resources>

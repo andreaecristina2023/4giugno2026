@@ -20,6 +20,12 @@ npx cap sync android
 cp native/java/*.java "$PKG_DIR/"
 cp -r native/res/. android/app/src/main/res/
 
+# 3b. app separata "A&C VPN" (Accessibilità): modulo :vpn nello stesso progetto, stessa firma di A&C
+rm -rf android/vpn && cp -r vpn-app android/vpn
+grep -q "include ':vpn'" android/settings.gradle || echo "include ':vpn'" >> android/settings.gradle
+for d in android/app/src/main/res/mipmap-*; do mkdir -p "android/vpn/src/main/res/$(basename "$d")"; cp "$d"/ic_launcher*.* "android/vpn/src/main/res/$(basename "$d")/" 2>/dev/null || true; done
+sed -i "s/versionCode 1$/versionCode ${GITHUB_RUN_NUMBER:-1}/; s/versionName \"1.0\"/versionName \"1.0.${GITHUB_RUN_NUMBER:-1}\"/" android/vpn/build.gradle
+
 # 4. manifest: widget, permessi notifiche e sveglie esatte
 python3 - <<'PY'
 p = 'android/app/src/main/AndroidManifest.xml'
@@ -58,13 +64,7 @@ if 'CasaWidget' not in s:
         </receiver>
         <activity android:name=".ModiPopup" android:exported="false" android:taskAffinity="" android:excludeFromRecents="true" android:noHistory="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" android:label="Modi" />
-        <service android:name=".VpnAutomatico" android:exported="false" android:label="@string/vpn_automatico_nome"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data android:name="android.accessibilityservice" android:resource="@xml/vpn_automatico" />
-        </service>
+        <receiver android:name=".VpnEvento" android:exported="true" android:permission="it.andreaecristina.casa.permission.VPN" />
         <service android:name=".FotoWidgetService" android:exported="false" android:permission="android.permission.BIND_REMOTEVIEWS" />
     </application>'''
     s = s.replace('</application>', ricevitore, 1)
@@ -85,7 +85,10 @@ permessi = [
     # sveglie nell'app Orologio
     '<uses-permission android:name="com.android.alarm.permission.SET_ALARM" />',
     # FortiClient: per poterlo trovare e aprire (Android 11+ nasconde le altre app)
-    '<queries><package android:name="com.fortinet.forticlient_vpn" /><package android:name="com.fortinet.forticlient" /><package android:name="com.fortinet.forticlient_fa" /></queries>',
+    '<queries><package android:name="com.fortinet.forticlient_vpn" /><package android:name="com.fortinet.forticlient" /><package android:name="com.fortinet.forticlient_fa" /><package android:name="it.andreaecristina.casa.vpn" /></queries>',
+    # A&C e A&C VPN si parlano solo tra loro (stessa firma)
+    '<permission android:name="it.andreaecristina.casa.permission.VPN" android:protectionLevel="signature" />',
+    '<uses-permission android:name="it.andreaecristina.casa.permission.VPN" />',
 ]
 if 'xmlns:tools=' not in s:
     s = s.replace('<manifest ', '<manifest xmlns:tools="http://schemas.android.com/tools" ', 1)

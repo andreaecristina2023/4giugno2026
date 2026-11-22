@@ -1520,17 +1520,26 @@
     $('[data-rete]', foglio).onclick = function () { foglio.close(); Native.audio.apriPermesso('rete'); };
     if (!foglio.open) foglio.showModal();
   }
-  function istruzioniVpnAuto() {
+  // "VPN in un tocco" sta nell'app separata A&C VPN: usa l'Accessibilità, che Play Protect blocca nelle app
+  // installate dal browser; per questo si installa una volta dal computer con adb.
+  function istruzioniVpnAuto(installata) {
+    var cmd = 'adb install -r A-C-VPN.apk';
     foglio.classList.remove('visore');
     foglio.innerHTML = '<form method="dialog"><div class="maniglia"></div><h3 id="foglio-titolo">VPN in un tocco</h3>' +
       '<p>Il tasto VPN apre FortiClient, preme <b>Connetti</b> (o <b>Disconnetti</b>) e ti riporta dov\'eri. Prima di collegare spegne il DNS privato e lo riaccende quando la VPN si scollega.</p>' +
-      '<ol class="passi"><li>In <b>FortiClient</b>: apri il profilo VPN, spunta <b>Salva password</b> e fai una connessione a mano.</li>' +
-      '<li><b>Impostazioni → Accessibilità → App installate</b> (su Samsung: <i>Servizi installati</i>) → <b>A&amp;C · VPN in un tocco</b> → attiva.</li>' +
-      '<li>Se Android dice <i>«Impostazione con restrizioni»</i> (succede perché A&amp;C è installata da file): <b>Impostazioni → App → A&amp;C → ⋮ in alto a destra → Consenti impostazioni con restrizioni</b>, poi ripeti il passo 2.</li></ol>' +
-      '<p class="testo-muto">Il servizio legge solo le schermate di FortiClient e solo nei 25 secondi dopo il tuo tocco. La password resta in FortiClient: A&amp;C non la vede. Se FortiClient chiede un codice (FortiToken, SMS) lo inserisci tu.</p>' +
-      '<div class="azioni"><button class="btn" type="button" data-acc>Apri Accessibilità</button><button class="btn secondario" type="button" data-app-info>Info app A&amp;C</button><button class="btn secondario" type="submit">Chiudi</button></div></form>';
-    $('[data-acc]', foglio).onclick = function () { Native.audio.apriPermesso('accessibilita'); };
-    $('[data-app-info]', foglio).onclick = function () { Native.audio.apriPermesso('app'); };
+      '<p class="testo-muto">Lo fa una piccola app a parte, <b>A&amp;C VPN</b>: usa l\'Accessibilità, e Google Play Protect blocca le app con Accessibilità installate dal browser. Dal computer invece si installa senza problemi, una volta sola.</p>' +
+      '<ol class="passi">' +
+      (installata ? '<li>✓ A&amp;C VPN è installata.</li>' :
+        '<li>Sul computer scarica <b>A-C-VPN.apk</b> dalla pagina della release (stessa pagina di Casa.apk) e mettilo nella cartella <code>platform-tools</code>.</li>' +
+        '<li>Collega il telefono col cavo e nella finestra dei comandi scrivi:<br><code>' + cmd + '</code><br>Deve rispondere <i>Success</i>.</li>') +
+      '<li>In <b>FortiClient</b>: apri il profilo VPN, spunta <b>Salva password</b> e collegati una volta a mano.</li>' +
+      '<li><b>Impostazioni → Accessibilità → Servizi installati</b> → <b>A&amp;C · VPN in un tocco</b> → attiva.</li></ol>' +
+      '<p class="testo-muto">Il servizio legge solo le schermate di FortiClient e solo nei 25 secondi dopo il tuo tocco. La password resta in FortiClient. Se FortiClient chiede un codice (FortiToken, SMS) lo inserisci tu. A&amp;C VPN parla solo con A&amp;C: le due app sono firmate con la stessa chiave.</p>' +
+      '<div class="azioni">' + (installata ? '<button class="btn" type="button" data-acc>Apri Accessibilità</button>' : '<button class="btn" type="button" data-copia>Copia il comando</button><a class="btn secondario" href="' + REPO + '/releases/latest" target="_blank" rel="noopener">Pagina della release</a>') +
+      '<button class="btn secondario" type="submit">Chiudi</button></div></form>';
+    var acc = $('[data-acc]', foglio); if (acc) acc.onclick = function () { Native.audio.apriPermesso('accessibilita'); };
+    var cp = $('[data-copia]', foglio);
+    if (cp) cp.onclick = function () { (navigator.clipboard ? navigator.clipboard.writeText(cmd) : Promise.reject()).then(function () { toast('Comando copiato'); }).catch(function () { window.prompt('Copia il comando:', cmd); }); };
     if (!foglio.open) foglio.showModal();
   }
   function permessoMancante(quale) {
@@ -1590,8 +1599,8 @@
       var bf2 = $('[data-forti]', f); if (bf2) bf2.textContent = st.vpn ? 'Scollega' : (st.vpnAuto ? 'Collega' : 'Apri FortiClient');
       var va = $('#vpn-auto', f);
       if (va) va.innerHTML = st.vpnAuto ? '<span class="testo-muto">✓ VPN in un tocco attiva' + (st.dnsHost || st.dnsInPausa ? ' · il DNS privato si spegne durante la VPN' : '') + '</span>'
-        : '<button type="button" class="btn secondario piccolo" data-vpn-auto>Attiva «VPN in un tocco»</button>';
-      var bva = $('[data-vpn-auto]', f); if (bva) bva.onclick = istruzioniVpnAuto;
+        : '<button type="button" class="btn secondario piccolo" data-vpn-auto>' + (st.vpnApp ? 'Attiva «VPN in un tocco»' : 'Installa «A&amp;C VPN» per la VPN in un tocco') + '</button>';
+      var bva = $('[data-vpn-auto]', f); if (bva) bva.onclick = function () { istruzioniVpnAuto(!!st.vpnApp); };
       if (d) d.textContent = st.dnsInPausa ? 'In pausa per la VPN: torna ' + st.dnsInPausa + ' a VPN spenta' : st.dnsModo === 'host' ? (st.dnsHost || 'attivo') : st.dnsModo === 'off' ? 'Disattivato' : 'Automatico (quello della rete)';
       f.querySelectorAll('[data-dns]').forEach(function (b) { b.setAttribute('aria-pressed', String(st.dnsModo === 'host' ? b.dataset.dns === 'host' : b.dataset.dns === 'auto')); });
     }

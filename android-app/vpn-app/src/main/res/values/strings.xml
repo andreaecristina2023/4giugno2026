@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vpn_nome">A&amp;C · VPN in un tocco</string>
+    <string name="vpn_riassunto">Preme Connetti/Disconnetti in FortiClient quando tocchi VPN in A&amp;C</string>
+    <string name="vpn_descrizione">Quando tocchi il tasto VPN di A&amp;C (nell\'app o nel widget), A&amp;C apre FortiClient e questo servizio preme Connetti o Disconnetti al posto tuo, poi torna alla schermata di prima. Legge solo le schermate di FortiClient e solo nei 25 secondi dopo il tuo tocco. Le credenziali restano salvate in FortiClient: non vengono lette né salvate.</string>
+</resources>

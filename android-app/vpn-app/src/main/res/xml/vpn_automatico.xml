@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- "VPN in un tocco": riceve eventi SOLO da FortiClient e agisce solo dopo un tocco sul tasto VPN di A&C -->
+<!-- Riceve eventi SOLO da FortiClient e agisce solo dopo un tocco sul tasto VPN di A&C -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
@@ -7,5 +7,5 @@
     android:canRetrieveWindowContent="true"
     android:notificationTimeout="250"
     android:packageNames="com.fortinet.forticlient_vpn,com.fortinet.forticlient,com.fortinet.forticlient_fa"
-    android:description="@string/vpn_automatico_descrizione"
-    android:summary="@string/vpn_automatico_riassunto" />
+    android:description="@string/vpn_descrizione"
+    android:summary="@string/vpn_riassunto" />

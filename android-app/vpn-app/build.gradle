@@ -1,0 +1,21 @@
+// App "A&C VPN": modulo aggiunto da prepara.sh al progetto Android generato da Capacitor
+apply plugin: 'com.android.application'
+
+android {
+    namespace "it.andreaecristina.casa.vpn"
+    compileSdk rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "it.andreaecristina.casa.vpn"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0"
+    }
+    buildTypes {
+        release { minifyEnabled false }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

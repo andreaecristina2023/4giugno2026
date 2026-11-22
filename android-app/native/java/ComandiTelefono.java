@@ -117,19 +117,20 @@ public final class ComandiTelefono {
         return h == null ? "" : h;
     }
 
-    /** "VPN in un tocco": il servizio di accessibilità di A&C è attivo? */
-    static boolean vpnAutoAttivo(Context c) {
-        String s = Settings.Secure.getString(c.getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
-        if (s == null) return false;
-        ComponentName cn = new ComponentName(c, VpnAutomatico.class);
-        for (String x : s.split(":")) if (x.equalsIgnoreCase(cn.flattenToString()) || x.equalsIgnoreCase(cn.flattenToShortString())) return true;
-        return false;
+    /** App separata "A&C VPN" (servizio di accessibilità che preme Connetti in FortiClient). */
+    static final String PKG_VPN = "it.andreaecristina.casa.vpn";
+    static final String PERMESSO_VPN = "it.andreaecristina.casa.permission.VPN";
+
+    static boolean vpnAppInstallata(Context c) {
+        try { c.getPackageManager().getPackageInfo(PKG_VPN, 0); return true; } catch (Exception e) { return false; }
     }
 
-    /**
-     * Tasto VPN: apre FortiClient e, se "VPN in un tocco" è attivo, chiede al servizio di premere Connetti o Disconnetti.
-     * ritorno: "home" (dal widget) o "app" (dall'app). Restituisce "connetti", "scollega" o "manuale".
-     */
+    /** "VPN in un tocco": il servizio di accessibilità di A&C VPN è attivo? */
+    static boolean vpnAutoAttivo(Context c) {
+        String s = Settings.Secure.getString(c.getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+        return s != null && s.toLowerCase(java.util.Locale.ROOT).contains(PKG_VPN + "/");
+    }
+
     /** Prima di collegare la VPN: se il DNS privato è attivo lo spengo e ricordo l'indirizzo per riaccenderlo dopo. */
     static void spegniDnsPerVpn(Context c) {
         if (!permessoDns(c) || !"host".equals(dnsModo(c))) return;
@@ -162,7 +163,14 @@ public final class ComandiTelefono {
         String azione = vpnAttiva(c) ? "scollega" : "connetti";
         if ("connetti".equals(azione)) spegniDnsPerVpn(c);
         boolean auto = vpnAutoAttivo(c) && pacchettoForti(c) != null;
-        if (auto) prefs(c).edit().putString("vpnRichiesta", azione).putLong("vpnScade", System.currentTimeMillis() + 25000).putString("vpnRitorno", ritorno).apply();
+        if (auto) {
+            // la richiesta va ad A&C VPN, che preme il pulsante appena FortiClient è aperto
+            Intent r = new Intent(PKG_VPN + ".RICHIESTA");
+            r.setComponent(new ComponentName(PKG_VPN, PKG_VPN + ".Richiesta"));
+            r.putExtra("azione", azione).putExtra("ritorno", ritorno);
+            r.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
+            c.sendBroadcast(r, PERMESSO_VPN);
+        }
         c.startActivity(intentFortiClient(c));
         return auto ? azione : "manuale";
     }
@@ -184,6 +192,7 @@ public final class ComandiTelefono {
             r.put("vpn", vpnAttiva(c));
             r.put("forticlient", pacchettoForti(c) != null);
             r.put("vpnAuto", vpnAutoAttivo(c));
+            r.put("vpnApp", vpnAppInstallata(c));
             r.put("dnsInPausa", prefs(c).getString("dnsDaRipristinare", ""));
             r.put("dnsModo", dnsModo(c));
             r.put("dnsHost", dnsHost(c));

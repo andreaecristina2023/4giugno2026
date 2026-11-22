@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A&C VPN: app separata da A&C perché usa l'Accessibilità (Play Protect blocca le app con Accessibilità
+     installate dal browser). Si installa una volta con adb. Parla solo con A&C (permesso di firma). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <permission android:name="it.andreaecristina.casa.permission.VPN" android:protectionLevel="signature" />
+    <uses-permission android:name="it.andreaecristina.casa.permission.VPN" />
+    <queries>
+        <package android:name="it.andreaecristina.casa" />
+        <package android:name="com.fortinet.forticlient_vpn" />
+        <package android:name="com.fortinet.forticlient" />
+        <package android:name="com.fortinet.forticlient_fa" />
+    </queries>
+    <application android:label="A&amp;C VPN" android:icon="@mipmap/ic_launcher" android:allowBackup="false">
+        <activity android:name=".Avvio" android:exported="true" android:theme="@android:style/Theme.DeviceDefault.Light.Dialog">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <receiver android:name=".Richiesta" android:exported="true" android:permission="it.andreaecristina.casa.permission.VPN" />
+        <service android:name=".VpnAutomatico" android:exported="false" android:label="@string/vpn_nome"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/vpn_automatico" />
+        </service>
+    </application>
+</manifest>
