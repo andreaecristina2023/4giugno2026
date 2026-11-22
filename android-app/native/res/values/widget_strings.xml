@@ -3,4 +3,5 @@
     <string name="widget_descrizione">Bidoni di stasera, pagamenti e appuntamenti</string>
     <string name="widget_rifiuti_descrizione">Solo i bidoni da portare fuori, sfondo trasparente</string>
     <string name="widget_foto_descrizione">Foto a caso dal vostro album, cambiano da sole</string>
+    <string name="widget_comandi_descrizione">Modi audio (Moto, Lavoro, Notte…), rotazione schermo, VPN e DNS</string>
 </resources>

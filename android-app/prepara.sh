@@ -44,6 +44,12 @@ if 'CasaWidget' not in s:
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_foto_info" />
         </receiver>
+        <receiver android:name=".ComandiWidget" android:exported="false" android:label="A&amp;C Comandi">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_comandi_info" />
+        </receiver>
         <service android:name=".FotoWidgetService" android:exported="false" android:permission="android.permission.BIND_REMOTEVIEWS" />
     </application>'''
     s = s.replace('</application>', ricevitore, 1)
@@ -55,7 +61,17 @@ permessi = [
     '<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />',
     '<uses-feature android:name="android.hardware.camera" android:required="false" />',
     '<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />',
+    # modi audio: Non disturbare, volumi, rotazione schermo
+    '<uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />',
+    '<uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />',
+    '<uses-permission android:name="android.permission.WRITE_SETTINGS" tools:ignore="ProtectedPermissions" />',
+    # DNS privato: si concede solo dal computer con adb (vedi README)
+    '<uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:ignore="ProtectedPermissions" />',
+    # FortiClient: per poterlo trovare e aprire (Android 11+ nasconde le altre app)
+    '<queries><package android:name="com.fortinet.forticlient_vpn" /><package android:name="com.fortinet.forticlient" /><package android:name="com.fortinet.forticlient_fa" /></queries>',
 ]
+if 'xmlns:tools=' not in s:
+    s = s.replace('<manifest ', '<manifest xmlns:tools="http://schemas.android.com/tools" ', 1)
 for x in permessi:
     if x not in s:
         s = s.replace('</manifest>', '    ' + x + '\n</manifest>', 1)

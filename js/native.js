@@ -4,11 +4,12 @@ var Native = (function () {
   'use strict';
   var cap = window.Capacitor;
   var isApp = !!(cap && cap.isNativePlatform && cap.isNativePlatform());
-  var LN = null, Prefs = null, Widget = null;
+  var LN = null, Prefs = null, Widget = null, AudioPl = null;
   if (isApp) {
     LN = cap.registerPlugin('LocalNotifications');
     Prefs = cap.registerPlugin('Preferences');
     Widget = cap.registerPlugin('CasaWidget');
+    AudioPl = cap.registerPlugin('AudioModi');
   }
   var ultimaFirma = '';
   var esatte = true; // sveglie esatte consentite? (Android 12+ può negarle)
@@ -139,5 +140,22 @@ var Native = (function () {
     return Promise.all([programma(items, cfgRifiuti), aggiornaWidget(items, cfgRifiuti)]).then(function (r) { avvisoBrowser(items, cfgRifiuti); return r[0]; });
   }
 
-  return { isApp: isApp, permesso: permesso, aggiorna: aggiorna, creaCanale: creaCanale, aggiornaFoto: aggiornaFoto };
+  // Modi audio, rotazione schermo, VPN FortiClient e DNS privato (solo app)
+  var soloApp = function () { return Promise.reject({ code: 'SOLO_APP', message: 'Disponibile solo nell\'app Android' }); };
+  var audio = {
+    stato: function () { return AudioPl ? AudioPl.stato() : soloApp(); },
+    applica: function (m) { return AudioPl ? AudioPl.applica(m) : soloApp(); },
+    rotazione: function (r) { return AudioPl ? AudioPl.rotazione({ rotazione: r }) : soloApp(); },
+    apriPermesso: function (quale) { return AudioPl ? AudioPl.apriPermesso({ quale: quale }) : soloApp(); },
+    segna: function (id) { return AudioPl ? AudioPl.segna({ id: id || '' }) : soloApp(); },
+    dns: function (modo, host) { return AudioPl ? AudioPl.dns({ modo: modo, host: host || '' }) : soloApp(); },
+    apriFortiClient: function () { return AudioPl ? AudioPl.apriFortiClient() : soloApp(); },
+    // dati per il widget "A&C Comandi": { modi, andrea, dnsHost }
+    salvaWidget: function (dati) {
+      if (!AudioPl) return Promise.resolve();
+      return Prefs.set({ key: 'comandi', value: JSON.stringify(dati) }).then(function () { return AudioPl.aggiornaWidget(); }).catch(function () {});
+    }
+  };
+
+  return { isApp: isApp, audio: audio, permesso: permesso, aggiorna: aggiorna, creaCanale: creaCanale, aggiornaFoto: aggiornaFoto };
 })();

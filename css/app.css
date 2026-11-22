@@ -459,3 +459,34 @@ dialog.camera-guida::backdrop { background: #000; }
 .codice-grande-cornice { box-sizing: border-box; width: min(92vw, 560px); padding: 14px; border-radius: 18px; }
 .codice-grande .carta-qr-bianco { display: block; box-sizing: border-box; width: 100%; padding: 14px; }
 .codice-grande svg { display: block; width: 100%; height: auto; }
+
+/* ---------- modi audio ---------- */
+.modo-audio { border: 0; background: none; cursor: pointer; font-size: 21px; line-height: 1; padding: 0; width: 34px; }
+.testata > div:first-child { min-width: 0; }
+.testata-destra { flex: none; gap: 6px; }
+@media (max-width: 440px) { .testata .sotto { font-size: 14px; } }
+.modi-elenco { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 8px; }
+.modi-elenco li { display: grid; grid-template-columns: minmax(0, 1fr) 48px; gap: 8px; align-items: stretch; }
+.modi-elenco .btn.icona { width: 48px; height: auto; font-size: 18px; }
+.modo { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 12px; align-items: center; text-align: left; padding: 12px 14px; min-height: 64px; border-radius: 14px; border: 2px solid var(--confine); background: var(--superficie); color: inherit; cursor: pointer; }
+.modo .modo-icona { font-size: 28px; text-align: center; }
+.modo .titolo { display: block; font-family: var(--titolo); font-weight: 700; font-size: 18px; }
+.modo .meta { display: block; font-size: 14px; color: var(--muschio); }
+.modo.attivo { border-color: var(--sangiovese); background: var(--sangiovese-chiaro); }
+.rotazione-rapida { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 14px; background: var(--superficie); border: 1px solid var(--confine); }
+.rotazione-rapida > span:first-child { display: grid; }
+.tipi.due-tasti { grid-template-columns: repeat(2, auto); }
+.tipi.tre-tasti, .foglio .tipi.tre-tasti { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 6px; }
+.campo-modo { display: grid; gap: 6px; font-size: 15px; }
+.campo-modo .aiuto { color: var(--muschio); font-size: 14px; }
+.volumi { display: grid; gap: 10px; margin-top: 4px; }
+.volume { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) 44px; gap: 10px; align-items: center; }
+.volume .spunta-vol { display: flex; gap: 8px; align-items: center; font-weight: 700; font-size: 15px; }
+.volume input[type=checkbox] { width: 22px; height: 22px; accent-color: var(--sangiovese); flex: none; }
+.volume input[type=range] { width: 100%; accent-color: var(--sangiovese); }
+.volume input[type=range]:disabled { opacity: .35; }
+.volume output { font-size: 14px; color: var(--muschio); text-align: right; }
+@media (max-width: 440px) { .tipi.due-tasti { grid-template-columns: repeat(2, auto); } .tipi.tre-tasti { grid-template-columns: repeat(3, minmax(0, 1fr)); } .volume { grid-template-columns: minmax(0, 1fr) 44px; } .volume input[type=range] { grid-column: 1 / -1; grid-row: 2; } }
+.rotazione-rapida + .rotazione-rapida { margin-top: 8px; }
+.rotazione-rapida.dns .dns-host { grid-column: 1 / -1; }
+.passi { padding-left: 20px; margin: 0 0 10px; display: grid; gap: 8px; }

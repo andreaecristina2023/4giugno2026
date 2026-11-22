@@ -130,6 +130,7 @@
     if (s === 'errore' && pend) lab = pend + ' modifiche in attesa';
     return '<header class="testata"><div><h1>' + esc(titolo) + '</h1>' + (sotto ? '<div class="sotto">' + esc(sotto) + '</div>' : '') + '</div>' +
       '<span class="testata-destra"><button class="sync" type="button" data-s="' + esc(s) + '" data-azione="sync" title="' + esc(st.errore || '') + '">' + esc(lab) + '</button>' +
+      (Native.isApp ? tastoModi() : '') +
       (rotta() !== 'altro' ? '<a class="ingranaggio" href="#altro" aria-label="Impostazioni"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>' : '') + '</span></header>';
   }
 
@@ -1264,6 +1265,7 @@
     if (d.foto) { Album.apri(d.foto); return; }
     if (d.calModo) { ui.calModo = d.calModo; disegna(); return; }
     if (d.turnoGiorno) { apriGiornoTurno(d.turnoGiorno); return; }
+    if (d.azione === 'modi') { apriModi(); return; }
     if (d.azione === 'turni-off') { var tc = JSON.parse(JSON.stringify(turni())); tc.attivo = false; Store.setSettings({ turni: tc }); ui.calModo = 'impegni'; toast('Turnario nascosto: lo riattivi da Calendario → Turni VVF'); return; }
     if (d.fatto) {
       var nuovo = t.getAttribute('aria-pressed') !== 'true';
@@ -1274,7 +1276,7 @@
     else if (d.mese) { ui.meseCal = C.addMesi(ui.meseCal + '-01', +d.mese).slice(0, 7); disegna(); }
     else if (d.giorno) { ui.giornoCal = d.giorno; if (d.giorno.slice(0, 7) !== ui.meseCal) ui.meseCal = d.giorno.slice(0, 7); disegna(); }
     else if (d.filtroConti) { ui.filtroConti = d.filtroConti; disegna(); }
-    else if (d.chi) { Store.setConf({ chi: d.chi }); }
+    else if (d.chi) { Store.setConf({ chi: d.chi }); datiWidgetComandi(); }
     else if (d.fraz) salvaRifiuti(function (cfg) { toggle(cfg.regole[+d.reg].frazioni, d.fraz); });
     else if (d.sett) salvaRifiuti(function (cfg) { var r = cfg.regole[+d.reg]; r.settimane = toggle(r.settimane || [], +d.sett); });
     else if (d.meseReg) salvaRifiuti(function (cfg) { var r = cfg.regole[+d.reg]; r.mesi = toggle(r.mesi || [], +d.meseReg); });
@@ -1436,6 +1438,202 @@
     }
   });
 
+
+  // ---------- MODI AUDIO (Moto, Lavoro, Notte…) e rotazione schermo ----------
+  // Salvati solo su questo telefono (ognuno ha i suoi). volumi in %, null = non cambiare.
+  var VOLUMI = [['suoneria', 'Suoneria'], ['notifiche', 'Notifiche'], ['chiamate', 'Chiamate'], ['media', 'Musica, video, navigatore'], ['sveglia', 'Sveglia']];
+  var SUONERIE = { suona: 'Suona', vibra: 'Vibra', silenzio: 'Silenzio' };
+  var DND = { '': 'Non cambiare', off: 'Spento', priorita: 'Solo priorità', sveglie: 'Solo sveglie', totale: 'Silenzio totale' };
+  var ROTAZIONI = { '': 'Non cambiare', auto: 'Automatica', bloccata: 'Bloccata' };
+  var ICONE_MODO = ['🔔', '🏍️', '🚒', '🌙', '🔕', '🚗', '🏠', '💼', '🎬', '🏋️', '✈️', '🛏️', '🎧', '⛪'];
+  function modiPredefiniti() {
+    var v = function (o) { var r = {}; VOLUMI.forEach(function (x) { r[x[0]] = o[x[0]] == null ? null : o[x[0]]; }); return r; };
+    return [
+      { id: 'normale', nome: 'Normale', icona: '🔔', suoneria: 'suona', dnd: 'off', rotazione: 'auto', volumi: v({ suoneria: 70, notifiche: 70, chiamate: 70, media: 50 }) },
+      { id: 'moto', nome: 'Moto', icona: '🏍️', suoneria: 'suona', dnd: 'off', rotazione: 'bloccata', volumi: v({ suoneria: 100, notifiche: 60, chiamate: 100, media: 100 }) },
+      { id: 'lavoro', nome: 'Lavoro', icona: '🚒', suoneria: 'vibra', dnd: 'off', rotazione: '', volumi: v({ media: 0 }) },
+      { id: 'notte', nome: 'Notte', icona: '🌙', suoneria: 'suona', dnd: 'priorita', rotazione: 'bloccata', volumi: v({ media: 0, sveglia: 80 }) },
+      { id: 'silenzioso', nome: 'Silenzioso', icona: '🔕', suoneria: 'silenzio', dnd: 'off', rotazione: '', volumi: v({ media: 0 }) }
+    ];
+  }
+  function leggiLocale(k, def) { try { var x = localStorage.getItem(k); return x ? JSON.parse(x) : def; } catch (e) { return def; } }
+  function scriviLocale(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* niente */ } }
+  function modi() { var m = leggiLocale('aec.modi', null); return Array.isArray(m) && m.length ? m : modiPredefiniti(); }
+  function salvaModi(lista) { scriviLocale('aec.modi', lista); datiWidgetComandi(); }
+  function isAndrea() { return /^andrea/i.test(String(Store.conf().chi || '').trim()); }
+  function dnsHost() { return leggiLocale('aec.dnsHost', ''); }
+  function datiWidgetComandi() { if (Native.isApp) Native.audio.salvaWidget({ modi: modi().slice(0, 5), andrea: isAndrea(), dnsHost: dnsHost() }); }
+  function modoAttivo() { var id = leggiLocale('aec.modoAttivo', null); return modi().filter(function (m) { return m.id === id; })[0] || null; }
+  function descriviModo(m) {
+    var p = [SUONERIE[m.suoneria] || 'Suoneria invariata'];
+    if (m.dnd && m.dnd !== 'off') p.push('Non disturbare: ' + DND[m.dnd].toLowerCase());
+    if (m.volumi && m.volumi.media === 0) p.push('media muti'); else if (m.volumi && m.volumi.media === 100) p.push('media al massimo');
+    if (m.rotazione) p.push('rotazione ' + ROTAZIONI[m.rotazione].toLowerCase());
+    return p.join(' · ');
+  }
+  function tastoModi() {
+    var m = modoAttivo();
+    return '<button class="ingranaggio modo-audio" type="button" data-azione="modi" aria-label="Modi audio' + (m ? ': ' + esc(m.nome) : '') + '">' +
+      (m ? '<span aria-hidden="true">' + esc(m.icona) + '</span>' : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>') + '</button>';
+  }
+  // se nel frattempo suoneria o Non disturbare sono stati cambiati a mano, il modo non è più "attivo"
+  function verificaModo() {
+    if (!Native.isApp) return Promise.resolve();
+    return Native.audio.stato().then(function (st) {
+      var prima = leggiLocale('aec.modoAttivo', null);
+      // il widget può aver cambiato modo ad app chiusa
+      if (st.attivo !== undefined && (st.attivo || null) !== prima) scriviLocale('aec.modoAttivo', st.attivo || null);
+      var m = modoAttivo();
+      if (m && ((m.suoneria && st.suoneria !== m.suoneria) || (m.dnd && st.dnd !== m.dnd))) { scriviLocale('aec.modoAttivo', null); Native.audio.segna(''); }
+      if (leggiLocale('aec.modoAttivo', null) !== prima) disegna();
+    }).catch(function () {});
+  }
+  function permessoDns() {
+    foglio.classList.remove('visore');
+    foglio.innerHTML = '<form method="dialog"><div class="maniglia"></div><h3 id="foglio-titolo">Permesso per il DNS</h3>' +
+      '<p>Android lascia cambiare il DNS privato solo alle app autorizzate dal computer. Si fa una volta sola:</p>' +
+      '<ol class="passi"><li>Sul telefono: Impostazioni → Info sul telefono → tocca 7 volte <b>Numero build</b>, poi in Opzioni sviluppatore attiva <b>Debug USB</b>.</li>' +
+      '<li>Collega il telefono al computer con il cavo e accetta la richiesta sul telefono.</li>' +
+      '<li>Sul computer (con gli <i>Android platform-tools</i>) scrivi:<br><code>adb shell pm grant it.andreaecristina.casa android.permission.WRITE_SECURE_SETTINGS</code></li></ol>' +
+      '<p class="testo-muto">Il permesso resta anche dopo gli aggiornamenti di A&amp;C (si perde solo disinstallandola). Nel frattempo puoi cambiarlo a mano nelle impostazioni di rete, alla voce <b>DNS privato</b>.</p>' +
+      '<div class="azioni"><button class="btn" type="button" data-copia-adb>Copia il comando</button><button class="btn secondario" type="button" data-rete>Apri impostazioni di rete</button><button class="btn secondario" type="submit">Chiudi</button></div></form>';
+    $('[data-copia-adb]', foglio).onclick = function () {
+      var cmd = 'adb shell pm grant it.andreaecristina.casa android.permission.WRITE_SECURE_SETTINGS';
+      (navigator.clipboard ? navigator.clipboard.writeText(cmd) : Promise.reject()).then(function () { toast('Comando copiato'); }).catch(function () { window.prompt('Copia il comando:', cmd); });
+    };
+    $('[data-rete]', foglio).onclick = function () { foglio.close(); Native.audio.apriPermesso('rete'); };
+    if (!foglio.open) foglio.showModal();
+  }
+  function permessoMancante(quale) {
+    var dnd = quale === 'dnd';
+    foglio.classList.remove('visore');
+    foglio.innerHTML = '<form method="dialog"><div class="maniglia"></div><h3 id="foglio-titolo">Serve un permesso</h3>' +
+      '<p>' + (dnd ? 'Per mettere il telefono in silenzio, vibrazione o Non disturbare, Android chiede di dare ad A&amp;C l\'<b>accesso a Non disturbare</b>.' : 'Per cambiare la rotazione dello schermo, Android chiede di consentire ad A&amp;C di <b>modificare le impostazioni di sistema</b>.') + '</p>' +
+      '<p class="testo-muto">Si apre la pagina di Android: cerca A&amp;C, attiva l\'interruttore e torna qui. Poi tocca di nuovo il modo.</p>' +
+      '<div class="azioni"><button class="btn" type="button" data-apri-permesso>Apri le impostazioni</button><button class="btn secondario" type="submit">Annulla</button></div></form>';
+    $('[data-apri-permesso]', foglio).onclick = function () { foglio.close(); Native.audio.apriPermesso(quale).catch(function () { toast('Impostazioni non disponibili su questo telefono'); }); };
+    if (!foglio.open) foglio.showModal();
+  }
+  function applicaModo(m) {
+    var richiesta = { id: m.id, volumi: {} };
+    if (m.suoneria) richiesta.suoneria = m.suoneria;
+    if (m.dnd) richiesta.dnd = m.dnd;
+    if (m.rotazione) richiesta.rotazione = m.rotazione;
+    VOLUMI.forEach(function (x) { var val = m.volumi && m.volumi[x[0]]; if (val != null && val !== '') richiesta.volumi[x[0]] = +val; });
+    return Native.audio.applica(richiesta).then(function (r) {
+      scriviLocale('aec.modoAttivo', m.id); foglio.close(); disegna();
+      var saltati = (r && r.saltati) || [];
+      if (saltati.indexOf('rotazione') >= 0) toast(m.icona + ' ' + m.nome + ' attivo, rotazione non cambiata', 'Consenti', function () { permessoMancante('sistema'); });
+      else if (saltati.length) toast(m.icona + ' ' + m.nome + ' attivo (alcuni volumi bloccati da Non disturbare)');
+      else toast(m.icona + ' ' + m.nome + ' attivo');
+    }).catch(function (e) {
+      if (e && e.code === 'PERMESSO_DND') permessoMancante('dnd');
+      else toast((e && e.message) || 'Modo non applicato');
+    });
+  }
+  function apriModi() {
+    var lista = modi(), att = modoAttivo();
+    foglio.classList.remove('visore');
+    foglio.innerHTML = '<form method="dialog" id="form-modi"><div class="maniglia"></div><h3 id="foglio-titolo">Modi e comandi</h3>' +
+      '<ul class="modi-elenco">' + lista.map(function (m) {
+        return '<li><button type="button" class="modo' + (att && att.id === m.id ? ' attivo' : '') + '" data-modo="' + esc(m.id) + '" aria-pressed="' + !!(att && att.id === m.id) + '">' +
+          '<span class="modo-icona" aria-hidden="true">' + esc(m.icona) + '</span><span><span class="titolo">' + esc(m.nome) + '</span><span class="meta">' + esc(descriviModo(m)) + '</span></span></button>' +
+          '<button type="button" class="btn icona" data-modifica-modo="' + esc(m.id) + '" aria-label="Modifica ' + esc(m.nome) + '">✎</button></li>';
+      }).join('') + '</ul>' +
+      '<div class="rotazione-rapida"><span><b>Rotazione schermo</b><span class="testo-muto" id="rot-stato">…</span></span>' +
+      '<span class="tipi due-tasti" role="group" aria-label="Rotazione schermo"><button type="button" data-rot="auto" style="--c:var(--ardesia)">Automatica</button><button type="button" data-rot="bloccata" style="--c:var(--ardesia)">Bloccata</button></span></div>' +
+      (isAndrea() ? '<div class="rotazione-rapida"><span><b>VPN FortiClient</b><span class="testo-muto" id="vpn-stato">…</span></span><button type="button" class="btn piccolo" data-forti>Apri FortiClient</button></div>' +
+        '<div class="rotazione-rapida dns"><span><b>DNS privato</b><span class="testo-muto" id="dns-stato">…</span></span>' +
+        '<span class="tipi due-tasti" role="group" aria-label="DNS privato"><button type="button" data-dns="host" style="--c:var(--ardesia)">Attivo</button><button type="button" data-dns="auto" style="--c:var(--ardesia)">Spento</button></span>' +
+        '<label class="campo dns-host">Indirizzo del DNS<input type="text" name="dnshost" inputmode="url" autocapitalize="off" spellcheck="false" maxlength="120" value="' + esc(dnsHost()) + '" placeholder="es. dns.adguard-dns.com"></label></div>' : '') +
+      '<div class="azioni"><button class="btn secondario" type="button" data-nuovo-modo>Nuovo modo</button><button class="btn secondario" type="submit">Chiudi</button></div></form>';
+    var f = $('#form-modi', foglio);
+    function segnaRete(st) {
+      var v = $('#vpn-stato', f), d = $('#dns-stato', f);
+      if (v) v.textContent = st.vpn ? 'Collegata' : (st.forticlient === false ? 'FortiClient non installato' : 'Non collegata');
+      if (d) d.textContent = st.dnsModo === 'host' ? (st.dnsHost || 'attivo') : st.dnsModo === 'off' ? 'Disattivato' : 'Automatico (quello della rete)';
+      f.querySelectorAll('[data-dns]').forEach(function (b) { b.setAttribute('aria-pressed', String(st.dnsModo === 'host' ? b.dataset.dns === 'host' : b.dataset.dns === 'auto')); });
+    }
+    function segnaRot(r) {
+      f.querySelectorAll('[data-rot]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.rot === r)); });
+      var st = $('#rot-stato', f); if (st) st.textContent = r === 'auto' ? 'Gira da solo' : r === 'bloccata' ? 'Resta fermo' : '';
+    }
+    Native.audio.stato().then(function (st) { segnaRot(st.rotazione); segnaRete(st); if (st.dnsHost && !dnsHost() && $('[name=dnshost]', f)) $('[name=dnshost]', f).value = st.dnsHost; }).catch(function () { segnaRot(''); });
+    var bf = $('[data-forti]', f);
+    if (bf) bf.onclick = function () { Native.audio.apriFortiClient().catch(function () { toast('FortiClient non trovato'); }); };
+    var campoDns = $('[name=dnshost]', f);
+    if (campoDns) campoDns.onchange = function () { scriviLocale('aec.dnsHost', campoDns.value.trim()); datiWidgetComandi(); };
+    f.querySelectorAll('[data-dns]').forEach(function (b) {
+      b.onclick = function () {
+        var host = campoDns ? campoDns.value.trim() : dnsHost();
+        if (b.dataset.dns === 'host' && !host) { toast('Scrivi prima l\'indirizzo del DNS'); if (campoDns) campoDns.focus(); return; }
+        scriviLocale('aec.dnsHost', host); datiWidgetComandi();
+        Native.audio.dns(b.dataset.dns, host).then(function (st) { segnaRete(st); toast(b.dataset.dns === 'host' ? 'DNS privato: ' + host : 'DNS privato spento'); })
+          .catch(function (e) { if (e && e.code === 'PERMESSO_DNS') permessoDns(); else toast((e && e.message) || 'DNS non cambiato'); });
+      };
+    });
+    f.querySelectorAll('[data-modo]').forEach(function (b) { b.onclick = function () { var m = modi().filter(function (x) { return x.id === b.dataset.modo; })[0]; if (m) applicaModo(m); }; });
+    f.querySelectorAll('[data-modifica-modo]').forEach(function (b) { b.onclick = function () { modificaModo(b.dataset.modificaModo); }; });
+    f.querySelectorAll('[data-rot]').forEach(function (b) {
+      b.onclick = function () {
+        Native.audio.rotazione(b.dataset.rot).then(function (st) { segnaRot(st.rotazione); toast(st.rotazione === 'auto' ? 'Rotazione automatica' : 'Rotazione bloccata'); })
+          .catch(function (e) { if (e && e.code === 'PERMESSO_SISTEMA') permessoMancante('sistema'); else toast((e && e.message) || 'Rotazione non cambiata'); });
+      };
+    });
+    $('[data-nuovo-modo]', f).onclick = function () { modificaModo(null); };
+    if (!foglio.open) foglio.showModal();
+  }
+  function modificaModo(id) {
+    var lista = modi();
+    var m = id ? JSON.parse(JSON.stringify(lista.filter(function (x) { return x.id === id; })[0])) : { id: 'm' + Date.now().toString(36), nome: '', icona: '🎧', suoneria: 'suona', dnd: '', rotazione: '', volumi: {} };
+    if (!m.volumi) m.volumi = {};
+    function sel(nome, opz, val) { return '<select name="' + nome + '">' + Object.keys(opz).map(function (k) { return '<option value="' + k + '"' + (k === (val || '') ? ' selected' : '') + '>' + opz[k] + '</option>'; }).join('') + '</select>'; }
+    foglio.innerHTML = '<form method="dialog" id="form-modo"><div class="maniglia"></div><h3 id="foglio-titolo">' + (id ? 'Modifica ' + esc(m.nome) : 'Nuovo modo') + '</h3><div class="campi">' +
+      '<div class="durata"><label class="campo">Simbolo<select name="icona">' + ICONE_MODO.concat(ICONE_MODO.indexOf(m.icona) < 0 ? [m.icona] : []).map(function (i) { return '<option' + (i === m.icona ? ' selected' : '') + '>' + i + '</option>'; }).join('') + '</select></label>' +
+      '<label class="campo">Nome<input type="text" name="nome" required maxlength="30" value="' + esc(m.nome) + '" placeholder="Es. Palestra"></label></div>' +
+      '<div class="campo-modo"><b>Suoneria</b><div class="tipi tre-tasti" role="group" aria-label="Suoneria">' + Object.keys(SUONERIE).map(function (k) { return '<button type="button" data-suon="' + k + '" style="--c:var(--sangiovese)" aria-pressed="' + (m.suoneria === k) + '">' + SUONERIE[k] + '</button>'; }).join('') + '</div></div>' +
+      '<div class="due"><label class="campo">Non disturbare' + sel('dnd', DND, m.dnd) + '</label><label class="campo">Rotazione schermo' + sel('rotazione', ROTAZIONI, m.rotazione) + '</label></div>' +
+      '<div class="campo-modo"><b>Volumi</b><span class="aiuto">Togli la spunta per lasciare il volume com\'è. Con Vibra o Silenzio, suoneria e notifiche restano spente.</span><div class="volumi">' +
+      VOLUMI.map(function (x) {
+        var val = m.volumi[x[0]], on = val != null && val !== '';
+        return '<div class="volume"><label class="spunta-vol"><input type="checkbox" name="usa-' + x[0] + '"' + (on ? ' checked' : '') + '> ' + x[1] + '</label>' +
+          '<input type="range" min="0" max="100" step="5" name="vol-' + x[0] + '" value="' + (on ? val : 50) + '"' + (on ? '' : ' disabled') + ' aria-label="Volume ' + x[1] + '"><output>' + (on ? val + '%' : '—') + '</output></div>';
+      }).join('') + '</div></div>' +
+      '<div class="azioni"><button class="btn" type="submit">Salva</button><button class="btn secondario" type="button" data-indietro>Indietro</button>' + (id ? '<button class="btn pericolo" type="button" data-elimina-modo>Elimina</button>' : '') + '</div>' +
+      (id && modiPredefiniti().some(function (x) { return x.id === id; }) ? '<button class="btn secondario piccolo" type="button" data-ripristina-modo>Torna alle impostazioni iniziali</button>' : '') +
+      '</div></form>';
+    var f = $('#form-modo', foglio);
+    f.querySelectorAll('[data-suon]').forEach(function (b) { b.onclick = function () { m.suoneria = b.dataset.suon; f.querySelectorAll('[data-suon]').forEach(function (c) { c.setAttribute('aria-pressed', String(c === b)); }); }; });
+    f.querySelectorAll('.volume').forEach(function (r) {
+      var cb = $('input[type=checkbox]', r), rg = $('input[type=range]', r), out = $('output', r);
+      cb.onchange = function () { rg.disabled = !cb.checked; out.textContent = cb.checked ? rg.value + '%' : '—'; };
+      rg.oninput = function () { out.textContent = rg.value + '%'; };
+    });
+    $('[data-indietro]', f).onclick = apriModi;
+    var el = $('[data-elimina-modo]', f);
+    if (el) el.onclick = function () {
+      if (!confirm('Eliminare il modo «' + m.nome + '»?')) return;
+      salvaModi(modi().filter(function (x) { return x.id !== id; }));
+      if (leggiLocale('aec.modoAttivo', null) === id) { scriviLocale('aec.modoAttivo', null); Native.audio.segna(''); }
+      disegna(); apriModi();
+    };
+    var rp = $('[data-ripristina-modo]', f);
+    if (rp) rp.onclick = function () {
+      var orig = modiPredefiniti().filter(function (x) { return x.id === id; })[0];
+      salvaModi(modi().map(function (x) { return x.id === id ? orig : x; })); toast('Modo ripristinato'); apriModi();
+    };
+    f.onsubmit = function (e) {
+      e.preventDefault();
+      var fd = new FormData(f);
+      m.nome = String(fd.get('nome') || '').trim() || 'Modo'; m.icona = fd.get('icona'); m.dnd = fd.get('dnd'); m.rotazione = fd.get('rotazione');
+      VOLUMI.forEach(function (x) { m.volumi[x[0]] = fd.get('usa-' + x[0]) ? +fd.get('vol-' + x[0]) : null; });
+      var l = modi(), i = l.map(function (x) { return x.id; }).indexOf(m.id);
+      if (i >= 0) l[i] = m; else l.push(m);
+      salvaModi(l); disegna(); toast('Modo salvato'); apriModi();
+    };
+  }
+  if (Native.isApp) document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') verificaModo(); });
+
   // ---------- avvio ----------
   Native.creaCanale().then(function () { if (Native.isApp) Native.permesso(); });
   if ('serviceWorker' in navigator && !Native.isApp && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function () {});
@@ -1445,6 +1643,8 @@
     if (Store.conf().url !== daLink.url || Store.conf().chiave !== daLink.chiave) collega(daLink.url, daLink.chiave);
   }
   disegna();
+  verificaModo();
+  datiWidgetComandi();
   Store.sync();
   // nell'app: carico l'elenco dell'album all'avvio, così il widget foto si aggiorna anche senza aprire l'album
   if (Native.isApp && Store.configurato()) setTimeout(function () { Album.aggiorna(); }, 4000);

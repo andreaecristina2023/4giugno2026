@@ -7,6 +7,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(CasaWidgetPlugin.class);
+        registerPlugin(AudioModiPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
