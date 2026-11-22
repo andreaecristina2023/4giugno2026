@@ -33,6 +33,8 @@ public class VpnAutomatico extends AccessibilityService {
     static final String PERMESSO = "it.andreaecristina.casa.permission.VPN";
     private static final List<String> CONNETTI = Arrays.asList("connetti", "connect", "collega", "connettiti");
     private static final List<String> SCOLLEGA = Arrays.asList("disconnetti", "disconnect", "scollega", "disconnettiti");
+    // finestra che FortiClient mostra dopo Connetti (es. avviso sul certificato del server)
+    private static final List<String> PROCEDI = Arrays.asList("proceed", "procedi", "continua", "continue", "prosegui");
     private final Handler h = new Handler(Looper.getMainLooper());
     private long ultimoClic = 0;
     private ConnectivityManager.NetworkCallback cb;
@@ -103,8 +105,20 @@ public class VpnAutomatico extends AccessibilityService {
         p.edit().putString("diag_pacchetto", root.getPackageName().toString()).putLong("diag_evento", ora).apply();
         if (!root.getPackageName().toString().startsWith("com.fortinet")) return;
 
-        boolean connetti = "connetti".equals(azione);
         String ritorno = p.getString("ritorno", "home");
+        if ("conferma".equals(azione)) {
+            // dopo Connetti: premo "Proceed" se compare
+            AccessibilityNodeInfo pr = cercaParole(root, PROCEDI);
+            if (pr == null) return;
+            AccessibilityNodeInfo pc = pr;
+            while (pc != null && !pc.isClickable()) pc = pc.getParent();
+            if (pc != null && pc.isEnabled() && pc.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
+                ultimoClic = ora;
+                p.edit().remove("richiesta").putString("diag_esito", p.getString("diag_esito", "") + " → premuto: " + descrivi(pr)).apply();
+            }
+            return;
+        }
+        boolean connetti = "connetti".equals(azione);
         if (connetti == vpnAttiva(this)) { p.edit().remove("richiesta").apply(); fine(azione, ritorno); return; }
 
         AccessibilityNodeInfo b = cerca(root, connetti);
@@ -115,7 +129,9 @@ public class VpnAutomatico extends AccessibilityService {
         if (cl.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
             p.edit().putString("diag_esito", "premuto: " + descrivi(b)).apply();
             ultimoClic = ora;
-            p.edit().remove("richiesta").apply();
+            // dopo Connetti resto in ascolto 20 s per il pulsante "Proceed"
+            if (connetti) p.edit().putString("richiesta", "conferma").putLong("scade", ora + 20000).apply();
+            else p.edit().remove("richiesta").apply();
             attendi(azione, ritorno, 0);
         }
     }
@@ -150,6 +166,19 @@ public class VpnAutomatico extends AccessibilityService {
             for (int i = 0; i < n.getChildCount(); i++) coda.add(n.getChild(i));
         }
         return perId != null ? perId : perSwitch;
+    }
+
+    private static AccessibilityNodeInfo cercaParole(AccessibilityNodeInfo root, List<String> parole) {
+        ArrayDeque<AccessibilityNodeInfo> coda = new ArrayDeque<>();
+        coda.add(root);
+        int visti = 0;
+        while (!coda.isEmpty() && visti++ < 600) {
+            AccessibilityNodeInfo n = coda.poll();
+            if (n == null) continue;
+            if (n.isVisibleToUser() && parole.contains(testo(n))) return n;
+            for (int i = 0; i < n.getChildCount(); i++) coda.add(n.getChild(i));
+        }
+        return null;
     }
 
     private static String descrivi(AccessibilityNodeInfo n) {
@@ -187,6 +216,7 @@ public class VpnAutomatico extends AccessibilityService {
     }
 
     private void fine(String azione, String ritorno) {
+        prefs(this).edit().remove("richiesta").apply();
         Toast.makeText(this, "connetti".equals(azione) ? "🛡️ VPN collegata" : "VPN scollegata", Toast.LENGTH_SHORT).show();
         Intent app = "app".equals(ritorno) ? getPackageManager().getLaunchIntentForPackage(PKG_AC) : null;
         if (app != null) {
