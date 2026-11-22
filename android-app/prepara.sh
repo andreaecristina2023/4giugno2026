@@ -22,7 +22,7 @@ cp -r native/res/. android/app/src/main/res/
 
 # 3b. app separata "A&C VPN" (Accessibilità): modulo :vpn nello stesso progetto, stessa firma di A&C
 rm -rf android/vpn && cp -r vpn-app android/vpn
-grep -q "include ':vpn'" android/settings.gradle || echo "include ':vpn'" >> android/settings.gradle
+grep -q "include ':vpn'" android/settings.gradle || printf "\ninclude ':vpn'\n" >> android/settings.gradle
 for d in android/app/src/main/res/mipmap-*; do mkdir -p "android/vpn/src/main/res/$(basename "$d")"; cp "$d"/ic_launcher*.* "android/vpn/src/main/res/$(basename "$d")/" 2>/dev/null || true; done
 sed -i "s/versionCode 1$/versionCode ${GITHUB_RUN_NUMBER:-1}/; s/versionName \"1.0\"/versionName \"1.0.${GITHUB_RUN_NUMBER:-1}\"/" android/vpn/build.gradle
 
