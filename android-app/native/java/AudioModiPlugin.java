@@ -81,6 +81,44 @@ public class AudioModiPlugin extends Plugin {
         catch (Exception e) { call.reject("Impostazioni non disponibili: " + e.getMessage()); }
     }
 
+    /** { ora, minuti, giorni, nome, vibra, mostra }: crea la sveglia nell'Orologio del telefono. */
+    @PluginMethod
+    public void sveglia(PluginCall call) {
+        try { getContext().startActivity(ComandiTelefono.intentSveglia(call.getData())); call.resolve(); }
+        catch (android.content.ActivityNotFoundException e) { call.reject("Nessuna app Orologio che accetti sveglie", "NO_OROLOGIO"); }
+        catch (Exception e) { call.reject("Sveglia non impostata: " + e.getMessage()); }
+    }
+
+    /** { ora, minuti }: spegne la sveglia nell'Orologio. */
+    @PluginMethod
+    public void togliSveglia(PluginCall call) {
+        try { getContext().startActivity(ComandiTelefono.intentTogliSveglia(call.getData())); call.resolve(); }
+        catch (Exception e) { call.reject("Apri l'Orologio per toglierla", "NO_OROLOGIO"); }
+    }
+
+    @PluginMethod
+    public void elencoSveglie(PluginCall call) {
+        try { getContext().startActivity(ComandiTelefono.intentElencoSveglie()); call.resolve(); }
+        catch (Exception e) { call.reject("Orologio non disponibile", "NO_OROLOGIO"); }
+    }
+
+    /**
+     * Modo automatico nei turni (solo Andrea): { attivo, inTurno, dopo, modi, intervalli: [[inizioMs, fineMs]] }.
+     * Risponde con lo stato e "inTurno": true se adesso è in turno.
+     */
+    @PluginMethod
+    public void turnoAuto(PluginCall call) {
+        try {
+            ComandiTelefono.prefs(getContext()).edit().putString("turnoAuto", call.getData().toString()).commit();
+            TurnoAuto.programma(getContext());
+            JSObject r = JSObject.fromJSONObject(ComandiTelefono.stato(getContext()));
+            r.put("turnoAutoFatto", ComandiTelefono.prefs(getContext()).getString("turnoAutoFatto", ""));
+            call.resolve(r);
+        } catch (Exception e) {
+            call.reject("Turni automatici non programmati: " + e.getMessage());
+        }
+    }
+
     /** Il sito ha salvato modi o impostazioni: ridisegno il widget. */
     @PluginMethod
     public void aggiornaWidget(PluginCall call) {

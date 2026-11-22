@@ -50,6 +50,12 @@ if 'CasaWidget' not in s:
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_comandi_info" />
         </receiver>
+        <receiver android:name=".TurnoAuto" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
         <service android:name=".FotoWidgetService" android:exported="false" android:permission="android.permission.BIND_REMOTEVIEWS" />
     </application>'''
     s = s.replace('</application>', ricevitore, 1)
@@ -67,6 +73,8 @@ permessi = [
     '<uses-permission android:name="android.permission.WRITE_SETTINGS" tools:ignore="ProtectedPermissions" />',
     # DNS privato: si concede solo dal computer con adb (vedi README)
     '<uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:ignore="ProtectedPermissions" />',
+    # sveglie nell'app Orologio
+    '<uses-permission android:name="com.android.alarm.permission.SET_ALARM" />',
     # FortiClient: per poterlo trovare e aprire (Android 11+ nasconde le altre app)
     '<queries><package android:name="com.fortinet.forticlient_vpn" /><package android:name="com.fortinet.forticlient" /><package android:name="com.fortinet.forticlient_fa" /></queries>',
 ]

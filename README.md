@@ -16,7 +16,7 @@ Sito e app Android per la casa di Fratta Terme: bidoni della raccolta Alea, paga
 | Viaggi | Ogni viaggio con inizio/fine, voli, hotel e documenti (eVisa, passaporto…) con i file allegati; avvisa se un documento scade prima del rientro |
 | Concerti | Data, ora, cantante, luogo, prezzo e biglietti digitali (PDF o foto) da aprire anche senza rete |
 | Album | Foto di casa (carosello di foto a caso che scorre da solo + griglia per mese di scatto letto dai metadati EXIF, presentazione a schermo intero), salvate nel Google Drive (cartella "A&C Album") |
-| Modi (🔔 in alto, solo app) | Modi audio Normale, Moto, Lavoro, Notte, Silenzioso e personalizzati; rotazione schermo; per Andrea VPN FortiClient e DNS privato |
+| Modi (🔔 in alto, solo app) | Modi audio Normale, Moto, Lavoro, Notte, Silenzioso, Solo musica e personalizzati; rotazione schermo; sveglie; per Andrea modo automatico nei turni, VPN FortiClient e DNS privato |
 | Impostazioni (⚙ in alto) | Chi usa il telefono, collegamento al foglio, QR code per l'altro telefono, notifiche, backup |
 
 Le festività seguono le regole dell'Eco-Calendario Alea: un ritiro che cade di festa si sposta al sabato prima (lun–mer) o al sabato dopo (gio–ven); se cade di sabato salta. Pasquetta è calcolata in automatico. Per i casi particolari annunciati da Alea c'è "Aggiungi una variazione".
@@ -64,6 +64,7 @@ In alto, accanto all'ingranaggio, c'è il tasto dei **modi**: mostra il simbolo 
 | 🚒 Lavoro | Vibrazione, musica muta |
 | 🌙 Notte | Non disturbare "solo priorità", musica muta, sveglia all'80%, rotazione bloccata |
 | 🔕 Silenzioso | Silenzio, musica muta |
+| 🎵 Solo musica | Suoneria e notifiche in silenzio, musica all'80% |
 
 Ogni modo si può modificare (suoneria, Non disturbare, rotazione schermo, volumi di suoneria, notifiche, chiamate, musica e sveglia: senza spunta il volume non si tocca), eliminare o aggiungere ("Nuovo modo"). I modi sono salvati solo sul telefono: Andrea e Cristina hanno i propri. Sotto c'è l'interruttore rapido **Rotazione schermo** (automatica / bloccata).
 
@@ -71,13 +72,16 @@ Permessi che Android chiede la prima volta (l'app apre da sola la pagina giusta)
 - **Accesso a Non disturbare**: per silenzio, vibrazione e Non disturbare.
 - **Modifica impostazioni di sistema**: per la rotazione dello schermo.
 
+**⏰ Sveglie**: ora, nome, giorni (L M M G V S D, "lun–ven", "tutti"; nessun giorno = una volta sola) e vibrazione. La sveglia viene creata nell'app **Orologio** del telefono, quindi suona anche ad app chiusa e si posticipa come sempre. L'elenco in A&C ricorda quelle create da qui: "Imposta" la ricrea, ✕ la spegne nell'Orologio (alcuni orologi chiedono conferma). "Apri l'Orologio" mostra tutte le sveglie del telefono.
+
 **Solo sul telefono di Andrea** (Impostazioni → Chi sta usando questo telefono = Andrea):
+- **🚒 Modo automatico nei turni**: con il turnario VVF attivo (Calendario → Turni VVF), a inizio turno il telefono passa da solo al modo scelto (predefinito Lavoro) e a fine turno torna al modo di prima (o a quello scelto). Vale per diurni, notti, straordinari, corsi, addestramenti, presidi e AIB con il loro orario; turni attaccati contano come uno solo. Funziona ad app chiusa e dopo il riavvio; i turni vengono riletti ogni volta che apri l'app (copre le 3 settimane successive). Se durante il turno cambi modo a mano, a fine turno non lo tocca.
 - **VPN FortiClient**: mostra se la VPN è collegata e apre FortiClient. FortiClient non permette ad altre app di collegare la VPN da sole, quindi lì si tocca "Connetti" (con la password salvata in FortiClient basta un tocco).
 - **DNS privato**: Attivo (con l'indirizzo scritto, es. `dns.adguard-dns.com`) / Spento (torna ad automatico). Android lo lascia cambiare solo alle app autorizzate dal computer, una volta sola: attiva Debug USB, collega il cavo e lancia
   `adb shell pm grant it.andreaecristina.casa android.permission.WRITE_SECURE_SETTINGS`
   (il permesso resta anche dopo gli aggiornamenti dell'app, si perde solo disinstallandola).
 
-**Widget "A&C Comandi"** (tieni premuto sulla home → Widget → A&C): sopra i primi 5 modi (quello attivo è colorato, un tocco lo applica), sotto Rotazione (un tocco la cambia) e, per Andrea, VPN (apre FortiClient) e DNS (un tocco lo accende o spegne).
+**Widget "A&C Comandi"** (tieni premuto sulla home → Widget → A&C): sopra i primi 6 modi (quello attivo è colorato, un tocco lo applica), sotto Rotazione (un tocco la cambia), ⏰ Sveglie (apre l'Orologio) e, per Andrea, VPN (apre FortiClient) e DNS (un tocco lo accende o spegne).
 
 ## Voci
 

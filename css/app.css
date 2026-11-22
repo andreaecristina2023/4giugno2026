@@ -490,3 +490,10 @@ dialog.camera-guida::backdrop { background: #000; }
 .rotazione-rapida + .rotazione-rapida { margin-top: 8px; }
 .rotazione-rapida.dns .dns-host { grid-column: 1 / -1; }
 .passi { padding-left: 20px; margin: 0 0 10px; display: grid; gap: 8px; }
+.giorni-sv { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.giorni-sv .chip[data-g] { width: 40px; justify-content: center; padding: 6px 0; }
+#form-sveglie .destra { display: flex; gap: 6px; align-items: center; }
+#form-sveglie .btn.icona { min-height: 38px; width: 38px; }
+#form-sveglie .spunta-vol { display: flex; gap: 8px; align-items: center; font-weight: 700; font-size: 15px; }
+#form-sveglie .spunta-vol input { width: 22px; height: 22px; accent-color: var(--sangiovese); }
+.rotazione-rapida.turno-auto .due { grid-column: 1 / -1; }

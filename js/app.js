@@ -1180,6 +1180,7 @@
     document.querySelectorAll('nav.barra-nav a').forEach(function (a) { if (a.dataset.r === rNav) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
     window.scrollTo(0, y);
     Native.aggiorna(voci(), rifiuti());
+    programmaTurnoAuto();
   }
   window.addEventListener('hashchange', function () { disegna(); window.scrollTo(0, 0); });
   Store.on(disegna);
@@ -1445,7 +1446,7 @@
   var SUONERIE = { suona: 'Suona', vibra: 'Vibra', silenzio: 'Silenzio' };
   var DND = { '': 'Non cambiare', off: 'Spento', priorita: 'Solo priorità', sveglie: 'Solo sveglie', totale: 'Silenzio totale' };
   var ROTAZIONI = { '': 'Non cambiare', auto: 'Automatica', bloccata: 'Bloccata' };
-  var ICONE_MODO = ['🔔', '🏍️', '🚒', '🌙', '🔕', '🚗', '🏠', '💼', '🎬', '🏋️', '✈️', '🛏️', '🎧', '⛪'];
+  var ICONE_MODO = ['🔔', '🏍️', '🚒', '🌙', '🔕', '🎵', '🚗', '🏠', '💼', '🎬', '🏋️', '✈️', '🛏️', '🎧', '⛪'];
   function modiPredefiniti() {
     var v = function (o) { var r = {}; VOLUMI.forEach(function (x) { r[x[0]] = o[x[0]] == null ? null : o[x[0]]; }); return r; };
     return [
@@ -1453,21 +1454,36 @@
       { id: 'moto', nome: 'Moto', icona: '🏍️', suoneria: 'suona', dnd: 'off', rotazione: 'bloccata', volumi: v({ suoneria: 100, notifiche: 60, chiamate: 100, media: 100 }) },
       { id: 'lavoro', nome: 'Lavoro', icona: '🚒', suoneria: 'vibra', dnd: 'off', rotazione: '', volumi: v({ media: 0 }) },
       { id: 'notte', nome: 'Notte', icona: '🌙', suoneria: 'suona', dnd: 'priorita', rotazione: 'bloccata', volumi: v({ media: 0, sveglia: 80 }) },
-      { id: 'silenzioso', nome: 'Silenzioso', icona: '🔕', suoneria: 'silenzio', dnd: 'off', rotazione: '', volumi: v({ media: 0 }) }
+      { id: 'silenzioso', nome: 'Silenzioso', icona: '🔕', suoneria: 'silenzio', dnd: 'off', rotazione: '', volumi: v({ media: 0 }) },
+      { id: 'musica', nome: 'Solo musica', icona: '🎵', suoneria: 'silenzio', dnd: 'off', rotazione: '', volumi: v({ media: 80 }) }
     ];
   }
   function leggiLocale(k, def) { try { var x = localStorage.getItem(k); return x ? JSON.parse(x) : def; } catch (e) { return def; } }
   function scriviLocale(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* niente */ } }
-  function modi() { var m = leggiLocale('aec.modi', null); return Array.isArray(m) && m.length ? m : modiPredefiniti(); }
-  function salvaModi(lista) { scriviLocale('aec.modi', lista); datiWidgetComandi(); }
+  // i modi predefiniti nuovi (es. Solo musica) compaiono una volta anche a chi aveva già salvato i suoi; se li elimina restano eliminati
+  var MODI_ORIGINALI = ['normale', 'moto', 'lavoro', 'notte', 'silenzioso'];
+  function modi() {
+    var m = leggiLocale('aec.modi', null);
+    if (!Array.isArray(m) || !m.length) return modiPredefiniti();
+    var noti = leggiLocale('aec.modiNoti', MODI_ORIGINALI), aggiunti = false;
+    modiPredefiniti().forEach(function (d) {
+      if (noti.indexOf(d.id) >= 0) return;
+      noti.push(d.id);
+      if (!m.some(function (x) { return x.id === d.id; })) { m.push(d); aggiunti = true; }
+    });
+    scriviLocale('aec.modiNoti', noti);
+    if (aggiunti) scriviLocale('aec.modi', m);
+    return m;
+  }
+  function salvaModi(lista) { scriviLocale('aec.modi', lista); datiWidgetComandi(); programmaTurnoAuto(); }
   function isAndrea() { return /^andrea/i.test(String(Store.conf().chi || '').trim()); }
   function dnsHost() { return leggiLocale('aec.dnsHost', ''); }
-  function datiWidgetComandi() { if (Native.isApp) Native.audio.salvaWidget({ modi: modi().slice(0, 5), andrea: isAndrea(), dnsHost: dnsHost() }); }
+  function datiWidgetComandi() { if (Native.isApp) Native.audio.salvaWidget({ modi: modi().slice(0, 6), andrea: isAndrea(), dnsHost: dnsHost() }); }
   function modoAttivo() { var id = leggiLocale('aec.modoAttivo', null); return modi().filter(function (m) { return m.id === id; })[0] || null; }
   function descriviModo(m) {
     var p = [SUONERIE[m.suoneria] || 'Suoneria invariata'];
     if (m.dnd && m.dnd !== 'off') p.push('Non disturbare: ' + DND[m.dnd].toLowerCase());
-    if (m.volumi && m.volumi.media === 0) p.push('media muti'); else if (m.volumi && m.volumi.media === 100) p.push('media al massimo');
+    if (m.volumi && m.volumi.media === 0) p.push('media muti'); else if (m.volumi && m.volumi.media === 100) p.push('media al massimo'); else if (m.volumi && m.volumi.media != null) p.push('musica al ' + m.volumi.media + '%');
     if (m.rotazione) p.push('rotazione ' + ROTAZIONI[m.rotazione].toLowerCase());
     return p.join(' · ');
   }
@@ -1542,6 +1558,13 @@
       }).join('') + '</ul>' +
       '<div class="rotazione-rapida"><span><b>Rotazione schermo</b><span class="testo-muto" id="rot-stato">…</span></span>' +
       '<span class="tipi due-tasti" role="group" aria-label="Rotazione schermo"><button type="button" data-rot="auto" style="--c:var(--ardesia)">Automatica</button><button type="button" data-rot="bloccata" style="--c:var(--ardesia)">Bloccata</button></span></div>' +
+      '<div class="rotazione-rapida"><span><b>⏰ Sveglie</b><span class="testo-muto">' + esc(riassuntoSveglie()) + '</span></span><button type="button" class="btn piccolo" data-sveglie>Imposta</button></div>' +
+      (isAndrea() ? (function () {
+        var ta = turnoAuto(), opz = function (sel, extra) { return extra + lista.map(function (m) { return '<option value="' + esc(m.id) + '"' + (m.id === sel ? ' selected' : '') + '>' + esc(m.icona + ' ' + m.nome) + '</option>'; }).join(''); };
+        return '<div class="rotazione-rapida turno-auto"><span><b>🚒 Modo automatico nei turni</b><span class="testo-muto">' + esc(testoProssimoTurno()) + '</span></span>' +
+          '<span class="tipi due-tasti" role="group" aria-label="Modo automatico nei turni"><button type="button" data-tauto="1" style="--c:var(--sangiovese)" aria-pressed="' + ta.attivo + '">Sì</button><button type="button" data-tauto="0" style="--c:var(--sangiovese)" aria-pressed="' + !ta.attivo + '">No</button></span>' +
+          '<div class="due"><label class="campo">Durante il turno<select name="ta-in">' + opz(ta.inTurno, '') + '</select></label><label class="campo">A fine turno<select name="ta-dopo">' + opz(ta.dopo, '<option value="">Il modo di prima</option>') + '</select></label></div></div>';
+      })() : '') +
       (isAndrea() ? '<div class="rotazione-rapida"><span><b>VPN FortiClient</b><span class="testo-muto" id="vpn-stato">…</span></span><button type="button" class="btn piccolo" data-forti>Apri FortiClient</button></div>' +
         '<div class="rotazione-rapida dns"><span><b>DNS privato</b><span class="testo-muto" id="dns-stato">…</span></span>' +
         '<span class="tipi due-tasti" role="group" aria-label="DNS privato"><button type="button" data-dns="host" style="--c:var(--ardesia)">Attivo</button><button type="button" data-dns="auto" style="--c:var(--ardesia)">Spento</button></span>' +
@@ -1559,6 +1582,27 @@
       var st = $('#rot-stato', f); if (st) st.textContent = r === 'auto' ? 'Gira da solo' : r === 'bloccata' ? 'Resta fermo' : '';
     }
     Native.audio.stato().then(function (st) { segnaRot(st.rotazione); segnaRete(st); if (st.dnsHost && !dnsHost() && $('[name=dnshost]', f)) $('[name=dnshost]', f).value = st.dnsHost; }).catch(function () { segnaRot(''); });
+    $('[data-sveglie]', f).onclick = function () { apriSveglie(); };
+    function salvaTurnoAuto(cambi) {
+      var ta = Object.assign(turnoAuto(), cambi); scriviLocale('aec.turnoAuto', ta);
+      return programmaTurnoAuto(true);
+    }
+    f.querySelectorAll('[data-tauto]').forEach(function (b) {
+      b.onclick = function () {
+        var on = b.dataset.tauto === '1';
+        f.querySelectorAll('[data-tauto]').forEach(function (c) { c.setAttribute('aria-pressed', String(c === b)); });
+        salvaTurnoAuto({ attivo: on }).then(function (st) {
+          if (!on) { toast('Modo automatico nei turni spento'); return; }
+          var tcfg = Store.settings().turni;
+          if (!tcfg || !tcfg.attivo || !tcfg.turno) { toast('Imposta il tuo turno in Calendario → Turni VVF'); return; }
+          if (st && st.permessoDnd === false) toast('Attivo. Concedi l\'accesso a Non disturbare, altrimenti la vibrazione può non partire', 'Concedi', function () { permessoMancante('dnd'); });
+          else toast(st && /^i:/.test(st.turnoAutoFatto || '') ? 'Sei in turno: modo applicato' : 'Attivo: cambierà da solo a inizio e fine turno');
+        });
+      };
+    });
+    var taIn = $('[name=ta-in]', f), taDopo = $('[name=ta-dopo]', f);
+    if (taIn) taIn.onchange = function () { salvaTurnoAuto({ inTurno: taIn.value }); };
+    if (taDopo) taDopo.onchange = function () { salvaTurnoAuto({ dopo: taDopo.value }); };
     var bf = $('[data-forti]', f);
     if (bf) bf.onclick = function () { Native.audio.apriFortiClient().catch(function () { toast('FortiClient non trovato'); }); };
     var campoDns = $('[name=dnshost]', f);
@@ -1581,6 +1625,113 @@
       };
     });
     $('[data-nuovo-modo]', f).onclick = function () { modificaModo(null); };
+    if (!foglio.open) foglio.showModal();
+  }
+  // ---------- MODO AUTOMATICO NEI TURNI (solo Andrea) ----------
+  // intervalli di servizio [inizioMs, fineMs] dei prossimi giorni, dal turnario VVF (turni attaccati uniti)
+  function intervalliTurno(cfg, giorni) {
+    var out = [], da = C.addGiorni(C.oggi(), -1);
+    for (var k = 0; k <= giorni; k++) {
+      var d = C.addGiorni(da, k), t = C.turnoDel(cfg, d);
+      if (!t || !(C.STATI_TURNO[t.stato] || {}).lavoro) continue;
+      var m = /^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/.exec(String(t.orario || ''));
+      if (!m) continue;
+      var a = new Date(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10), +m[1], +m[2]).getTime();
+      var b = new Date(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10), +m[3], +m[4]).getTime();
+      if (b <= a) b = new Date(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10) + 1, +m[3], +m[4]).getTime();
+      out.push([a, b]);
+    }
+    out.sort(function (x, y) { return x[0] - y[0]; });
+    var uniti = [];
+    out.forEach(function (x) { var u = uniti[uniti.length - 1]; if (u && x[0] <= u[1]) u[1] = Math.max(u[1], x[1]); else uniti.push(x.slice()); });
+    return uniti.filter(function (x) { return x[1] > Date.now(); });
+  }
+  function turnoAuto() { return Object.assign({ attivo: false, inTurno: 'lavoro', dopo: '' }, leggiLocale('aec.turnoAuto', {})); }
+  var firmaTurnoAuto = '';
+  function programmaTurnoAuto(forza) {
+    if (!Native.isApp) return Promise.resolve(null);
+    var ta = turnoAuto(), tcfg = Store.settings().turni;
+    var attivo = !!(ta.attivo && isAndrea() && tcfg && tcfg.attivo && tcfg.turno);
+    var conf = { attivo: attivo, inTurno: ta.inTurno, dopo: ta.dopo, modi: modi(), intervalli: attivo ? intervalliTurno(tcfg, 22) : [] };
+    var firma = JSON.stringify(conf).replace(/"intervalli".*$/, '') + (conf.intervalli[0] || []).join() + conf.intervalli.length;
+    if (!forza && firma === firmaTurnoAuto) return Promise.resolve(null);
+    firmaTurnoAuto = firma;
+    return Native.audio.turnoAuto(conf).then(function (st) { if (st && st.attivo !== leggiLocale('aec.modoAttivo', null)) { scriviLocale('aec.modoAttivo', st.attivo || null); disegna(); } return st; }).catch(function () { return null; });
+  }
+  function testoProssimoTurno() {
+    var tcfg = Store.settings().turni;
+    if (!tcfg || !tcfg.attivo || !tcfg.turno) return 'Prima imposta il tuo turno in Calendario → Turni VVF';
+    var iv = intervalliTurno(tcfg, 22)[0];
+    if (!iv) return 'Nessun turno nelle prossime 3 settimane';
+    var f = function (ms) { var d = new Date(ms); return C.dataBreve(C.iso(d)) + ' ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); };
+    return (iv[0] <= Date.now() ? 'In turno fino a ' + f(iv[1]) : 'Prossimo turno: ' + f(iv[0]) + ' → ' + f(iv[1]));
+  }
+
+  // ---------- SVEGLIE (create nell'app Orologio del telefono) ----------
+  var GIORNI_SV = [[1, 'L', 'lun'], [2, 'M', 'mar'], [3, 'M', 'mer'], [4, 'G', 'gio'], [5, 'V', 'ven'], [6, 'S', 'sab'], [7, 'D', 'dom']];
+  function sveglie() { return leggiLocale('aec.sveglie', []); }
+  function oraSv(sv) { return ('0' + sv.ora).slice(-2) + ':' + ('0' + sv.minuti).slice(-2); }
+  function giorniSv(sv) {
+    var g = (sv.giorni || []).slice().sort();
+    if (!g.length) return 'una volta';
+    if (g.length === 7) return 'tutti i giorni';
+    if (g.join() === '1,2,3,4,5') return 'lun–ven';
+    if (g.join() === '6,7') return 'weekend';
+    return g.map(function (d) { return GIORNI_SV[d - 1][2]; }).join(' ');
+  }
+  function riassuntoSveglie() {
+    var l = sveglie();
+    return l.length ? l.slice(0, 3).map(oraSv).join(', ') + (l.length > 3 ? '…' : '') : 'Nell\'orologio del telefono';
+  }
+  function erroreSveglia(e) { toast(e && e.code === 'NO_OROLOGIO' ? 'Nessuna app Orologio trovata sul telefono' : ((e && e.message) || 'Sveglia non impostata')); }
+  function apriSveglie() {
+    var nuova = { ora: 6, minuti: 30, giorni: [], nome: '', vibra: true };
+    foglio.classList.remove('visore');
+    function disegnaSv() {
+      var l = sveglie();
+      foglio.innerHTML = '<form method="dialog" id="form-sveglie"><div class="maniglia"></div><h3 id="foglio-titolo">⏰ Sveglie</h3><div class="campi">' +
+        (l.length ? '<ul class="righe">' + l.map(function (sv, i) {
+          return '<li class="riga" style="--c:var(--ardesia)"><span class="barra"></span><span class="corpo-riga"><span class="titolo">' + oraSv(sv) + (sv.nome ? ' · ' + esc(sv.nome) : '') + '</span><span class="meta">' + esc(giorniSv(sv)) + (sv.vibra === false ? ' · senza vibrazione' : '') + '</span></span>' +
+            '<span class="destra"><button type="button" class="btn secondario piccolo" data-reimposta="' + i + '">Imposta</button><button type="button" class="btn icona" data-togli-sv="' + i + '" aria-label="Togli la sveglia delle ' + oraSv(sv) + '">✕</button></span></li>';
+        }).join('') + '</ul>' : '') +
+        '<div class="sezione"><div class="campi">' +
+        '<div class="due"><label class="campo">Ora<input type="time" name="ora" required value="' + oraSv(nuova) + '"></label><label class="campo">Nome<input type="text" name="nome" maxlength="40" value="' + esc(nuova.nome) + '" placeholder="Es. Turno diurno"></label></div>' +
+        '<div class="campo-modo"><b>Ripeti</b><span class="aiuto">Nessun giorno = suona una volta sola, alla prossima volta che arriva quell\'ora.</span><div class="riga-reg giorni-sv">' +
+        GIORNI_SV.map(function (g) { return '<button type="button" class="chip" data-g="' + g[0] + '" aria-pressed="' + (nuova.giorni.indexOf(g[0]) >= 0) + '" aria-label="' + g[2] + '">' + g[1] + '</button>'; }).join('') +
+        '<button type="button" class="chip" data-gset="1,2,3,4,5">lun–ven</button><button type="button" class="chip" data-gset="1,2,3,4,5,6,7">tutti</button></div></div>' +
+        '<label class="spunta-vol"><input type="checkbox" name="vibra"' + (nuova.vibra ? ' checked' : '') + '> Vibra anche</label>' +
+        '<div class="azioni"><button class="btn" type="submit">Imposta la sveglia</button><button class="btn secondario" type="button" data-orologio>Apri l\'Orologio</button></div></div></div>' +
+        '<p class="testo-muto">La sveglia viene creata nell\'Orologio del telefono: suona anche ad app chiusa e la posticipi o spegni come sempre. Se la modifichi nell\'Orologio, qui resta com\'era.</p>' +
+        '<div class="azioni"><button class="btn secondario" type="button" data-indietro>Indietro</button></div></div></form>';
+      var f = $('#form-sveglie', foglio);
+      function leggiForm() { var o = String(f.ora.value || '06:30').split(':'); nuova.ora = +o[0]; nuova.minuti = +o[1]; nuova.nome = f.nome.value.trim(); nuova.vibra = f.vibra.checked; }
+      f.querySelectorAll('[data-g]').forEach(function (b) { b.onclick = function () { var g = +b.dataset.g, k = nuova.giorni.indexOf(g); if (k >= 0) nuova.giorni.splice(k, 1); else nuova.giorni.push(g); b.setAttribute('aria-pressed', String(k < 0)); }; });
+      f.querySelectorAll('[data-gset]').forEach(function (b) { b.onclick = function () { leggiForm(); nuova.giorni = b.dataset.gset.split(',').map(Number); disegnaSv(); }; });
+      f.querySelectorAll('[data-reimposta]').forEach(function (b) { b.onclick = function () { var sv = sveglie()[+b.dataset.reimposta]; Native.audio.sveglia(sv).then(function () { toast('Sveglia delle ' + oraSv(sv) + ' impostata'); }).catch(erroreSveglia); }; });
+      f.querySelectorAll('[data-togli-sv]').forEach(function (b) {
+        b.onclick = function () {
+          var l2 = sveglie(), i = +b.dataset.togliSv, sv = l2[i];
+          if (!confirm('Togliere la sveglia delle ' + oraSv(sv) + '? L\'Orologio potrebbe chiedere conferma.')) return;
+          l2.splice(i, 1); scriviLocale('aec.sveglie', l2);
+          Native.audio.togliSveglia(sv).catch(function () { toast('Toglila anche dall\'Orologio'); });
+          disegnaSv();
+        };
+      });
+      $('[data-orologio]', f).onclick = function () { Native.audio.elencoSveglie().catch(erroreSveglia); };
+      $('[data-indietro]', f).onclick = apriModi;
+      f.onsubmit = function (e) {
+        e.preventDefault(); leggiForm();
+        var sv = { id: 's' + Date.now().toString(36), ora: nuova.ora, minuti: nuova.minuti, giorni: nuova.giorni.slice().sort(), nome: nuova.nome, vibra: nuova.vibra };
+        Native.audio.sveglia(sv).then(function () {
+          var l2 = sveglie().filter(function (x) { return !(x.ora === sv.ora && x.minuti === sv.minuti && (x.giorni || []).join() === sv.giorni.join()); });
+          l2.push(sv); l2.sort(function (a, b) { return a.ora * 60 + a.minuti - b.ora * 60 - b.minuti; });
+          scriviLocale('aec.sveglie', l2);
+          nuova = { ora: sv.ora, minuti: sv.minuti, giorni: [], nome: '', vibra: true };
+          toast('⏰ Sveglia ' + oraSv(sv) + ' ' + giorniSv(sv) + ' impostata'); disegnaSv();
+        }).catch(erroreSveglia);
+      };
+    }
+    disegnaSv();
     if (!foglio.open) foglio.showModal();
   }
   function modificaModo(id) {

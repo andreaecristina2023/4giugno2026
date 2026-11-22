@@ -13,10 +13,13 @@ import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.Uri;
 import android.os.Build;
+import android.provider.AlarmClock;
 import android.provider.Settings;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+
+import java.util.ArrayList;
 
 /**
  * Comandi del telefono usati dall'app e dal widget "A&C Comandi":
@@ -235,6 +238,48 @@ public final class ComandiTelefono {
         else if ("rete".equals(quale)) i = new Intent(Settings.ACTION_WIRELESS_SETTINGS);
         else if ("vpn".equals(quale)) i = new Intent(Settings.ACTION_VPN_SETTINGS);
         else i = new Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS);
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        return i;
+    }
+
+    // ---------- sveglie (nell'app Orologio del telefono) ----------
+    static Intent intentElencoSveglie() {
+        Intent i = new Intent(AlarmClock.ACTION_SHOW_ALARMS);
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        return i;
+    }
+
+    /**
+     * Crea una sveglia nell'Orologio: { ora, minuti, giorni: [1=lun … 7=dom] (vuoto = una volta sola),
+     * nome, vibra, mostra (true = apre l'Orologio invece di crearla in silenzio) }
+     */
+    static Intent intentSveglia(JSONObject s) {
+        Intent i = new Intent(AlarmClock.ACTION_SET_ALARM);
+        i.putExtra(AlarmClock.EXTRA_HOUR, s.optInt("ora", 7));
+        i.putExtra(AlarmClock.EXTRA_MINUTES, s.optInt("minuti", 0));
+        String nome = s.optString("nome", "");
+        if (!nome.isEmpty()) i.putExtra(AlarmClock.EXTRA_MESSAGE, nome);
+        JSONArray g = s.optJSONArray("giorni");
+        if (g != null && g.length() > 0) {
+            // da lun=1…dom=7 a Calendar (dom=1, lun=2 … sab=7)
+            ArrayList<Integer> giorni = new ArrayList<>();
+            for (int k = 0; k < g.length(); k++) { int d = g.optInt(k); if (d >= 1 && d <= 7) giorni.add(d == 7 ? 1 : d + 1); }
+            i.putExtra(AlarmClock.EXTRA_DAYS, giorni);
+        }
+        i.putExtra(AlarmClock.EXTRA_VIBRATE, s.optBoolean("vibra", true));
+        i.putExtra(AlarmClock.EXTRA_SKIP_UI, !s.optBoolean("mostra", false));
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        return i;
+    }
+
+    /** Spegne nell'Orologio la sveglia con quell'ora (alcuni orologi chiedono conferma). */
+    static Intent intentTogliSveglia(JSONObject s) {
+        Intent i = new Intent(AlarmClock.ACTION_DISMISS_ALARM);
+        int ora = s.optInt("ora", 7);
+        i.putExtra(AlarmClock.EXTRA_ALARM_SEARCH_MODE, AlarmClock.ALARM_SEARCH_MODE_TIME);
+        i.putExtra(AlarmClock.EXTRA_HOUR, ora); // 0-23: con IS_PM coerente l'Orologio lo legge giusto in entrambi i formati
+        i.putExtra(AlarmClock.EXTRA_MINUTES, s.optInt("minuti", 0));
+        i.putExtra(AlarmClock.EXTRA_IS_PM, ora >= 12);
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         return i;
     }

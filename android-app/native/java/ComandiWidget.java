@@ -14,17 +14,17 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 /**
- * Widget "A&C Comandi": fino a 5 modi audio (il primo tocco applica il modo), poi rotazione schermo
- * e, sul telefono di Andrea, VPN (apre FortiClient) e DNS privato (acceso/spento).
+ * Widget "A&C Comandi": fino a 6 modi audio (un tocco applica il modo), poi rotazione schermo,
+ * sveglie (apre l'elenco dell'orologio) e, sul telefono di Andrea, VPN (apre FortiClient) e DNS privato (acceso/spento).
  * I modi arrivano dall'app in SharedPreferences "CapacitorStorage", chiave "comandi":
  * { modi: [ {id, nome, icona, suoneria, dnd, rotazione, volumi} ], andrea: true, dnsHost: "dns.example.it" }
  */
 public class ComandiWidget extends AppWidgetProvider {
 
     static final String AZIONE = "it.andreaecristina.casa.COMANDO";
-    private static final int[] MODI = { R.id.c_m1, R.id.c_m2, R.id.c_m3, R.id.c_m4, R.id.c_m5 };
-    private static final int[] MODI_I = { R.id.c_m1_i, R.id.c_m2_i, R.id.c_m3_i, R.id.c_m4_i, R.id.c_m5_i };
-    private static final int[] MODI_T = { R.id.c_m1_t, R.id.c_m2_t, R.id.c_m3_t, R.id.c_m4_t, R.id.c_m5_t };
+    private static final int[] MODI = { R.id.c_m1, R.id.c_m2, R.id.c_m3, R.id.c_m4, R.id.c_m5, R.id.c_m6 };
+    private static final int[] MODI_I = { R.id.c_m1_i, R.id.c_m2_i, R.id.c_m3_i, R.id.c_m4_i, R.id.c_m5_i, R.id.c_m6_i };
+    private static final int[] MODI_T = { R.id.c_m1_t, R.id.c_m2_t, R.id.c_m3_t, R.id.c_m4_t, R.id.c_m5_t, R.id.c_m6_t };
 
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] ids) {
@@ -93,6 +93,8 @@ public class ComandiWidget extends AppWidgetProvider {
         v.setTextViewText(R.id.c_rot_i, auto ? "🔄" : "🔒");
         v.setTextViewText(R.id.c_rot_t, auto ? "Ruota: auto" : "Ruota: bloccata");
         v.setOnClickPendingIntent(R.id.c_rot, comando(c, 10, "rotazione", null));
+
+        v.setOnClickPendingIntent(R.id.c_sveglie, PendingIntent.getActivity(c, 113, ComandiTelefono.intentElencoSveglie(), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
 
         boolean andrea = conf.optBoolean("andrea", false);
         v.setViewVisibility(R.id.c_vpn, andrea ? View.VISIBLE : View.GONE);

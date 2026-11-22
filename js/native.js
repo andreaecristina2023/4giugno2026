@@ -150,6 +150,12 @@ var Native = (function () {
     segna: function (id) { return AudioPl ? AudioPl.segna({ id: id || '' }) : soloApp(); },
     dns: function (modo, host) { return AudioPl ? AudioPl.dns({ modo: modo, host: host || '' }) : soloApp(); },
     apriFortiClient: function () { return AudioPl ? AudioPl.apriFortiClient() : soloApp(); },
+    // sveglie nell'app Orologio del telefono: { ora, minuti, giorni: [1=lun…7=dom], nome, vibra }
+    sveglia: function (sv) { return AudioPl ? AudioPl.sveglia(sv) : soloApp(); },
+    togliSveglia: function (sv) { return AudioPl ? AudioPl.togliSveglia({ ora: sv.ora, minuti: sv.minuti }) : soloApp(); },
+    elencoSveglie: function () { return AudioPl ? AudioPl.elencoSveglie() : soloApp(); },
+    // modo automatico durante i turni VVF: { attivo, inTurno, dopo, modi, intervalli: [[inizioMs, fineMs]] }
+    turnoAuto: function (conf) { return AudioPl ? AudioPl.turnoAuto(conf) : soloApp(); },
     // dati per il widget "A&C Comandi": { modi, andrea, dnsHost }
     salvaWidget: function (dati) {
       if (!AudioPl) return Promise.resolve();
