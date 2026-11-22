@@ -77,6 +77,8 @@ permessi = [
     '<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />',
     '<uses-feature android:name="android.hardware.camera" android:required="false" />',
     '<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />',
+    # stato della VPN (widget e DNS)
+    '<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />',
     # modi audio: Non disturbare, volumi, rotazione schermo
     '<uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />',
     '<uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />',

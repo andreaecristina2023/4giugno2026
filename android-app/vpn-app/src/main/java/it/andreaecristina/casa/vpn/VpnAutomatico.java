@@ -77,9 +77,14 @@ public class VpnAutomatico extends AccessibilityService {
                 .removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
                 .build();
             cb = new ConnectivityManager.NetworkCallback() {
-                @Override public void onAvailable(Network n) { avvisaAc(true); }
+                @Override public void onAvailable(Network n) {
+                    avvisaAc(true);
+                    h.post(new Runnable() { @Override public void run() { if ("connetti".equals(attesa)) fine("connetti", attesaRitorno); } });
+                }
                 @Override public void onLost(Network n) {
-                    h.postDelayed(new Runnable() { @Override public void run() { if (!vpnAttiva(VpnAutomatico.this)) avvisaAc(false); } }, 1500);
+                    h.postDelayed(new Runnable() { @Override public void run() {
+                        if (!vpnAttiva(VpnAutomatico.this)) { avvisaAc(false); if ("scollega".equals(attesa)) fine("scollega", attesaRitorno); }
+                    } }, 1500);
                 }
             };
             cm.registerNetworkCallback(req, cb);
@@ -204,19 +209,24 @@ public class VpnAutomatico extends AccessibilityService {
     }
 
     /** Aspetta che la VPN cambi stato (max 20 s), poi torna a casa o in A&C. */
+    private String attesa = null, attesaRitorno = "home"; // azione in corso, chiusa da fine()
+
     private void attendi(final String azione, final String ritorno, final int giro) {
+        if (giro == 0) { attesa = azione; attesaRitorno = ritorno; }
         h.postDelayed(new Runnable() {
             @Override public void run() {
+                if (attesa == null) return; // già chiusa dalla callback di rete
                 boolean fatto = "connetti".equals(azione) == vpnAttiva(VpnAutomatico.this);
                 if (fatto) fine(azione, ritorno);
-                else if (giro < 20) attendi(azione, ritorno, giro + 1);
-                // altrimenti FortiClient sta chiedendo password o codice: resto lì
+                else if (giro < 60) attendi(azione, ritorno, giro + 1);
+                else attesa = null; // dopo 60 s smetto di aspettare (password o codice da inserire a mano)
             }
         }, 1000);
     }
 
     private void fine(String azione, String ritorno) {
-        prefs(this).edit().remove("richiesta").apply();
+        attesa = null;
+        prefs(this).edit().remove("richiesta").putString("diag_esito", prefs(this).getString("diag_esito", "") + " → VPN " + ("connetti".equals(azione) ? "collegata" : "scollegata")).apply();
         Toast.makeText(this, "connetti".equals(azione) ? "🛡️ VPN collegata" : "VPN scollegata", Toast.LENGTH_SHORT).show();
         Intent app = "app".equals(ritorno) ? getPackageManager().getLaunchIntentForPackage(PKG_AC) : null;
         if (app != null) {

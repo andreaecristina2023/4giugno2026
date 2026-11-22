@@ -4,6 +4,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <permission android:name="it.andreaecristina.casa.permission.VPN" android:protectionLevel="signature" />
     <uses-permission android:name="it.andreaecristina.casa.permission.VPN" />
+    <!-- per sapere se la VPN è collegata -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <queries>
         <package android:name="it.andreaecristina.casa" />
         <package android:name="com.fortinet.forticlient_vpn" />
