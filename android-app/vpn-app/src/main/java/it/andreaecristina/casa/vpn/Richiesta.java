@@ -14,6 +14,8 @@ public class Richiesta extends BroadcastReceiver {
             .putString("richiesta", azione)
             .putLong("scade", System.currentTimeMillis() + 25000)
             .putString("ritorno", "app".equals(i.getStringExtra("ritorno")) ? "app" : "home")
+            .putLong("diag_richiesta", System.currentTimeMillis()).putString("diag_azione", azione)
+            .putString("diag_esito", "in attesa di FortiClient").remove("diag_schermata")
             .apply();
     }
 }
