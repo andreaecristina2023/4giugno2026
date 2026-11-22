@@ -65,6 +65,7 @@ In alto, accanto all'ingranaggio, c'è il tasto dei **modi**: mostra il simbolo 
 | 🌙 Notte | Non disturbare "solo priorità", musica muta, sveglia all'80%, rotazione bloccata |
 | 🔕 Silenzioso | Silenzio, musica muta |
 | 🎵 Solo musica | Suoneria e notifiche in silenzio, musica all'80% |
+| ⛔ Non disturbare | Attiva il Non disturbare di Android con le eccezioni scelte nelle impostazioni del telefono (preferiti, chiamate ripetute, sveglie); Normale lo spegne |
 
 Ogni modo si può modificare (suoneria, Non disturbare, rotazione schermo, volumi di suoneria, notifiche, chiamate, musica e sveglia: senza spunta il volume non si tocca), eliminare o aggiungere ("Nuovo modo"). I modi sono salvati solo sul telefono: Andrea e Cristina hanno i propri. Sotto c'è l'interruttore rapido **Rotazione schermo** (automatica / bloccata).
 

@@ -1446,7 +1446,7 @@
   var SUONERIE = { suona: 'Suona', vibra: 'Vibra', silenzio: 'Silenzio' };
   var DND = { '': 'Non cambiare', off: 'Spento', priorita: 'Solo priorità', sveglie: 'Solo sveglie', totale: 'Silenzio totale' };
   var ROTAZIONI = { '': 'Non cambiare', auto: 'Automatica', bloccata: 'Bloccata' };
-  var ICONE_MODO = ['🔔', '🏍️', '🚒', '🌙', '🔕', '🎵', '🚗', '🏠', '💼', '🎬', '🏋️', '✈️', '🛏️', '🎧', '⛪'];
+  var ICONE_MODO = ['🔔', '🏍️', '🚒', '🌙', '🔕', '🎵', '⛔', '🚗', '🏠', '💼', '🎬', '🏋️', '✈️', '🛏️', '🎧', '⛪'];
   function modiPredefiniti() {
     var v = function (o) { var r = {}; VOLUMI.forEach(function (x) { r[x[0]] = o[x[0]] == null ? null : o[x[0]]; }); return r; };
     return [
@@ -1455,7 +1455,9 @@
       { id: 'lavoro', nome: 'Lavoro', icona: '🚒', suoneria: 'vibra', dnd: 'off', rotazione: '', volumi: v({ media: 0 }) },
       { id: 'notte', nome: 'Notte', icona: '🌙', suoneria: 'suona', dnd: 'priorita', rotazione: 'bloccata', volumi: v({ media: 0, sveglia: 80 }) },
       { id: 'silenzioso', nome: 'Silenzioso', icona: '🔕', suoneria: 'silenzio', dnd: 'off', rotazione: '', volumi: v({ media: 0 }) },
-      { id: 'musica', nome: 'Solo musica', icona: '🎵', suoneria: 'silenzio', dnd: 'off', rotazione: '', volumi: v({ media: 80 }) }
+      { id: 'musica', nome: 'Solo musica', icona: '🎵', suoneria: 'silenzio', dnd: 'off', rotazione: '', volumi: v({ media: 80 }) },
+      // Non disturbare di Android con le eccezioni scelte nelle impostazioni del telefono (preferiti, chiamate ripetute, sveglie)
+      { id: 'nondisturbare', nome: 'Non disturbare', icona: '⛔', suoneria: '', dnd: 'priorita', rotazione: '', volumi: v({}) }
     ];
   }
   function leggiLocale(k, def) { try { var x = localStorage.getItem(k); return x ? JSON.parse(x) : def; } catch (e) { return def; } }
@@ -1481,8 +1483,9 @@
   function datiWidgetComandi() { if (Native.isApp) Native.audio.salvaWidget({ modi: modi().slice(0, 6), andrea: isAndrea(), dnsHost: dnsHost() }); }
   function modoAttivo() { var id = leggiLocale('aec.modoAttivo', null); return modi().filter(function (m) { return m.id === id; })[0] || null; }
   function descriviModo(m) {
-    var p = [SUONERIE[m.suoneria] || 'Suoneria invariata'];
+    var p = m.suoneria ? [SUONERIE[m.suoneria]] : [];
     if (m.dnd && m.dnd !== 'off') p.push('Non disturbare: ' + DND[m.dnd].toLowerCase());
+    if (!p.length) p.push('Suoneria invariata');
     if (m.volumi && m.volumi.media === 0) p.push('media muti'); else if (m.volumi && m.volumi.media === 100) p.push('media al massimo'); else if (m.volumi && m.volumi.media != null) p.push('musica al ' + m.volumi.media + '%');
     if (m.rotazione) p.push('rotazione ' + ROTAZIONI[m.rotazione].toLowerCase());
     return p.join(' · ');
