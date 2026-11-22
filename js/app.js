@@ -1602,7 +1602,7 @@
       })() : '') +
       (isAndrea() ? '<div class="rotazione-rapida"><span><b>VPN FortiClient</b><span class="testo-muto" id="vpn-stato">…</span></span><button type="button" class="btn piccolo" data-forti>VPN</button></div><div class="vpn-auto" id="vpn-auto"></div>' +
         '<div class="rotazione-rapida dns"><span><b>DNS privato</b><span class="testo-muto" id="dns-stato">…</span></span>' +
-        '<span class="tipi due-tasti" role="group" aria-label="DNS privato"><button type="button" data-dns="host" style="--c:var(--ardesia)">Attivo</button><button type="button" data-dns="auto" style="--c:var(--ardesia)">Spento</button></span>' +
+        '<span class="tipi due-tasti" role="group" aria-label="DNS privato"><button type="button" data-dns="host" style="--c:var(--ardesia)">Attivo</button><button type="button" data-dns="off" style="--c:var(--ardesia)">Disattivato</button></span>' +
         '<label class="campo dns-host">Indirizzo del DNS<input type="text" name="dnshost" inputmode="url" autocapitalize="off" spellcheck="false" maxlength="120" value="' + esc(dnsHost()) + '" placeholder="es. dns.adguard-dns.com"></label></div>' : '') +
       '<div class="azioni"><button class="btn secondario" type="button" data-nuovo-modo>Nuovo modo</button><button class="btn secondario" type="submit">Chiudi</button></div></form>';
     var f = $('#form-modi', foglio);
@@ -1614,8 +1614,8 @@
       if (va) va.innerHTML = st.vpnAuto ? '<span class="testo-muto">✓ VPN in un tocco attiva' + (st.dnsHost || st.dnsInPausa ? ' · il DNS privato si spegne durante la VPN' : '') + '</span>'
         : '<button type="button" class="btn secondario piccolo" data-vpn-auto>' + (st.vpnApp ? 'Attiva «VPN in un tocco»' : 'Installa «A&amp;C VPN» per la VPN in un tocco') + '</button>';
       var bva = $('[data-vpn-auto]', f); if (bva) bva.onclick = function () { istruzioniVpnAuto(!!st.vpnApp); };
-      if (d) d.textContent = st.dnsInPausa ? 'In pausa per la VPN: torna ' + st.dnsInPausa + ' a VPN spenta' : st.dnsModo === 'host' ? (st.dnsHost || 'attivo') : st.dnsModo === 'off' ? 'Disattivato' : 'Automatico (quello della rete)';
-      f.querySelectorAll('[data-dns]').forEach(function (b) { b.setAttribute('aria-pressed', String(st.dnsModo === 'host' ? b.dataset.dns === 'host' : b.dataset.dns === 'auto')); });
+      if (d) d.textContent = st.dnsInPausa ? 'In pausa per la VPN: torna ' + st.dnsInPausa + ' a VPN spenta' : st.dnsModo === 'host' ? (st.dnsHost || 'attivo') : st.dnsModo === 'off' ? 'Disattivato' : 'Automatico (tocca Disattivato o Attivo)';
+      f.querySelectorAll('[data-dns]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.dns === (st.dnsModo === 'host' ? 'host' : 'off'))); });
     }
     function segnaRot(r) {
       f.querySelectorAll('[data-rot]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.rot === r)); });
@@ -1654,7 +1654,7 @@
         var host = campoDns ? campoDns.value.trim() : dnsHost();
         if (b.dataset.dns === 'host' && !host) { toast('Scrivi prima l\'indirizzo del DNS'); if (campoDns) campoDns.focus(); return; }
         scriviLocale('aec.dnsHost', host); datiWidgetComandi();
-        Native.audio.dns(b.dataset.dns, host).then(function (st) { segnaRete(st); toast(b.dataset.dns === 'host' ? 'DNS privato: ' + host : 'DNS privato spento: resta spento finché non tocchi Attivo'); })
+        Native.audio.dns(b.dataset.dns, host).then(function (st) { segnaRete(st); toast(b.dataset.dns === 'host' ? 'DNS privato: ' + host : 'DNS privato disattivato: resta così finché non tocchi Attivo'); })
           .catch(function (e) { if (e && e.code === 'PERMESSO_DNS') permessoDns(); else toast((e && e.message) || 'DNS non cambiato'); });
       };
     });

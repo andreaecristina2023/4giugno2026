@@ -95,8 +95,9 @@ public class ComandiWidget extends AppWidgetProvider {
             v.setOnClickPendingIntent(R.id.c_vpn, PendingIntent.getActivity(c, 111, vi, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
             boolean dns = "host".equals(ComandiTelefono.dnsModo(c));
             boolean pausa = !ComandiTelefono.prefs(c).getString("dnsDaRipristinare", "").isEmpty();
-            v.setTextViewText(R.id.c_dns_t, dns ? "DNS attivo" : pausa ? "DNS in pausa" : "DNS spento");
-            v.setInt(R.id.c_dns, "setBackgroundResource", dns ? R.drawable.widget_tasto_attivo : R.drawable.widget_tasto);
+            v.setTextViewText(R.id.c_dns_t, dns ? "DNS attivo" : pausa ? "DNS in pausa" : "DNS disattivato");
+            // colorato quando il DNS privato è disattivato (o in pausa per la VPN), normale quando è attivo
+            v.setInt(R.id.c_dns, "setBackgroundResource", dns ? R.drawable.widget_tasto : R.drawable.widget_tasto_attivo);
             v.setOnClickPendingIntent(R.id.c_dns, comando(c, 12, "dns", null));
         }
         manager.updateAppWidget(widgetId, v);
@@ -132,9 +133,9 @@ public class ComandiWidget extends AppWidgetProvider {
             } else if ("dns".equals(cmd)) {
                 boolean acceso = "host".equals(ComandiTelefono.dnsModo(c));
                 String host = ComandiTelefono.configurazione(c).optString("dnsHost", "");
-                ComandiTelefono.impostaDns(c, acceso ? "auto" : "host", host);
+                ComandiTelefono.impostaDns(c, acceso ? "off" : "host", host);
                 ComandiTelefono.prefs(c).edit().remove("dnsDaRipristinare").putBoolean("dnsManualeOff", acceso).apply();
-                Toast.makeText(c, acceso ? "DNS privato spento" : "DNS privato: " + host, Toast.LENGTH_SHORT).show();
+                Toast.makeText(c, acceso ? "DNS privato disattivato" : "DNS privato: " + host, Toast.LENGTH_SHORT).show();
             }
         } catch (ComandiTelefono.Errore e) {
             String msg = "PERMESSO_DND".equals(e.codice) ? "Serve l'accesso a Non disturbare: apri A&C e tocca di nuovo il modo"
