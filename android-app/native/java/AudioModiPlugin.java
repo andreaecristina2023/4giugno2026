@@ -60,7 +60,8 @@ public class AudioModiPlugin extends Plugin {
     public void dns(PluginCall call) {
         try {
             ComandiTelefono.impostaDns(getContext(), call.getString("modo"), call.getString("host"));
-            ComandiTelefono.prefs(getContext()).edit().remove("dnsDaRipristinare").apply(); // scelta a mano: vince lei
+            // scelta a mano: vince lei; "spento a mano" blocca il DNS attivo di default finché non si riattiva
+            ComandiTelefono.prefs(getContext()).edit().remove("dnsDaRipristinare").putBoolean("dnsManualeOff", !"host".equals(call.getString("modo"))).apply();
             rispondi(call, ComandiTelefono.stato(getContext()));
         } catch (ComandiTelefono.Errore e) {
             call.reject(e.getMessage(), e.codice);

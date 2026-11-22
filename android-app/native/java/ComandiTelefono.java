@@ -194,6 +194,7 @@ public final class ComandiTelefono {
             r.put("vpnAuto", vpnAutoAttivo(c));
             r.put("vpnApp", vpnAppInstallata(c));
             r.put("dnsInPausa", prefs(c).getString("dnsDaRipristinare", ""));
+            r.put("dnsManualeOff", prefs(c).getBoolean("dnsManualeOff", false));
             r.put("dnsModo", dnsModo(c));
             r.put("dnsHost", dnsHost(c));
             r.put("permessoDns", permessoDns(c));

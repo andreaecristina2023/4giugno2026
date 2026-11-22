@@ -133,7 +133,7 @@ public class ComandiWidget extends AppWidgetProvider {
                 boolean acceso = "host".equals(ComandiTelefono.dnsModo(c));
                 String host = ComandiTelefono.configurazione(c).optString("dnsHost", "");
                 ComandiTelefono.impostaDns(c, acceso ? "auto" : "host", host);
-                ComandiTelefono.prefs(c).edit().remove("dnsDaRipristinare").apply();
+                ComandiTelefono.prefs(c).edit().remove("dnsDaRipristinare").putBoolean("dnsManualeOff", acceso).apply();
                 Toast.makeText(c, acceso ? "DNS privato spento" : "DNS privato: " + host, Toast.LENGTH_SHORT).show();
             }
         } catch (ComandiTelefono.Errore e) {

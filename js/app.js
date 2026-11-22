@@ -1446,7 +1446,7 @@
   var SUONERIE = { suona: 'Suona', vibra: 'Vibra', silenzio: 'Silenzio' };
   var DND = { '': 'Non cambiare', off: 'Spento', priorita: 'Solo priorità', sveglie: 'Solo sveglie', totale: 'Silenzio totale' };
   var ROTAZIONI = { '': 'Non cambiare', auto: 'Automatica', bloccata: 'Bloccata' };
-  var ICONE_MODO = ['🔔', '🏍️', '🚒', '🌙', '🔕', '🎵', '⛔', '🚗', '🏠', '💼', '🎬', '🏋️', '✈️', '🛏️', '🎧', '⛪'];
+  var ICONE_MODO = ['🔔', '🏍️', '🚒', '🌙', '🔕', '🎵', '⛔', '⛔', '🚗', '🏠', '💼', '🎬', '🏋️', '✈️', '🛏️', '🎧', '⛪'];
   function modiPredefiniti() {
     var v = function (o) { var r = {}; VOLUMI.forEach(function (x) { r[x[0]] = o[x[0]] == null ? null : o[x[0]]; }); return r; };
     return [
@@ -1456,6 +1456,7 @@
       { id: 'notte', nome: 'Notte', icona: '🌙', suoneria: 'suona', dnd: 'priorita', rotazione: 'bloccata', volumi: v({ media: 0, sveglia: 80 }) },
       { id: 'silenzioso', nome: 'Silenzioso', icona: '🔕', suoneria: 'silenzio', dnd: 'off', rotazione: '', volumi: v({ media: 0 }) },
       { id: 'musica', nome: 'Solo musica', icona: '🎵', suoneria: 'silenzio', dnd: 'off', rotazione: '', volumi: v({ media: 80 }) },
+      { id: 'nondisturbare', nome: 'Non disturbare', icona: '⛔', suoneria: '', dnd: 'priorita', rotazione: '', volumi: v({}) },
       // Non disturbare di Android con le eccezioni scelte nelle impostazioni del telefono (preferiti, chiamate ripetute, sveglie)
       { id: 'nondisturbare', nome: 'Non disturbare', icona: '⛔', suoneria: '', dnd: 'priorita', rotazione: '', volumi: v({}) }
     ];
@@ -1480,7 +1481,7 @@
   function salvaModi(lista) { scriviLocale('aec.modi', lista); datiWidgetComandi(); programmaTurnoAuto(); }
   function isAndrea() { return /^andrea/i.test(String(Store.conf().chi || '').trim()); }
   function dnsHost() { return leggiLocale('aec.dnsHost', ''); }
-  function datiWidgetComandi() { if (Native.isApp) Native.audio.salvaWidget({ modi: modi().slice(0, 6), andrea: isAndrea(), dnsHost: dnsHost() }); }
+  function datiWidgetComandi() { if (Native.isApp) Native.audio.salvaWidget({ modi: modi(), andrea: isAndrea(), dnsHost: dnsHost() }); }
   function modoAttivo() { var id = leggiLocale('aec.modoAttivo', null); return modi().filter(function (m) { return m.id === id; })[0] || null; }
   function descriviModo(m) {
     var p = m.suoneria ? [SUONERIE[m.suoneria]] : [];
@@ -1505,7 +1506,16 @@
       var m = modoAttivo();
       if (m && ((m.suoneria && st.suoneria !== m.suoneria) || (m.dnd && st.dnd !== m.dnd))) { scriviLocale('aec.modoAttivo', null); Native.audio.segna(''); }
       if (leggiLocale('aec.modoAttivo', null) !== prima) disegna();
+      dnsDiDefault(st);
     }).catch(function () {});
+  }
+  // DNS privato attivo di default (solo Andrea): si riaccende quando la VPN è spenta,
+  // a meno che non sia in pausa per la VPN o spento a mano (dall'app o dal widget)
+  function dnsDiDefault(st) {
+    var host = dnsHost() || st.dnsHost || '';
+    if (!isAndrea() || !host || !st.permessoDns || st.vpn || st.dnsInPausa || st.dnsManualeOff || st.dnsModo === 'host') return;
+    if (!dnsHost()) scriviLocale('aec.dnsHost', host);
+    Native.audio.dns('host', host).then(function () { toast('DNS privato attivo: ' + host); }).catch(function () {});
   }
   function permessoDns() {
     foglio.classList.remove('visore');
@@ -1644,7 +1654,7 @@
         var host = campoDns ? campoDns.value.trim() : dnsHost();
         if (b.dataset.dns === 'host' && !host) { toast('Scrivi prima l\'indirizzo del DNS'); if (campoDns) campoDns.focus(); return; }
         scriviLocale('aec.dnsHost', host); datiWidgetComandi();
-        Native.audio.dns(b.dataset.dns, host).then(function (st) { segnaRete(st); toast(b.dataset.dns === 'host' ? 'DNS privato: ' + host : 'DNS privato spento'); })
+        Native.audio.dns(b.dataset.dns, host).then(function (st) { segnaRete(st); toast(b.dataset.dns === 'host' ? 'DNS privato: ' + host : 'DNS privato spento: resta spento finché non tocchi Attivo'); })
           .catch(function (e) { if (e && e.code === 'PERMESSO_DNS') permessoDns(); else toast((e && e.message) || 'DNS non cambiato'); });
       };
     });
