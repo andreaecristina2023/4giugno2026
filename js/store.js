@@ -20,7 +20,7 @@ var Store = (function () {
     turni: { attivo: false, persona: 'Andrea', turno: 'B', saltoturno: '', diurno: '08:00-20:00', notte: '20:00-08:00', eccezioni: [] },
     persone: ['Andrea', 'Cristina'],
     anagrafica: { indirizzo: '', persone: { Andrea: { prefisso: '+39', telefono: '', email: '', cf: '' }, Cristina: { prefisso: '+39', telefono: '', email: '', cf: '' } }, documenti: '', altro: '' },
-    categorie: ['Casa', 'Bollette', 'Condominio', 'Bollo auto/moto', 'Assicurazione', 'Revisione', 'Auto', 'Viaggi', 'Concerti', 'Salute', 'Tasse', 'Banca', 'Altro']
+    categorie: ['Casa', 'Bollette', 'Condominio', 'Bollo auto/moto', 'Assicurazione', 'Revisione', 'Auto', 'Viaggi', 'Concerti', 'Salute', 'Capelli', 'Estetista', 'Tasse', 'Banca', 'Altro']
   };
   // Eco-Calendario Alea di casa (foto del 18/11/2026): precaricato una volta se non ci sono giorni impostati
   var CALENDARIO_CASA = {
@@ -45,6 +45,13 @@ var Store = (function () {
     if (nuove.length) {
       var i = settings.categorie.indexOf('Salute'); if (i < 0) i = settings.categorie.length;
       Array.prototype.splice.apply(settings.categorie, [i, 0].concat(nuove));
+      settings.aggiornato = Date.now(); dirty.settings = true; persist();
+    }
+    // categorie nuove (23/11/2026): dopo Salute
+    var nuove2 = ['Capelli', 'Estetista'].filter(function (c) { return settings.categorie.indexOf(c) < 0; });
+    if (nuove2.length) {
+      var j = settings.categorie.indexOf('Salute'); j = j < 0 ? settings.categorie.length : j + 1;
+      Array.prototype.splice.apply(settings.categorie, [j, 0].concat(nuove2));
       settings.aggiornato = Date.now(); dirty.settings = true; persist();
     }
     var r = settings.rifiuti;

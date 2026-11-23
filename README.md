@@ -93,7 +93,7 @@ Ovunque ci sia un indirizzo o una posizione c'è il tasto **🧭 Naviga**: voci 
 
 ## Voci
 
-Ripeti e avviso hanno le unità di misura: minuti, ore, giorni, settimane, mesi, anni (la ripetizione va da giorni ad anni). Le categorie Bollo auto/moto, Assicurazione e Revisione mostrano il campo **Targa** e propongono da sole la ripetizione (1 anno, revisione 2 anni). Ci sono anche le categorie Condominio, Viaggi e Concerti.
+Ripeti e avviso hanno le unità di misura: minuti, ore, giorni, settimane, mesi, anni (la ripetizione va da giorni ad anni). Le categorie Bollo auto/moto, Assicurazione e Revisione mostrano il campo **Targa** e propongono da sole la ripetizione (1 anno, revisione 2 anni). Ci sono anche le categorie Condominio, Viaggi, Concerti, Capelli ed Estetista. La categoria si sceglie per ogni tipo di voce (appuntamenti e promemoria compresi).
 
 ## 3. Promemoria
 

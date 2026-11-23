@@ -1093,7 +1093,8 @@
         '<div class="tipi" role="group" aria-label="Tipo">' + C.TIPI_BASE.map(function (t) { return '<button type="button" data-tipo="' + t + '" style="--c:' + COLORE_TIPO[t] + '" aria-pressed="' + (it.tipo === t) + '">' + C.TIPI[t].nome + '</button>'; }).join('') + '</div>' +
         '<label class="campo">Titolo<input type="text" name="titolo" required maxlength="120" value="' + esc(it.titolo) + '" placeholder="' + { appuntamento: 'Es. Dentista Cristina', pagamento: 'Es. Spese condominiali', scadenza: 'Es. Revisione Panda', promemoria: 'Es. Cambiare filtro caldaia' }[it.tipo] + '"></label>' +
         '<div class="due"><label class="campo">' + (conImporto ? 'Scadenza' : 'Data') + '<input type="date" name="data" required value="' + esc(it.data) + '"></label><label class="campo">Ora<input type="time" name="ora" value="' + esc(it.ora) + '"></label></div>' +
-        (conImporto ? '<div class="due"><label class="campo">Importo €<input type="number" name="importo" inputmode="decimal" step="0.01" min="0" value="' + esc(it.importo) + '"></label><label class="campo">Categoria<select class="sel-pers" name="categoria">' + C.opzioni(s.categorie, it.categoria, '') + '</select></label></div>' : '') +
+        (conImporto ? '<div class="due"><label class="campo">Importo €<input type="number" name="importo" inputmode="decimal" step="0.01" min="0" value="' + esc(it.importo) + '"></label><label class="campo">Categoria<select class="sel-pers" name="categoria">' + C.opzioni(s.categorie, it.categoria, '') + '</select></label></div>'
+          : '<label class="campo">Categoria<select class="sel-pers" name="categoria">' + C.opzioni(s.categorie, it.categoria, '') + '</select></label>') +
         (veicolo ? '<label class="campo">Targa<span class="aiuto">Auto o moto a cui si riferisce.</span><input type="text" name="targa" list="lista-targhe" maxlength="12" autocapitalize="characters" value="' + esc(it.targa || '') + '" placeholder="Es. AB123CD"><datalist id="lista-targhe">' + Object.keys(targhe).map(function (t) { return '<option value="' + esc(t) + '">'; }).join('') + '</datalist></label>' : '') +
         '<div class="due"><label class="campo">Ripeti ogni<span class="durata"><input type="number" name="ripN" min="0" max="999" inputmode="numeric" value="' + esc(rip.n) + '" placeholder="—" aria-label="Quanti">' + selUnita('ripU', C.UNITA_RIPETI, rip.u) + '</span></label>' +
         '<label class="campo">Fino al<input type="date" name="fine" value="' + esc(it.fine || '') + '"' + (rip.n ? '' : ' disabled') + '></label></div>' +
@@ -1153,8 +1154,9 @@
       it.fine = rn > 0 ? f.fine.value : '';
       var an = parseInt(f.avvN.value, 10);
       it.avviso = an >= 0 && f.avvN.value !== '' ? an + ' ' + f.avvU.value : '';
-      if (f.importo) { it.importo = f.importo.value === '' ? '' : Math.round(parseFloat(f.importo.value) * 100) / 100; it.categoria = f.categoria.value; }
-      else { it.importo = ''; }
+      if (f.importo) it.importo = f.importo.value === '' ? '' : Math.round(parseFloat(f.importo.value) * 100) / 100;
+      else it.importo = '';
+      if (f.categoria) it.categoria = f.categoria.value;
       if (f.targa) it.targa = f.targa.value.toUpperCase().replace(/\s+/g, '');
       if (f.telefono) it.telefono = f.telefono.value.trim();
       if (f.email) it.email = f.email.value.trim();
