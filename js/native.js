@@ -61,11 +61,21 @@ var Native = (function () {
             id: Casa.hashInt(p.chiave), title: p.titolo, body: p.testo,
             schedule: { at: dataDa(p.quando), allowWhileIdle: true },
             isExactNotification: esatte,
-            smallIcon: 'ic_stat_casa', channelId: 'casa-promemoria'
+            smallIcon: /^v/.test(p.chiave) ? 'ic_stat_volo' : 'ic_stat_casa', channelId: 'casa-promemoria' // aereo per voli e partenze
           };
         })
       }).then(function () { return lista.length; });
     }).catch(function (e) { console.warn('Notifiche non programmate', e); return 0; });
+  }
+
+  // notifica subito (es. prezzo di un volo sceso): { chiave, titolo, testo, icona }
+  function notificaSubito(n) {
+    if (!isApp) {
+      if ('Notification' in window && Notification.permission === 'granted') { try { new Notification(n.titolo, { body: n.testo, icon: 'icons/icon-192.png' }); } catch (e) { /* niente */ } }
+      return Promise.resolve();
+    }
+    return LN.schedule({ notifications: [{ id: Casa.hashInt(n.chiave || n.titolo), title: n.titolo, body: n.testo || '', smallIcon: n.icona || 'ic_stat_casa', channelId: 'casa-promemoria' }] })
+      .catch(function (e) { console.warn('Notifica non mostrata', e); });
   }
 
   function creaCanale() {
@@ -82,7 +92,7 @@ var Native = (function () {
         righe.push({ data: Casa.addGiorni(x.data, -1), testo: 'Fuori ' + Casa.nomiFrazioni(x.frazioni), colore: Casa.FRAZIONI[x.frazioni[0]].colore, rifiuti: true });
       } else if (!x.fatto) {
         var testo = (x.ora ? x.ora + ' ' : '') + x.item.titolo + (x.item.importo && x.tipo !== 'concerto' ? ' ' + Casa.euro(x.item.importo) : '');
-        if (x.tipo === 'volo') testo = (x.ora ? x.ora + ' ' : '') + 'Volo ' + [x.volo.numero, [x.volo.da, x.volo.a].filter(Boolean).join('→')].filter(Boolean).join(' ');
+        if (x.tipo === 'volo') testo = (x.ora ? x.ora + ' ' : '') + '✈ Volo ' + [x.volo.numero, [x.volo.da, x.volo.a].filter(Boolean).join('→')].filter(Boolean).join(' ');
         else if (x.tipo === 'hotel') testo = 'Check-in ' + (x.hotel.nome || '');
         else if (x.tipo === 'viaggio') testo = (x.ruolo === 'rientro' ? 'Rientro ' : 'Partenza ') + x.item.titolo;
         else if (x.tipo === 'concerto') testo = (x.ora ? x.ora + ' ' : '') + '🎤 ' + x.item.titolo;
@@ -198,5 +208,5 @@ var Native = (function () {
     naviga(a.dataset.navigaQ ? { q: a.dataset.navigaQ } : { lat: a.dataset.navigaLat, lon: a.dataset.navigaLon });
   }, true);
 
-  return { isApp: isApp, audio: audio, naviga: naviga, linkNaviga: linkNaviga, urlNaviga: urlNaviga, permesso: permesso, aggiorna: aggiorna, creaCanale: creaCanale, aggiornaFoto: aggiornaFoto };
+  return { isApp: isApp, audio: audio, naviga: naviga, linkNaviga: linkNaviga, urlNaviga: urlNaviga, permesso: permesso, aggiorna: aggiorna, notificaSubito: notificaSubito, creaCanale: creaCanale, aggiornaFoto: aggiornaFoto };
 })();

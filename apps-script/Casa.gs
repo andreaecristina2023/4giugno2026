@@ -35,6 +35,8 @@ function setup() {
   fo.setFrozenRows(1);
   fo.getRange('A:J').setNumberFormat('@');
   try { cartellaAllegati(); } catch (e) { /* segnalato sotto con la cartella foto */ }
+  foglioPrezzi();
+  if (chiaveSerpApi() && !triggerPrezziAttivo()) installaPrezziVoli();
   var cartellaFoto = null, erroreCartella = '';
   try { cartellaFoto = cartellaAlbum(); } catch (e) { erroreCartella = e.message + ' — riesegui setup e spunta "Seleziona tutto" nei permessi'; } // crea la cartella delle foto su Drive (e chiede il permesso la prima volta)
   var imp = ss.getSheetByName(FOGLIO_IMP) || ss.insertSheet(FOGLIO_IMP);
@@ -77,6 +79,9 @@ function doPost(e) {
     else if (req.azione === 'allegato_elimina') out = eliminaAllegato(req.id);
     else if (req.azione === 'allegato_rinomina') out = rinominaAllegato(req.id, req.nome);
     else if (req.azione === 'ocr') out = leggiTesto(req);
+    else if (req.azione === 'voli_prezzi') out = voliPrezzi();
+    else if (req.azione === 'voli_controlla') out = voliControlla(req);
+    else if (req.azione === 'voli_imposta') out = voliImposta(req);
     else throw new Error('Azione sconosciuta');
   } catch (err) {
     out = { ok: false, errore: String(err.message || err) };
@@ -402,6 +407,161 @@ function installaPromemoria() {
   ScriptApp.newTrigger('riepilogoMattina').timeBased().everyDays(1).atHour(7).nearMinute(0).inTimezone(Session.getScriptTimeZone()).create();
   inviaTelegram('✅ Promemoria di casa attivi: ogni sera verso le ' + ora + ' e ogni mattina verso le 7.');
   Logger.log('Promemoria installati alle ' + ora + ' e alle 7 (Google li esegue entro un quarto d\'ora circa).');
+}
+
+
+// ---------------- Prezzi dei voli (Google Flights tramite SerpApi) ----------------
+// La chiave SerpApi (serpapi.com, piano gratuito: 250 ricerche al mese) si salva dall'app
+// (Viaggi → Monitora prezzi → ⚙) oppure a mano nella proprietà script SERPAPI_KEY.
+// Ogni mattina verso le 7 lo script controlla le tratte attive: una ricerca per tratta,
+// anche con le date flessibili ±3 giorni (calendario prezzi di Google Flights).
+var FOGLIO_PREZZI = 'PrezziVoli';
+var COLONNE_PREZZI = ['quando', 'id', 'prezzo', 'andata', 'ritorno', 'compagnia', 'dettagli'];
+
+function foglioPrezzi() {
+  var ss = foglio(), sh = ss.getSheetByName(FOGLIO_PREZZI);
+  if (!sh) {
+    sh = ss.insertSheet(FOGLIO_PREZZI);
+    sh.getRange(1, 1, 1, COLONNE_PREZZI.length).setValues([COLONNE_PREZZI]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+    sh.getRange('A:G').setNumberFormat('@');
+  }
+  return sh;
+}
+function leggiPrezzi() {
+  var sh = foglioPrezzi(), righe = sh.getDataRange().getValues(), out = {};
+  righe.shift();
+  righe.forEach(function (r) {
+    if (!r[1]) return;
+    var d = {}; try { d = r[6] ? JSON.parse(r[6]) : {}; } catch (e) { d = {}; }
+    (out[r[1]] = out[r[1]] || []).push({ quando: testo(r[0]), prezzo: r[2] === '' ? null : Number(r[2]), andata: testo(r[3], 'data'), ritorno: testo(r[4], 'data'), compagnia: testo(r[5]), dettagli: d });
+  });
+  Object.keys(out).forEach(function (k) { out[k] = out[k].slice(-90); });
+  return out;
+}
+function chiaveSerpApi() { return PropertiesService.getScriptProperties().getProperty('SERPAPI_KEY') || ''; }
+function serpApi(param) {
+  var key = chiaveSerpApi();
+  if (!key) throw new Error('Manca la chiave SerpApi: inseriscila in Viaggi → Monitora prezzi → ⚙');
+  param.api_key = key;
+  var q = Object.keys(param).filter(function (k) { return param[k] !== '' && param[k] != null; })
+    .map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(param[k]); }).join('&');
+  var r = UrlFetchApp.fetch('https://serpapi.com/search.json?' + q, { muteHttpExceptions: true });
+  var j = {}; try { j = JSON.parse(r.getContentText()); } catch (e) { throw new Error('Risposta non valida da SerpApi (' + r.getResponseCode() + ')'); }
+  if (j.error && !/hasn't returned any results/i.test(j.error)) throw new Error('SerpApi: ' + j.error);
+  return j;
+}
+function ricercheRimaste() {
+  var key = chiaveSerpApi(); if (!key) return null;
+  try {
+    var j = JSON.parse(UrlFetchApp.fetch('https://serpapi.com/account.json?api_key=' + encodeURIComponent(key), { muteHttpExceptions: true }).getContentText());
+    return j.total_searches_left != null ? j.total_searches_left : (j.plan_searches_left != null ? j.plan_searches_left : null);
+  } catch (e) { return null; }
+}
+function giorniTra(a, b) { return Math.round((Date.UTC(+b.slice(0, 4), +b.slice(5, 7) - 1, +b.slice(8, 10)) - Date.UTC(+a.slice(0, 4), +a.slice(5, 7) - 1, +a.slice(8, 10))) / 86400000); }
+function piuGiorni(d, n) { var t = new Date(Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) + n * 86400000); return Utilities.formatDate(t, 'UTC', 'yyyy-MM-dd'); }
+function aeroporti(s) { return String(s || '').toUpperCase().replace(/[^A-Z,]/g, '').split(',').filter(function (x) { return x.length === 3; }).join(','); }
+
+// controlla una tratta: { id, da, a, andata, ritorno, flex, adulti, scali } → riga di prezzo
+function cercaPrezzo(m) {
+  var oggi = Utilities.formatDate(new Date(), 'Europe/Rome', 'yyyy-MM-dd');
+  var da = aeroporti(m.da), a = aeroporti(m.a), flex = +m.flex || 0;
+  if (!da || !a) throw new Error('Aeroporti non validi (servono i codici di 3 lettere, es. BLQ)');
+  if (!m.andata) throw new Error('Manca la data di andata');
+  var base = { currency: 'EUR', hl: 'it', gl: 'it', adults: +m.adulti || 1, stops: m.scali || '' , departure_id: da, arrival_id: a };
+  var andataTra = m.ritorno ? m.ritorno : '';
+  if (flex > 0) {
+    var inizio = piuGiorni(m.andata, -flex); if (inizio < oggi) inizio = oggi;
+    var fine = piuGiorni(m.andata, flex);
+    if (fine < oggi) throw new Error('Le date sono già passate');
+    var p = Object.assign({ engine: 'google_flights_calendar', type: m.ritorno ? 1 : 2, date_range_start: inizio, date_range_end: fine }, base);
+    if (m.ritorno) p.round_trip_days = Math.max(1, giorniTra(m.andata, m.ritorno));
+    var j = serpApi(p);
+    var prezzi = (j.prices || []).filter(function (x) { return x.price != null && x.outbound_date >= inizio && x.outbound_date <= fine; });
+    if (!prezzi.length) return { prezzo: null, andata: m.andata, ritorno: andataTra, compagnia: '', dettagli: { nota: 'Nessun volo trovato nella finestra ±' + flex + ' giorni' } };
+    var min = prezzi.reduce(function (x, y) { return y.price < x.price ? y : x; });
+    return { prezzo: min.price, andata: min.outbound_date, ritorno: min.return_date || '', compagnia: '', dettagli: { flex: flex, giorni: prezzi.map(function (x) { return [x.outbound_date, x.return_date || '', x.price]; }) } };
+  }
+  if (m.andata < oggi) throw new Error('La data di andata è già passata');
+  var q = Object.assign({ engine: 'google_flights', type: m.ritorno ? 1 : 2, outbound_date: m.andata, return_date: m.ritorno || '', sort_by: 2 }, base);
+  var r = serpApi(q);
+  var voli = (r.best_flights || []).concat(r.other_flights || []).filter(function (x) { return x.price != null; });
+  var pi = r.price_insights || {};
+  var url = (r.search_metadata || {}).google_flights_url || '';
+  if (!voli.length) return { prezzo: null, andata: m.andata, ritorno: andataTra, compagnia: '', dettagli: { nota: 'Nessun volo trovato', url: url } };
+  var best = voli.reduce(function (x, y) { return y.price < x.price ? y : x; });
+  var tratte = best.flights || [], primo = tratte[0] || {}, ultimo = tratte[tratte.length - 1] || {};
+  var compagnie = tratte.map(function (t) { return t.airline; }).filter(function (x, i, l) { return x && l.indexOf(x) === i; });
+  return { prezzo: best.price, andata: m.andata, ritorno: andataTra, compagnia: compagnie.join(' + '), dettagli: {
+    partenza: (primo.departure_airport || {}).time || '', arrivo: (ultimo.arrival_airport || {}).time || '',
+    voli: tratte.map(function (t) { return t.flight_number; }).filter(Boolean).join(', '),
+    scali: Math.max(0, tratte.length - 1), durata: best.total_duration || null,
+    livello: pi.price_level || '', tipico: pi.typical_price_range || null, minimoGoogle: pi.lowest_price || null,
+    storicoGoogle: (pi.price_history || []).slice(-60), url: url
+  } };
+}
+function scriviPrezzo(id, r, errore) {
+  var d = r ? r.dettagli || {} : {};
+  if (errore) d = { errore: errore };
+  foglioPrezzi().appendRow([Utilities.formatDate(new Date(), 'Europe/Rome', "yyyy-MM-dd'T'HH:mm"), id, r && r.prezzo != null ? String(r.prezzo) : '', r ? r.andata : '', r ? r.ritorno : '', r ? r.compagnia : '', JSON.stringify(d)]);
+}
+function tratteAttive() {
+  var m = leggiVoci().mappa, oggi = Utilities.formatDate(new Date(), 'Europe/Rome', 'yyyy-MM-dd');
+  return Object.keys(m).map(function (k) { return m[k]; }).filter(function (v) {
+    return v.tipo === 'prezzovolo' && !v.eliminato && v.attivo !== false && v.attivo !== 'false' && v.andata && piuGiorni(v.andata, +v.flex || 0) >= oggi;
+  });
+}
+function euroT(n) { return n == null ? '—' : Math.round(n) + ' €'; }
+// avviso se il prezzo scende sotto la soglia o cala di almeno il 10% rispetto al controllo precedente
+function avvisoPrezzo(m, prima, r) {
+  if (!r || r.prezzo == null) return '';
+  var soglia = m.soglia === '' || m.soglia == null ? null : Number(m.soglia);
+  var prec = null; for (var i = (prima || []).length - 1; i >= 0; i--) if (prima[i].prezzo != null) { prec = prima[i].prezzo; break; }
+  var sotto = soglia != null && r.prezzo <= soglia && (prec == null || prec > soglia);
+  var calo = prec != null && r.prezzo <= prec * 0.9;
+  if (!sotto && !calo) return '';
+  return '✈️ <b>' + h(m.titolo || (m.da + ' → ' + m.a)) + ': ' + euroT(r.prezzo) + '</b>' +
+    (prec != null ? ' (prima ' + euroT(prec) + ')' : '') + (sotto ? '\nSotto la soglia di ' + euroT(soglia) : '') +
+    '\n' + Casa.dataBreve(r.andata) + (r.ritorno ? ' – ' + Casa.dataBreve(r.ritorno) : '') + (r.compagnia ? ' · ' + h(r.compagnia) : '');
+}
+function controllaPrezziVoli() {
+  var lock = LockService.getScriptLock(); lock.waitLock(30000);
+  try {
+    if (!chiaveSerpApi()) { Logger.log('Manca SERPAPI_KEY'); return; }
+    var storico = leggiPrezzi(), msg = [], oggi = Utilities.formatDate(new Date(), 'Europe/Rome', 'yyyy-MM-dd');
+    tratteAttive().slice(0, 15).forEach(function (m) {
+      var gia = (storico[m.id] || []).some(function (x) { return String(x.quando).slice(0, 10) === oggi && !x.dettagli.errore; });
+      if (gia) return; // già controllata oggi (anche a mano dall'app)
+      try { var r = cercaPrezzo(m); scriviPrezzo(m.id, r); var a = avvisoPrezzo(m, storico[m.id], r); if (a) msg.push(a); }
+      catch (e) { scriviPrezzo(m.id, null, String(e.message || e)); }
+    });
+    if (msg.length) inviaTelegram(msg.join('\n\n'));
+  } finally { lock.releaseLock(); }
+}
+function installaPrezziVoli() {
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'controllaPrezziVoli') ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('controllaPrezziVoli').timeBased().everyDays(1).atHour(7).nearMinute(0).inTimezone('Europe/Rome').create();
+  Logger.log('Controllo prezzi dei voli attivo: ogni mattina verso le 7.');
+}
+function triggerPrezziAttivo() { return ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'controllaPrezziVoli'; }); }
+// azioni dall'app
+function voliPrezzi() { return { ok: true, storico: leggiPrezzi(), chiave: !!chiaveSerpApi(), automatico: triggerPrezziAttivo() }; }
+function voliControlla(req) {
+  var m = req.monitor; if (!m || !m.id) throw new Error('Tratta mancante');
+  var storico = leggiPrezzi(), r = null, err = '';
+  try { r = cercaPrezzo(m); } catch (e) { err = String(e.message || e); }
+  scriviPrezzo(m.id, r, err);
+  var out = voliPrezzi(); out.rimaste = ricercheRimaste(); out.errore = err; out.avviso = err ? '' : avvisoPrezzo(m, storico[m.id], r);
+  if (out.avviso) inviaTelegram(out.avviso);
+  return out;
+}
+function voliImposta(req) {
+  var p = PropertiesService.getScriptProperties();
+  if (req.serpapi !== undefined) { if (req.serpapi) p.setProperty('SERPAPI_KEY', String(req.serpapi).trim()); else p.deleteProperty('SERPAPI_KEY'); }
+  if (chiaveSerpApi() && !triggerPrezziAttivo()) installaPrezziVoli();
+  var rimaste = ricercheRimaste();
+  if (chiaveSerpApi() && rimaste === null) throw new Error('La chiave SerpApi non funziona: controllala su serpapi.com/manage-api-key');
+  return { ok: true, chiave: !!chiaveSerpApi(), automatico: triggerPrezziAttivo(), rimaste: rimaste };
 }
 
 

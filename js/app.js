@@ -18,7 +18,7 @@
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function rifiuti() { return Store.settings().rifiuti; }
-  function voci() { return Store.lista().filter(function (v) { return v.tipo !== 'spesa' && v.tipo !== 'nota' && v.tipo !== 'carta' && v.tipo !== 'bolletta' && v.tipo !== 'iban' && v.tipo !== 'prodotto'; }); }
+  function voci() { return Store.lista().filter(function (v) { return v.tipo !== 'spesa' && v.tipo !== 'nota' && v.tipo !== 'carta' && v.tipo !== 'bolletta' && v.tipo !== 'iban' && v.tipo !== 'prodotto' && v.tipo !== 'prezzovolo'; }); }
   // nomi per il suggerimento della lista della spesa: catalogo + prodotti salvati dall'utente (senza doppioni)
   function nomiCatalogoSpesa() {
     var visti = {}, out = [];
@@ -675,7 +675,7 @@
     disegna();
     foglio.showModal();
   }
-  function vistaViaggi() { var n = voci().filter(function (v) { return v.tipo === 'viaggio'; }).length; vista.innerHTML = testata('Viaggi', n ? n + (n === 1 ? ' viaggio' : ' viaggi') : 'Voli, hotel e documenti') + Viaggi.htmlElenco(); }
+  function vistaViaggi() { var n = voci().filter(function (v) { return v.tipo === 'viaggio'; }).length; vista.innerHTML = testata('Viaggi', n ? n + (n === 1 ? ' viaggio' : ' viaggi') : 'Voli, hotel e documenti') + Viaggi.htmlElenco() + PrezziVoli.htmlSezione(); PrezziVoli.aggiorna(false); }
   function vistaViaggio() { var m = location.hash.match(/^#viaggio\/(.+)$/), id = m ? decodeURIComponent(m[1]) : ''; vista.innerHTML = Viaggi.htmlDettaglio(id); Viaggi.anteprime(vista); Viaggi.disegnaMappa(id); }
   function vistaConcerti() { vista.innerHTML = testata('Concerti', 'Date, cantanti e biglietti') + Viaggi.htmlConcerti(); Viaggi.anteprime(vista); }
   function vistaArchivio() { vista.innerHTML = testata('Archivio', 'Viaggi e concerti conclusi') + Viaggi.htmlArchivio(); Viaggi.anteprime(vista); }
@@ -1355,7 +1355,8 @@
   Store.on(aggiornaPallino); aggiornaPallino();
 
   Album.init({ esc: esc, toast: toast, foglio: foglio, ridisegna: function () { if (rotta() === 'album' && !foglio.open) disegna(); } });
-  Viaggi.init({ esc: esc, toast: toast, foglio: foglio });
+  Viaggi.init({ esc: esc, toast: toast, foglio: foglio, programmaSveglie: function () { return programmaSveglieTurno(true); } });
+  PrezziVoli.init({ esc: esc, toast: toast, foglio: foglio, ridisegna: function () { if (rotta() !== 'viaggi') return; if (!foglio.open) disegna(); else if (!foglio.dataset.ridisegna) { foglio.dataset.ridisegna = '1'; foglio.addEventListener('close', function () { delete foglio.dataset.ridisegna; if (rotta() === 'viaggi') disegna(); }, { once: true }); } } });
   $('#fab').onclick = function () {
     if (rotta() === 'viaggi') { Viaggi.apriViaggio(null); return; }
     if (rotta() === 'concerti') { Viaggi.apriConcerto(null); return; }
@@ -1429,6 +1430,7 @@
   vista.addEventListener('click', function (e) {
     if (pressoLungo) { pressoLungo = false; return; }
     if (Viaggi.click(e)) return;
+    if (PrezziVoli.click(e)) return;
     var t = e.target.closest('button, a'); if (!t) return;
     var d = t.dataset;
     if (d.foto) { Album.apri(d.foto); return; }
@@ -1903,7 +1905,9 @@
   function programmaSveglieTurno(forza) {
     if (!Native.isApp) return Promise.resolve(null);
     var st = sveglieTurno(), attive = isAndrea() && (st.diurno.on || st.smonto.on);
-    var conf = { attive: attive, eventi: attive ? eventiSveglieTurno(22) : [], suono: st.suono };
+    var voli = Viaggi.eventiSveglieVoli(); // sveglie dei voli impostate su questo telefono
+    var eventi = (attive ? eventiSveglieTurno(22) : []).concat(voli).sort(function (a, b) { return a.t - b.t; });
+    var conf = { attive: attive || voli.length > 0, eventi: eventi, suono: st.suono };
     var firma = JSON.stringify(conf);
     if (!forza && firma === firmaSveglieTurno) return Promise.resolve(null);
     firmaSveglieTurno = firma;

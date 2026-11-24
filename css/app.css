@@ -529,3 +529,61 @@ a.contatto[data-naviga-lat], a.contatto[data-naviga-q] { text-decoration: none; 
 .suono-sveglia { display: grid; gap: 8px; margin-top: 4px; }
 .suono-riga { display: flex; gap: 10px; align-items: center; justify-content: space-between; font-size: 15px; }
 .suono-riga span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- Monitora prezzi dei voli ---------- */
+.titolo-prezzi { display: flex; align-items: center; gap: 6px; }
+.titolo-prezzi .piccola-icona { margin-left: auto; width: 38px; min-height: 38px; font-size: 17px; }
+.avviso-prezzi { background: var(--albana-chiaro); border-radius: 12px; padding: 12px 14px; margin: 0 0 10px; display: grid; gap: 8px; justify-items: start; }
+.card-prezzo { display: grid; gap: 4px; width: 100%; text-align: left; padding: 14px 16px; margin-bottom: 10px; border-radius: 16px; background: var(--superficie); border: 1px solid var(--confine); border-left: 6px solid #2F6DB5; color: inherit; cursor: pointer; }
+.card-prezzo.sotto-soglia { border-left-color: var(--ok); }
+.pv-alto { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.pv-tratta { font-family: var(--titolo); font-weight: 800; font-size: 19px; letter-spacing: -0.01em; line-height: 1.2; }
+.pv-stato { font-size: 13px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--confine); color: var(--muschio); white-space: nowrap; }
+.pv-date { font-weight: 700; font-size: 15px; }
+.pv-prezzo { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.pv-prezzo b { font-family: var(--titolo); font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
+.pv-trend { font-weight: 700; font-size: 14px; }
+.pv-trend.giu { color: var(--ok); }
+.pv-trend.su { color: var(--sangiovese); }
+.pv-badge { font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: var(--ok); color: var(--su-colore); }
+.pv-meta { font-size: 13px; color: var(--muschio); }
+.pv-passate summary { cursor: pointer; font-weight: 700; color: var(--muschio); padding: 6px 0 10px; }
+.grafico-prezzi { width: 100%; height: auto; display: block; overflow: visible; }
+.card-prezzo .grafico-prezzi { height: 46px; }
+.grafico-prezzi polyline { fill: none; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.grafico-prezzi .linea-mia { stroke: #2F6DB5; }
+.grafico-prezzi .linea-mia-punto { fill: #2F6DB5; }
+.grafico-prezzi .linea-google { stroke: var(--muschio); stroke-width: 1.5; opacity: .55; }
+.grafico-prezzi .soglia { stroke: var(--ok); stroke-width: 1.5; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
+.grafico-prezzi .griglia { stroke: var(--confine); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.grafico-prezzi text { font-size: 11px; fill: var(--muschio); font-family: var(--testo); }
+.pv-grande { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 4px 0 8px; }
+.pv-grande b { font-family: var(--titolo); font-size: 38px; font-weight: 800; letter-spacing: -0.02em; }
+.pv-livello { font-size: 13px; font-weight: 700; padding: 4px 10px; border-radius: 999px; }
+.pv-livello.basso { background: var(--ok); color: var(--su-colore); }
+.pv-livello.medio { background: var(--albana-chiaro); color: var(--inchiostro); }
+.pv-livello.alto { background: var(--sangiovese-chiaro); color: var(--sangiovese); }
+.pv-dettagli { display: grid; gap: 2px; font-size: 15px; margin-bottom: 10px; }
+.pv-grafico { background: var(--superficie); border: 1px solid var(--confine); border-radius: 14px; padding: 12px 10px 8px; margin-bottom: 12px; }
+.pv-grafico .legenda { display: flex; flex-wrap: wrap; gap: 12px; margin: 6px 0 0; font-size: 13px; color: var(--muschio); }
+.legenda span::before { content: ''; display: inline-block; width: 14px; height: 3px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+.legenda .l-mia::before { background: #2F6DB5; }
+.legenda .l-google::before { background: var(--muschio); opacity: .55; }
+.legenda .l-soglia::before { background: repeating-linear-gradient(90deg, var(--ok) 0 4px, transparent 4px 7px); }
+.pv-sotto { margin: 4px 0 8px; font-size: 15px; }
+.pv-giorni { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; margin-bottom: 12px; }
+.pv-giorno { display: grid; justify-items: center; gap: 1px; padding: 6px 2px; border-radius: 10px; background: var(--superficie); border: 1px solid var(--confine); font-size: 12px; }
+.pv-giorno b { font-size: 17px; }
+.pv-giorno span { font-weight: 700; white-space: nowrap; }
+.pv-giorno.scelto { border-color: var(--inchiostro); }
+.pv-giorno.migliore { background: var(--ok); border-color: var(--ok); color: var(--su-colore); }
+.pv-scelte { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 6px 0; }
+.pv-scelte .scelta { display: flex; align-items: center; justify-content: center; gap: 6px; border: 2px solid var(--confine); background: var(--superficie); border-radius: 12px; padding: 10px 6px; font-weight: 700; font-size: 15px; cursor: pointer; }
+.pv-scelte .scelta:has(input:checked) { border-color: #2F6DB5; background: #2F6DB5; color: #fff; }
+.pv-scelte input { accent-color: #fff; }
+#form-prezzo .campi > .aiuto { display: block; color: var(--muschio); font-size: 14px; font-weight: 400; margin-top: -8px; }
+#form-prezzo fieldset { border: 0; padding: 0; margin: 0; }
+#form-prezzo legend { font-weight: 700; font-size: 15px; padding: 0; }
+#form-prezzo fieldset .aiuto { display: block; margin-top: 0; color: var(--muschio); font-size: 14px; font-weight: 400; }
+.sc-sveglia { background: none; border: 0; padding: 0; margin: 6px 0 0; font-weight: 700; color: var(--ardesia); font-size: 14px; cursor: pointer; text-align: left; }
+.sv-volo-rapide { display: flex; flex-wrap: wrap; gap: 6px; }

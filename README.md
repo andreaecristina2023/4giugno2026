@@ -13,7 +13,7 @@ Sito e app Android per la casa di Fratta Terme: bidoni della raccolta Alea, paga
 | Calendario | Mese con pallini colorati (bidoni, appuntamenti, pagamenti); scheda **Turni VVF** con il turnario 12/24 – 12/48 |
 | Conti | Da pagare, scaduti, pagati, spese ricorrenti con stima annua |
 | Rifiuti | Zona Alea, giorni di ritiro, recuperi per festività, variazioni |
-| Viaggi | Ogni viaggio con inizio/fine, voli, hotel e documenti (eVisa, passaporto…) con i file allegati; avvisa se un documento scade prima del rientro |
+| Viaggi | Ogni viaggio con inizio/fine, voli, hotel e documenti (eVisa, passaporto…) con i file allegati; avvisa se un documento scade prima del rientro. Su ogni volo il tasto **⏰ Sveglia**. In fondo **Monitora prezzi**: il prezzo dei voli da Google Flights controllato ogni mattina |
 | Concerti | Data, ora, cantante, luogo, prezzo e biglietti digitali (PDF o foto) da aprire anche senza rete |
 | Album | Foto di casa (carosello di foto a caso che scorre da solo + griglia per mese di scatto letto dai metadati EXIF, presentazione a schermo intero), salvate nel Google Drive (cartella "A&C Album") |
 | Modi (🔔 in alto, solo app) | Modi audio Normale, Moto, Lavoro, Notte, Silenzioso, Solo musica e personalizzati; rotazione schermo; sveglie; per Andrea modo automatico nei turni, VPN FortiClient e DNS privato |
@@ -89,6 +89,19 @@ Permessi che Android chiede la prima volta (l'app apre da sola la pagina giusta)
 
 **Widget "A&C Comandi"** (tieni premuto sulla home → Widget → A&C): sopra il modo attivo con ▾ — un tocco apre sopra la home l'**elenco a comparsa** di tutti i modi, si sceglie e si chiude; sotto Rotazione (un tocco la cambia), ⏰ Sveglie (apre l'Orologio) e, per Andrea, VPN (collega/scollega) e DNS (colorato quando è disattivato o in pausa per la VPN, normale quando è attivo).
 
+## Monitora prezzi dei voli
+
+Viaggi → in fondo **Monitora prezzi** → "+ Monitora un volo" (oppure "📉 Monitora il prezzo" dentro un viaggio, che prende aeroporti e date dal primo volo). Per ogni tratta: aeroporti (codici di 3 lettere, anche più d'uno separati da virgola, es. `BLQ, FRL`), andata, ritorno (vuoto = solo andata), **date esatte o ±3 giorni**, adulti, scali e una soglia in euro.
+
+- I prezzi arrivano da **Google Flights** tramite [SerpApi](https://serpapi.com): piano gratuito di 250 ricerche al mese. Ogni tratta usa **una ricerca al giorno**, anche con ±3 giorni (il calendario prezzi di Google dà il prezzo di ogni giorno di partenza con la stessa durata del viaggio). Con 8 tratte attive si resta nel gratuito.
+- **Chiave**: registrati su serpapi.com, copia la chiave da *Api Key* e incollala in Viaggi → Monitora prezzi → ⚙. Lo script la salva (proprietà `SERPAPI_KEY`) e attiva da solo il controllo di **ogni mattina verso le 7** (`controllaPrezziVoli`; si può installare anche a mano con `installaPrezziVoli`).
+- Lo storico finisce nel foglio **PrezziVoli**. Nella scheda della tratta: prezzo di oggi, livello (basso / nella media / alto) e fascia tipica secondo Google, compagnia e orari del volo più economico, grafico con lo storico di Google Flights e i controlli di A&C, la soglia, e per ±3 giorni il prezzo di ogni giorno. "Apri in Google Flights" porta alla ricerca per comprare; "↻ Controlla ora" fa una ricerca subito.
+- **Avvisi** quando il prezzo scende sotto la soglia o cala del 10% o più: notifica con l'**aereo** sul telefono (quando l'app si apre e legge i prezzi nuovi) e, se il bot è attivo, messaggio Telegram subito dopo il controllo del mattino.
+
+## Sveglia per il volo e icona aereo
+
+Ogni volo ha il tasto **⏰ Sveglia**: propone 3 ore prima della partenza (tasti 2, 3, 4, 5 ore prima, oppure giorno e ora a mano). Suona in A&C come le sveglie del turnario (stesso suono scelto in Modi → Sveglie, schermata Spegni / Posticipa anche a telefono bloccato), anche ad app chiusa. Vale solo per il telefono su cui la imposti; dopo il tocco il tasto mostra giorno e ora. Le notifiche dei voli (3 ore prima) e delle partenze hanno l'icona dell'aereo al posto della casetta; nel widget A&C i voli hanno ✈.
+
 ## Naviga (Google Maps in auto)
 
 Ovunque ci sia un indirizzo o una posizione c'è il tasto **🧭 Naviga**: voci (indirizzo o punto segnato, oppure un indirizzo scritto nelle note della voce), check-in degli hotel, concerti (luogo), hotel e luoghi dei viaggi, segnaposto sulla mappa del viaggio, casa (Impostazioni → anagrafica), e le **note** che contengono coordinate (es. `44.123456, 12.345678` o in gradi °), un link di Google Maps o un indirizzo che inizia con Via, Viale, Piazza, Corso, Largo, Strada, Località… Nell'app Android si apre Google Maps già in **navigazione in auto** (`google.navigation:…&mode=d`); nel browser il link delle indicazioni in auto con avvio della navigazione. Un link corto di Maps (maps.app.goo.gl) si apre in Maps, dove si tocca Avvia.
@@ -128,6 +141,7 @@ Il progetto Android (Capacitor 8) non è nel repository: viene generato da `andr
 index.html, css/, js/, fonts/, icons/   sito (PWA, funziona offline)
 js/core.js                             logica: ricorrenze, rifiuti, festività (usata anche da Apps Script)
 js/store.js                            dati locali + sincronizzazione
+js/viaggi.js, js/prezzi.js             viaggi, concerti, sveglie dei voli, monitoraggio prezzi
 js/native.js                           notifiche e widget nell'app Android
 apps-script/Casa.gs                    backend Google Sheet + bot Telegram
 android-app/                           app Android e widget

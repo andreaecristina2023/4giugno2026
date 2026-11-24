@@ -296,6 +296,7 @@ var Viaggi = (function () {
       righe.map(function (r) { return '<span class="sc-riga">' + esc(r) + '</span>'; }).join('') +
       (avv ? '<span class="sc-avviso">⚠ ' + esc(avv) + '</span>' : '') + (s.note ? '<span class="sc-riga testo-muto">' + esc(s.note) + '</span>' : '') + '</button>' +
       (sez === 'documenti' ? '<button type="button" class="sc-togli" data-togli-documento="' + esc(v.id + '|' + s.id) + '" aria-label="Togli ' + esc(titolo) + ' dal viaggio">✕ Togli</button>' : '') +
+      (sez === 'voli' ? bottoneSveglia(v, s) : '') +
       (sez === 'hotel' && s.telefono ? '<a class="sc-chiama" href="tel:' + esc(numeroTel(s)) + '" aria-label="Chiama ' + esc(s.nome || 'hotel') + '">☎️ Chiama</a>' : '') +
       (sez === 'hotel' ? Native.linkNaviga(destinazione(s, true), '🧭 Naviga', 'sc-mappa', 'Naviga a ' + (s.nome || 'hotel')) : '') +
       (sez === 'documenti' && s.docRif ? fotoPersonali(s.docRif) : '') + htmlAllegati(s.allegati, ctx, sez === 'documenti' ? 'Allega documento' : sez === 'voli' ? 'Allega carta d\'imbarco' : 'Allega conferma') + '</div>';
@@ -323,6 +324,7 @@ var Viaggi = (function () {
       var lista = (v[sez] || []).slice().sort(function (a, b) { var x = a.data || a.checkin || a.scadenza || '', y = b.data || b.checkin || b.scadenza || ''; return x < y ? -1 : 1; });
       h += '<h2>' + SEZIONI[sez].titolo + ' <small>' + lista.length + '</small></h2>' + lista.map(function (s) { return rigaSotto(v, sez, s); }).join('') +
         (sez === 'documenti' ? scegliDocumenti(v.id) : '') +
+        (sez === 'voli' && v.data >= C.oggi() ? '<button class="btn secondario piccolo aggiungi-sotto" type="button" data-monitora-viaggio="' + esc(v.id) + '">📉 Monitora il prezzo</button>' : '') +
         '<button class="btn secondario piccolo aggiungi-sotto" type="button" data-nuovo-sotto="' + sez + '">Aggiungi ' + SEZIONI[sez].uno + '</button>';
     });
     if (v.note) h += '<h2>Note</h2><div class="sezione"><p style="white-space:pre-wrap;margin:0">' + esc(v.note) + '</p></div>';
@@ -492,6 +494,61 @@ var Viaggi = (function () {
     }));
   }
 
+  // ---------- SVEGLIA PER IL VOLO (solo su questo telefono; suona in A&C come le sveglie del turnario) ----------
+  var K_SV_VOLI = 'aec.sveglieVoli';
+  function sveglieVoli() { try { return JSON.parse(localStorage.getItem(K_SV_VOLI) || '{}') || {}; } catch (e) { return {}; } }
+  function salvaSveglieVoli(o) { try { localStorage.setItem(K_SV_VOLI, JSON.stringify(o)); } catch (e) { /* niente */ } }
+  function msDi(data, ora) { var o = String(ora || '').split(':'); return new Date(+data.slice(0, 4), +data.slice(5, 7) - 1, +data.slice(8, 10), +o[0] || 0, +o[1] || 0).getTime(); }
+  function hhmm(d) { return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+  function nomeVolo(s) { return '✈ Volo ' + ([s.compagnia, s.numero].filter(Boolean).join(' ') || [s.da, s.a].filter(Boolean).join(' → ') || ''); }
+  // eventi per il motore delle sveglie (solo futuri, e solo voli che esistono ancora)
+  function eventiSveglieVoli() {
+    var sv = sveglieVoli(), out = [], ora = Date.now(), pulito = false;
+    Object.keys(sv).forEach(function (k) {
+      var p = k.split('|'), it = Store.get(p[0]), vo = it && !it.eliminato ? (it.voli || []).filter(function (x) { return x.id === p[1]; })[0] : null;
+      if (!vo || sv[k].t < ora - 86400000) { delete sv[k]; pulito = true; return; }
+      if (sv[k].t > ora) out.push({ t: sv[k].t, nome: sv[k].nome || nomeVolo(vo) });
+    });
+    if (pulito) salvaSveglieVoli(sv);
+    return out;
+  }
+  function bottoneSveglia(v, s) {
+    var x = sveglieVoli()[v.id + '|' + s.id], esc = ui.esc;
+    var testo = x && x.t > Date.now() ? '⏰ ' + C.dataBreve(C.iso(new Date(x.t))) + ' ' + hhmm(new Date(x.t)) : '⏰ Sveglia';
+    return '<button type="button" class="sc-sveglia" data-sveglia-volo="' + esc(v.id + '|' + s.id) + '" aria-label="Sveglia per il volo ' + esc([s.compagnia, s.numero].filter(Boolean).join(' ')) + '">' + esc(testo) + '</button>';
+  }
+  function apriSvegliaVolo(chiave) {
+    var p = chiave.split('|'), v = Store.get(p[0]), s = v ? (v.voli || []).filter(function (x) { return x.id === p[1]; })[0] : null, esc = ui.esc, fg = ui.foglio;
+    if (!s) return;
+    if (!(window.Native && Native.isApp)) { ui.toast('La sveglia funziona nell\'app Android'); return; }
+    var sv = sveglieVoli(), x = sv[chiave];
+    var partenza = s.data && s.ora ? msDi(s.data, s.ora) : null;
+    var proposta = x ? new Date(x.t) : new Date(partenza ? partenza - 3 * 3600000 : msDi(s.data || v.data, '06:00'));
+    fg.classList.remove('visore');
+    fg.innerHTML = '<form method="dialog" id="form-sveglia-volo"><div class="maniglia"></div><h3 id="foglio-titolo">⏰ Sveglia per il volo</h3><div class="campi">' +
+      '<p style="margin:0"><b>' + esc(nomeVolo(s).replace('✈ ', '')) + '</b>' + (s.data ? '<br>' + esc(C.etichettaGiorno(s.data) + (s.ora ? ' alle ' + s.ora : '')) + (s.da ? ' da ' + esc(s.da) : '') : '') + '</p>' +
+      (partenza ? '<div class="sv-volo-rapide" role="group" aria-label="Prima della partenza">' + [2, 3, 4, 5].map(function (h) { return '<button type="button" class="btn secondario piccolo" data-prima="' + h + '">' + h + ' ore prima</button>'; }).join('') + '</div>' : '') +
+      '<div class="due"><label class="campo">Giorno<input type="date" name="giorno" required value="' + C.iso(proposta) + '"></label><label class="campo">Ora<input type="time" name="ora" required value="' + hhmm(proposta) + '"></label></div>' +
+      '<p class="testo-muto" style="margin:0">Suona in A&amp;C anche ad app chiusa, con il suono scelto in Modi → Sveglie, e si spegne o posticipa dalla schermata della sveglia. Vale solo per questo telefono.</p>' +
+      '<div class="azioni"><button class="btn" type="submit">Imposta la sveglia</button><button class="btn secondario" type="button" data-annulla>Annulla</button>' +
+      (x ? '<button class="btn pericolo" type="button" data-togli style="margin-left:auto">Togli</button>' : '') + '</div></div></form>';
+    if (!fg.open) fg.showModal();
+    var f = fg.querySelector('form');
+    f.querySelectorAll('[data-prima]').forEach(function (b) { b.onclick = function () { var d = new Date(partenza - +b.dataset.prima * 3600000); f.giorno.value = C.iso(d); f.ora.value = hhmm(d); }; });
+    f.querySelector('[data-annulla]').onclick = function () { fg.close(); };
+    function fatto(msg) { fg.close(); ui.toast(msg); if (ui.programmaSveglie) ui.programmaSveglie(); if (location.hash.indexOf('#viaggio/') === 0) { var r = document.querySelector('[data-sveglia-volo="' + chiave.replace(/"/g, '') + '"]'); if (r) r.outerHTML = bottoneSveglia(v, s); } }
+    var tg = f.querySelector('[data-togli]');
+    if (tg) tg.onclick = function () { var o = sveglieVoli(); delete o[chiave]; salvaSveglieVoli(o); fatto('Sveglia del volo tolta'); };
+    f.onsubmit = function (e) {
+      e.preventDefault();
+      var t = msDi(f.giorno.value, f.ora.value);
+      if (t <= Date.now()) { ui.toast('Quell\'ora è già passata'); return; }
+      var o = sveglieVoli(); o[chiave] = { t: t, nome: nomeVolo(s) + (s.ora ? ' alle ' + s.ora : '') }; salvaSveglieVoli(o);
+      var d = new Date(t);
+      fatto('Sveglia ' + C.etichettaGiorno(C.iso(d)).toLowerCase() + ' alle ' + hhmm(d));
+    };
+  }
+
   // ---------- CONCERTI ----------
   var CAMPI_CONCERTO = [['titolo', 'Cantante o band', 'text', true], ['data', 'Data', 'date', true], ['ora', 'Ora', 'time'], ['luogo', 'Luogo', 'text', 'Es. Autodromo di Imola'],
     ['importo', 'Prezzo totale €', 'number'], ['chi', 'Chi va', 'persone'], ['prenotazione', 'Numero di prenotazione', 'text'], ['colore', 'Colore etichetta', 'colore'], ['note', 'Note', 'textarea']];
@@ -559,6 +616,7 @@ var Viaggi = (function () {
       if (item && window.confirm('Togliere l\'allegato? Il file va nel cestino di Drive.')) { item = JSON.parse(JSON.stringify(item)); togli(item, p[0] + '|' + p[1] + '|' + p[2], p[3], true); }
       return true;
     }
+    if (d.svegliaVolo) { apriSvegliaVolo(d.svegliaVolo); return true; }
     if (d.nuovoViaggio !== undefined) { apriViaggio(null); return true; }
     if (d.modificaViaggio) { apriViaggio(d.modificaViaggio); return true; }
     if (d.nuovoSotto) { apriSotto(idCorrente(), d.nuovoSotto, null); return true; }
@@ -863,7 +921,7 @@ var Viaggi = (function () {
     disegnaMappa: disegnaMappa,
     htmlElenco: htmlElenco, htmlDettaglio: htmlDettaglio, htmlConcerti: htmlConcerti, htmlArchivio: htmlArchivio,
     apriViaggio: apriViaggio, apriConcerto: apriConcerto, apriAllegato: apriAllegato,
-    click: click, change: change, prossimi: prossimi, intervallo: intervallo,
+    click: click, change: change, prossimi: prossimi, intervallo: intervallo, eventiSveglieVoli: eventiSveglieVoli,
     allega: allega, togli: togli, htmlAllegati: htmlAllegati, anteprime: anteprime,
     blobAllegato: blobAllegato, docPersonale: docPersonale, fotoPersonali: fotoPersonali,
     docsPerPersona: docsPerPersona, opzioniDocumenti: opzioniDocumenti,
