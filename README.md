@@ -17,7 +17,7 @@ Sito e app Android per la casa di Fratta Terme: bidoni della raccolta Alea, paga
 | Concerti | Data, ora, cantante, luogo, prezzo e biglietti digitali (PDF o foto) da aprire anche senza rete |
 | Album | Foto di casa (carosello di foto a caso che scorre da solo + griglia per mese di scatto letto dai metadati EXIF, presentazione a schermo intero), salvate nel Google Drive (cartella "A&C Album") |
 | Modi (🔔 in alto, solo app) | Modi audio Normale, Moto, Lavoro, Notte, Silenzioso, Solo musica e personalizzati; rotazione schermo; sveglie; per Andrea modo automatico nei turni, VPN FortiClient e DNS privato |
-| Impostazioni (⚙ in alto) | Chi usa il telefono, collegamento al foglio, QR code per l'altro telefono, notifiche, backup |
+| Impostazioni (⚙ in alto) | Chi usa il telefono, casa, collegamento al foglio, QR code per l'altro telefono, notifiche, backup; in fondo le **aree personali** di Andrea e Cristina: dati (telefono, nascita, email, codice fiscale), documenti e **file e PDF** (curriculum, certificati, attestati, contratti…) salvati nel Drive (cartella "A&C Allegati") |
 
 Le festività seguono le regole dell'Eco-Calendario Alea: un ritiro che cade di festa si sposta al sabato prima (lun–mer) o al sabato dopo (gio–ven); se cade di sabato salta. Pasquetta è calcolata in automatico. Per i casi particolari annunciati da Alea c'è "Aggiungi una variazione".
 

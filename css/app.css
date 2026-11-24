@@ -508,3 +508,8 @@ a.contatto[data-naviga-lat], a.contatto[data-naviga-q] { text-decoration: none; 
 .postit-griglia > .postit-con-naviga:nth-child(even) .postit { transform: rotate(1deg); }
 .postit-griglia > .postit-con-naviga:nth-child(odd) .postit { transform: rotate(-1.2deg); }
 .naviga-popup { display: inline-block; margin-top: 6px; font-weight: 700; color: var(--ardesia); text-decoration: none; }
+
+/* ---------- aree personali ---------- */
+.area-personale { margin-top: 10px; }
+.area-titolo { font-family: var(--titolo); font-size: 18px; margin: 20px 0 8px; }
+.area-titolo small { font-family: var(--testo); font-weight: 400; font-size: 14px; color: var(--muschio); margin-left: 4px; }

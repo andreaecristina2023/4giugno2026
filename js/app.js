@@ -696,8 +696,22 @@
     var a = (s.anagrafica) || {}, pp = a.persone || {}, casa = casaDi(a), docs = a.documenti || [];
     if (typeof docs === 'string') docs = [];
     function campo(nome, etic, val, tipo) { return '<label class="campo">' + etic + '<input type="' + (tipo || 'text') + '" name="' + nome + '" value="' + esc(val || '') + '"></label>'; }
+    var h = '<h2>Casa</h2><form id="form-dati" class="sezione campi" style="display:grid;gap:12px">' +
+      '<div class="campo"><span>Indirizzo di casa</span><div class="casa-righe"><label class="campo">Via<input type="text" name="via" value="' + esc(casa.via || '') + '"></label><label class="campo">Civico<input type="text" name="civico" value="' + esc(casa.civico || '') + '"></label></div>' +
+      '<div class="casa-righe casa-righe-3"><label class="campo">Comune<input type="text" name="comune" value="' + esc(casa.comune || '') + '"></label><label class="campo">CAP<input type="text" name="cap" inputmode="numeric" maxlength="5" value="' + esc(casa.cap || '') + '"></label><label class="campo">Provincia<input type="text" name="provincia" maxlength="2" autocapitalize="characters" value="' + esc(casa.provincia || '') + '"></label></div>' +
+      '<div class="posizione-azioni"><button type="button" class="btn secondario piccolo" id="loc-casa">📍 Localizza l\'indirizzo</button>' +
+        Native.linkNaviga(casa.lat != null && casa.lon != null ? { lat: casa.lat, lon: casa.lon } : (casa.via ? { q: [[casa.via, casa.civico].filter(Boolean).join(' '), [casa.cap, casa.comune].filter(Boolean).join(' ')].filter(Boolean).join(', ') } : null), '🧭 Naviga verso casa', 'btn secondario piccolo') + '</div>' +
+      '<div id="mappa-casa" class="mappa mappa-casa"></div><p id="casa-nota" class="testo-muto" style="margin:0;font-size:13px">Tocca la mappa per posizionare la casa, oppure usa «Localizza».</p></div>' +
+      '<label class="campo">Altro<span class="aiuto">Quello che ti serve spesso: codici, numeri utili, note.</span><textarea name="altro" maxlength="2000">' + esc(a.altro || '') + '</textarea></label>' +
+      '<div class="azioni"><button class="btn" type="submit">Salva i dati</button></div></form>';
+    setTimeout(function () { initCasa(); Viaggi.anteprime(document); }, 0);
+    return h;
+  }
+  // ---------- AREE PERSONALI (Andrea, Cristina): dati, documenti, file e PDF ----------
+  var TIPI_FILE = ['Curriculum', 'Certificato', 'Attestato', 'Contratto', 'Busta paga', 'Referto', 'Ricevuta', 'Altro'];
+  function campo(nome, etic, val, tipo) { return '<label class="campo">' + etic + '<input type="' + (tipo || 'text') + '" name="' + nome + '" value="' + esc(val || '') + '"></label>'; }
     function persona(nome) {
-      var p = pp[nome] || {};
+      var p = (((Store.settings().anagrafica || {}).persone) || {})[nome] || {};
       var telPredef = p.telefono || (nome === 'Andrea' ? '41460039' : '');
       var chiama = telPredef ? '<a class="contatto" href="tel:' + esc(numeroChiamata((p.prefisso || '+39') + telPredef)) + '" aria-label="Chiama ' + esc(nome) + '">📞 Chiama</a>' : '';
       return '<div class="campo"><span>' + esc(nome) + ' ' + chiama + '</span><div class="due"><label class="campo">Prefisso<select class="sel-pers" name="' + nome + '_prefisso">' + C.opzioni(PREFISSI_DATI, p.prefisso || '+39') + '</select></label>' +
@@ -705,27 +719,81 @@
         '<div class="due">' + campo(nome + '_nome', 'Nome e cognome', p.nomeCompleto) + '<label class="campo">Data di nascita<input type="date" name="' + nome + '_nascita" value="' + esc(p.nascita || '') + '"></label></div>' +
         '<div class="due">' + campo(nome + '_email', 'Email', p.email, 'email') + campo(nome + '_cf', 'Codice fiscale', p.cf) + '</div></div>';
     }
-    var h = '<h2>I miei dati</h2><form id="form-dati" class="sezione campi" style="display:grid;gap:12px">' +
-      '<div class="campo"><span>Indirizzo di casa</span><div class="casa-righe"><label class="campo">Via<input type="text" name="via" value="' + esc(casa.via || '') + '"></label><label class="campo">Civico<input type="text" name="civico" value="' + esc(casa.civico || '') + '"></label></div>' +
-      '<div class="casa-righe casa-righe-3"><label class="campo">Comune<input type="text" name="comune" value="' + esc(casa.comune || '') + '"></label><label class="campo">CAP<input type="text" name="cap" inputmode="numeric" maxlength="5" value="' + esc(casa.cap || '') + '"></label><label class="campo">Provincia<input type="text" name="provincia" maxlength="2" autocapitalize="characters" value="' + esc(casa.provincia || '') + '"></label></div>' +
-      '<div class="posizione-azioni"><button type="button" class="btn secondario piccolo" id="loc-casa">📍 Localizza l\'indirizzo</button>' +
-        Native.linkNaviga(casa.lat != null && casa.lon != null ? { lat: casa.lat, lon: casa.lon } : (casa.via ? { q: [[casa.via, casa.civico].filter(Boolean).join(' '), [casa.cap, casa.comune].filter(Boolean).join(' ')].filter(Boolean).join(', ') } : null), '🧭 Naviga verso casa', 'btn secondario piccolo') + '</div>' +
-      '<div id="mappa-casa" class="mappa mappa-casa"></div><p id="casa-nota" class="testo-muto" style="margin:0;font-size:13px">Tocca la mappa per posizionare la casa, oppure usa «Localizza».</p></div>' +
-      persona('Andrea') + persona('Cristina') +
-      '<label class="campo">Altro<span class="aiuto">Quello che ti serve spesso: codici, numeri utili, note.</span><textarea name="altro" maxlength="2000">' + esc(a.altro || '') + '</textarea></label>' +
-      '<div class="azioni"><button class="btn" type="submit">Salva i dati</button></div></form>';
     function docRiga(d) {
       var pf = (d.allegati || []).filter(function (a) { return /^image\//.test(a.mime || ''); })[0];
       return '<button type="button" class="sotto-card doc-riga" data-doc-modifica="' + esc(d.id) + '">' + (pf ? '<img class="doc-miniatura" data-anteprima="' + esc(pf.id) + '" data-mime="' + esc(pf.mime) + '" alt="" src="">' : '') + '<span class="sc-titolo">' + esc(d.tipo || 'Documento') + (d.numero ? ' · ' + esc(d.numero) : '') + (d.allegati && d.allegati.length ? ' · 🖼 ' + d.allegati.length : '') + '</span>' +
         (d.scadenza ? '<span class="sc-riga">Scade ' + esc(d.scadenza) + (d.rilasciatoDa ? ' · ' + esc(d.rilasciatoDa) : '') + '</span>' : (d.rilasciatoDa ? '<span class="sc-riga">' + esc(d.rilasciatoDa) + '</span>' : '')) + '</button>';
     }
-    // raggruppati per persona: ogni gruppo ha il suo titolo con il conteggio
-    h += '<h2>Documenti <small>' + docs.length + '</small></h2><div class="sezione">' + Viaggi.docsPerPersona(docs).map(function (g) {
-      return '<p class="persona-titolo">' + esc(g.persona) + ' <small>' + g.docs.length + '</small></p>' + g.docs.map(docRiga).join('');
-    }).join('') + '<button type="button" class="btn secondario piccolo" data-doc-nuovo aria-label="Aggiungi documento">+ Aggiungi documento</button></div>';
-    setTimeout(function () { initCasa(); Viaggi.anteprime(document); }, 0);
-    return h;
+  function filePersonali() { var l = (Store.settings().anagrafica || {}).file; return Array.isArray(l) ? l : []; }
+  function fileRiga(x) {
+    var n = (x.allegati || []).length, pdf = (x.allegati || []).some(function (a) { return /pdf/.test(a.mime || ''); });
+    return '<button type="button" class="sotto-card doc-riga" data-file-apri="' + esc(x.id) + '"><span class="sc-titolo">' + (pdf ? '📄 ' : '📎 ') + esc(x.titolo || x.tipo || 'File') + '</span>' +
+      '<span class="sc-riga">' + esc([x.tipo, x.data ? C.dataBreve(x.data) : '', n ? n + (n === 1 ? ' file' : ' file') : 'nessun file'].filter(Boolean).join(' · ')) + '</span></button>';
   }
+  function areaPersonale(nome) {
+    var a = Store.settings().anagrafica || {}, docs = (Array.isArray(a.documenti) ? a.documenti : []).filter(function (d) { return (d.persona || 'Andrea') === nome; });
+    docs.sort(function (x, y) { return String(x.tipo || '').localeCompare(String(y.tipo || '')); });
+    var files = filePersonali().filter(function (x) { return x.persona === nome; }).sort(function (x, y) { return (y.data || '') < (x.data || '') ? -1 : 1; });
+    return '<div class="area-personale">' +
+      '<form id="form-persona" data-persona="' + esc(nome) + '" class="sezione campi" style="display:grid;gap:12px">' + persona(nome) + '<div class="azioni"><button class="btn" type="submit">Salva i dati di ' + esc(nome) + '</button></div></form>' +
+      '<h3 class="area-titolo">🪪 Documenti <small>' + docs.length + '</small></h3><div class="sezione">' + docs.map(docRiga).join('') +
+        '<button type="button" class="btn secondario piccolo" data-doc-nuovo data-persona="' + esc(nome) + '">+ Aggiungi documento</button></div>' +
+      '<h3 class="area-titolo">📄 File e PDF <small>' + files.length + '</small></h3><div class="sezione">' + (files.length ? files.map(fileRiga).join('') : '<p class="testo-muto">Curriculum, certificati, attestati, contratti… in PDF o in foto.</p>') +
+        '<button type="button" class="btn secondario piccolo" data-file-nuovo data-persona="' + esc(nome) + '">+ Aggiungi file (curriculum, PDF…)</button></div>' +
+      '</div>';
+  }
+  function apriFilePersonale(id, nomePersona) {
+    var lista = filePersonali(), orig = id ? lista.filter(function (x) { return x.id === id; })[0] : null;
+    var d = orig ? JSON.parse(JSON.stringify(orig)) : { id: C.nuovoId(), persona: nomePersona || 'Andrea', titolo: '', tipo: 'Curriculum', data: C.oggi(), note: '', allegati: [] };
+    d.allegati = d.allegati || [];
+    var wrap = { file: [d] }, ctx = 'anag|file|' + d.id, form = null;
+    foglio.classList.remove('visore');
+    function snap() { if (!form) return; d.titolo = form.titolo.value.trim(); d.tipo = form.tipo.value; d.data = form.data.value; d.note = form.note.value; d.persona = form.persona.value; }
+    // nome del file in Drive: tipo - nome e cognome - titolo
+    function nomeFile(originale) {
+      var per = ((Store.settings().anagrafica || {}).persone || {})[d.persona] || {};
+      var ext = (String(originale).match(/\.[A-Za-z0-9]+$/) || [''])[0];
+      return [d.tipo || 'File', per.nomeCompleto || d.persona, d.titolo].filter(Boolean).join(' - ').replace(/[\\/:*?"<>|]+/g, ' ') + ext;
+    }
+    function disegna() {
+      foglio.innerHTML = '<form method="dialog" id="form-file"><div class="maniglia"></div><h3 id="foglio-titolo">' + (id ? 'Modifica file' : 'Nuovo file') + ' · ' + esc(d.persona) + '</h3><div class="campi">' +
+        '<div class="due"><label class="campo">Tipo<select class="sel-pers" name="tipo">' + C.opzioni(TIPI_FILE, d.tipo) + '</select></label><label class="campo">Di<select name="persona">' + C.opzioni(['Andrea', 'Cristina'], d.persona) + '</select></label></div>' +
+        '<label class="campo">Titolo<input type="text" name="titolo" maxlength="100" value="' + esc(d.titolo) + '" placeholder="Es. Curriculum 2026"></label>' +
+        '<label class="campo">Data<input type="date" name="data" value="' + esc(d.data || '') + '"></label>' +
+        '<div class="campo-modo"><b>File</b><span class="aiuto">PDF o foto, anche più d\'uno. Si salvano nella cartella «A&amp;C Allegati» del Drive e si aprono anche senza rete dopo la prima volta.</span>' + Viaggi.htmlAllegati(d.allegati, ctx, 'Aggiungi PDF o foto') + '</div>' +
+        '<label class="campo">Note<textarea name="note" maxlength="1000">' + esc(d.note || '') + '</textarea></label>' +
+        '<div class="azioni"><button class="btn" type="submit">Salva</button><button class="btn secondario" type="button" data-chiudi>Annulla</button>' + (id ? '<button class="btn pericolo" type="button" data-elimina style="margin-left:auto">Elimina</button>' : '') + '</div></div></form>';
+      form = $('#form-file', foglio);
+      $('[data-chiudi]', form).onclick = function () { foglio.close(); };
+      if (id) $('[data-elimina]', form).onclick = function () {
+        if (!window.confirm('Eliminare «' + (orig.titolo || orig.tipo || 'File') + '»?' + ((orig.allegati || []).length ? ' I file andranno nel cestino di Drive.' : ''))) return;
+        (orig.allegati || []).forEach(function (a) { Store.chiama('allegato_elimina', { id: a.id }).catch(function () {}); });
+        salvaAnagrafica({ file: filePersonali().filter(function (x) { return x.id !== id; }) }); foglio.close(); toast('File eliminato');
+      };
+      form.querySelectorAll('[data-apri-allegato]').forEach(function (b) { b.onclick = function () { Viaggi.apriAllegato(b.dataset.apriAllegato, b.dataset.nome, b.dataset.mime); }; });
+      form.querySelectorAll('[data-togli-allegato]').forEach(function (b) { b.onclick = function () {
+        var idAll = b.dataset.togliAllegato.split('|').pop();
+        if (confirm('Togliere questo file?')) { snap(); Viaggi.togli(wrap, ctx, idAll, false); disegna(); }
+      }; });
+      var inp = form.querySelector('[data-allega]');
+      if (inp) inp.onchange = function () {
+        snap();
+        if (!d.titolo && inp.files && inp.files[0]) d.titolo = inp.files[0].name.replace(/\.[A-Za-z0-9]+$/, '');
+        Viaggi.allega(wrap, ctx, inp.files, false, { nome: function (f) { return nomeFile(f.name); } }).then(disegna);
+      };
+      Viaggi.anteprime(form);
+      form.onsubmit = function (e) {
+        e.preventDefault(); snap();
+        if (!d.titolo && !d.allegati.length) { form.titolo.focus(); return; }
+        var nuovo = { id: d.id, persona: d.persona, titolo: d.titolo || d.tipo, tipo: d.tipo, data: d.data, note: d.note, allegati: d.allegati };
+        var l = filePersonali(), nuova = l.some(function (x) { return x.id === d.id; }) ? l.map(function (x) { return x.id === d.id ? nuovo : x; }) : l.concat([nuovo]);
+        salvaAnagrafica({ file: nuova }); foglio.close(); toast(id ? 'File salvato' : 'File aggiunto');
+      };
+    }
+    disegna();
+    foglio.showModal();
+  }
+
   function indirizzoCasa(f) {
     var g = function (n) { return (f.elements[n] ? f.elements[n].value : '').trim(); };
     var via = [g('via'), g('civico')].filter(Boolean).join(' '), luogo = [g('cap'), g('comune')].filter(Boolean).join(' ');
@@ -910,11 +978,12 @@
     if (c) out.rilasciatoDa = c[0].replace(/\s+(Data|Numero|Cognome|Nome|Nato|Sesso|scadenza|rilasci\w*)\b.*$/i, '').trim();
     return out;
   }
-  function apriDocumento(id) {
+  function apriDocumento(id, personaScelta) {
     var lista = ((Store.settings().anagrafica || {}).documenti || []), orig = id ? lista.filter(function (x) { return x.id === id; })[0] : null;
     var d = orig ? JSON.parse(JSON.stringify(orig)) : { id: C.nuovoId(), tipo: TIPI_DOCUMENTO[0], persona: 'Andrea', numero: '', rilascio: '', scadenza: '', rilasciatoDa: '', allegati: [] };
     d.allegati = d.allegati || [];
-    d.persona = d.persona || 'Andrea';
+    d.persona = d.persona || personaScelta || 'Andrea';
+    if (!id && personaScelta) d.persona = personaScelta;
     var wrap = { documenti: [d] }, ctx = 'anag|documenti|' + d.id, form = null, PERSONE = ['Andrea', 'Cristina'];
     foglio.classList.remove('visore');
     // ricopia nel documento ciò che è scritto nel form, così il ridisegno non perde le modifiche
@@ -935,7 +1004,7 @@
     function disegna() {
       foglio.innerHTML = '<form method="dialog" id="form-documento"><div class="maniglia"></div><h3 id="foglio-titolo">' + (id ? 'Modifica documento' : 'Nuovo documento') + '</h3><div class="campi">' +
         '<label class="campo">Tipo<select class="sel-pers" name="tipo">' + C.opzioni(TIPI_DOCUMENTO, d.tipo) + '</select></label>' +
-        '<label class="campo">Intestato a<select class="sel-pers" name="persona">' + C.opzioni(PERSONE, d.persona) + '</select><span class="aiuto">Nome e data di nascita si prendono da «I miei dati».</span></label>' +
+        '<label class="campo">Intestato a<select class="sel-pers" name="persona">' + C.opzioni(PERSONE, d.persona) + '</select><span class="aiuto">Nome e data di nascita si prendono dall\'area personale.</span></label>' +
         '<label class="campo">Numero<input type="text" name="numero" maxlength="60" value="' + esc(d.numero) + '"></label>' +
         '<div class="due"><label class="campo">Data di rilascio<input type="date" name="rilascio" value="' + esc(d.rilascio) + '"></label><label class="campo">Data di scadenza<input type="date" name="scadenza" value="' + esc(d.scadenza) + '"></label></div>' +
         '<label class="campo">Rilasciato da<input type="text" name="rilasciatoDa" maxlength="120" value="' + esc(d.rilasciatoDa) + '" placeholder="Es. Comune di Bertinoro"></label>' +
@@ -1066,6 +1135,8 @@
     h += '</div>';
 
     h += '<h2>Backup</h2><div class="sezione"><p>Salva tutto in un file o ripristinalo (utile anche per passare i dati all\'altro telefono senza script).</p><div class="azioni"><button class="btn secondario" type="button" data-azione="esporta">Esporta i dati</button><label class="btn secondario">Importa un file<input type="file" accept="application/json,.json" data-azione="importa" class="sr"></label></div></div>';
+    var areaScelta = ui.area || (s.persone.indexOf(conf.chi) >= 0 ? conf.chi : 'Andrea');
+    h += '<h2>Aree personali</h2><div class="schede" role="group" aria-label="Area personale">' + ['Andrea', 'Cristina'].map(function (p) { return '<button type="button" data-area="' + esc(p) + '" aria-pressed="' + (areaScelta === p) + '">👤 ' + esc(p) + '</button>'; }).join('') + '</div>' + areaPersonale(areaScelta);
     h += '<p class="testo-muto" style="margin-top:24px">' + voci().length + ' voci salvate · <a href="' + REPO + '" target="_blank" rel="noopener">codice su GitHub</a></p>';
     vista.innerHTML = h;
   }
@@ -1196,9 +1267,18 @@
     var casa = { via: v('via'), civico: v('civico'), comune: v('comune'), cap: v('cap'), provincia: v('provincia').toUpperCase() };
     var pos = casaPosizione || (casaVecchia.lat != null ? [casaVecchia.lat, casaVecchia.lon] : null);
     if (pos) { casa.lat = pos[0]; casa.lon = pos[1]; }
-    salvaAnagrafica({ casa: casa, altro: v('altro'), persone: { Andrea: { prefisso: v('Andrea_prefisso'), telefono: v('Andrea_telefono'), nomeCompleto: v('Andrea_nome'), nascita: v('Andrea_nascita'), email: v('Andrea_email'), cf: v('Andrea_cf').toUpperCase() },
-                 Cristina: { prefisso: v('Cristina_prefisso'), telefono: v('Cristina_telefono'), nomeCompleto: v('Cristina_nome'), nascita: v('Cristina_nascita'), email: v('Cristina_email'), cf: v('Cristina_cf').toUpperCase() } } });
-    toast('Dati salvati');
+    salvaAnagrafica({ casa: casa, altro: v('altro') });
+    toast('Dati di casa salvati');
+  });
+  // dati di una persona (area personale): salva solo i suoi, lasciando quelli dell'altra
+  document.addEventListener('submit', function (e) {
+    if (!e.target || e.target.id !== 'form-persona') return;
+    e.preventDefault();
+    var f = e.target, nome = f.dataset.persona, v = function (n) { return (f.elements[n] ? f.elements[n].value : '').trim(); };
+    var pp = Object.assign({}, (Store.settings().anagrafica || {}).persone || {});
+    pp[nome] = Object.assign({}, pp[nome] || {}, { prefisso: v(nome + '_prefisso'), telefono: v(nome + '_telefono'), nomeCompleto: v(nome + '_nome'), nascita: v(nome + '_nascita'), email: v(nome + '_email'), cf: v(nome + '_cf').toUpperCase() });
+    salvaAnagrafica({ persone: pp });
+    toast('Dati di ' + nome + ' salvati');
   });
 
   // ---------- routing e eventi ----------
@@ -1329,7 +1409,10 @@
     else if (d.cartaApri !== undefined) apriCodiceGrande(d.cartaApri);
     else if (d.notaNuova !== undefined) apriNota(null);
     else if (d.nota !== undefined) apriNota(d.nota);
-    else if (d.docNuovo !== undefined) apriDocumento(null);
+    else if (d.area) { ui.area = d.area; disegna(); }
+    else if (d.fileNuovo !== undefined) apriFilePersonale(null, d.persona);
+    else if (d.fileApri) apriFilePersonale(d.fileApri);
+    else if (d.docNuovo !== undefined) apriDocumento(null, d.persona);
     else if (d.docModifica) apriDocumento(d.docModifica);
     else if (d.azione === 'scollega') { Store.setConf({ url: '', chiave: '' }); toast('Scollegato: i dati restano su questo telefono'); }
     else if (d.azione === 'permesso') Native.permesso().then(function (p) { toast(p === 'granted' ? 'Notifiche attive' : 'Notifiche non concesse: abilitale dalle impostazioni del telefono'); });
