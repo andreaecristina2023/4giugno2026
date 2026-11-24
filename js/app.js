@@ -1293,6 +1293,7 @@
     window.scrollTo(0, y);
     Native.aggiorna(voci(), rifiuti());
     programmaTurnoAuto();
+    programmaSveglieTurno();
   }
   window.addEventListener('hashchange', function () { disegna(); window.scrollTo(0, 0); });
   Store.on(disegna);
@@ -1824,6 +1825,36 @@
     return (iv[0] <= Date.now() ? 'In turno fino a ' + f(iv[1]) : 'Prossimo turno: ' + f(iv[0]) + ' → ' + f(iv[1]));
   }
 
+  // ---------- SVEGLIE DAL TURNARIO (suonano in A&C: l'Orologio non accetta una data precisa) ----------
+  function sveglieTurno() {
+    var x = leggiLocale('aec.sveglieTurno', {});
+    return { diurno: Object.assign({ on: false, ora: '06:30' }, x.diurno || {}), smonto: Object.assign({ on: false, ora: '13:00' }, x.smonto || {}) };
+  }
+  // eventi dei prossimi 22 giorni: mattina del diurno e giorno dopo la notte (ferie, salti e cambi già considerati)
+  function eventiSveglieTurno(giorni) {
+    var cfg = Store.settings().turni, st = sveglieTurno(), out = [];
+    if (!cfg || !cfg.attivo || !cfg.turno) return out;
+    var ms = function (d, hhmm) { var o = String(hhmm || '').split(':'); return new Date(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10), +o[0] || 0, +o[1] || 0).getTime(); };
+    for (var k = -1; k <= (giorni || 22); k++) {
+      var d = C.addGiorni(C.oggi(), k), t = C.turnoDel(cfg, d);
+      if (!t) continue;
+      if (t.stato === 'diurno' && st.diurno.on) out.push({ t: ms(d, st.diurno.ora), nome: 'Diurno' + (t.orario ? ' ' + t.orario.replace('-', '–') : '') });
+      if (t.stato === 'notte' && st.smonto.on) out.push({ t: ms(C.addGiorni(d, 1), st.smonto.ora), nome: 'Smonto (dopo la notte)' });
+    }
+    return out.filter(function (e) { return e.t > Date.now(); }).sort(function (a, b) { return a.t - b.t; });
+  }
+  var firmaSveglieTurno = '';
+  function programmaSveglieTurno(forza) {
+    if (!Native.isApp) return Promise.resolve(null);
+    var st = sveglieTurno(), attive = isAndrea() && (st.diurno.on || st.smonto.on);
+    var conf = { attive: attive, eventi: attive ? eventiSveglieTurno(22) : [] };
+    var firma = JSON.stringify(conf);
+    if (!forza && firma === firmaSveglieTurno) return Promise.resolve(null);
+    firmaSveglieTurno = firma;
+    return Native.audio.sveglieTurno(conf).catch(function () { return null; });
+  }
+  function quandoBreve(ms) { var d = new Date(ms); return C.dataBreve(C.iso(d)) + ' ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+
   // ---------- SVEGLIE (create nell'app Orologio del telefono) ----------
   var GIORNI_SV = [[1, 'L', 'lun'], [2, 'M', 'mar'], [3, 'M', 'mer'], [4, 'G', 'gio'], [5, 'V', 'ven'], [6, 'S', 'sab'], [7, 'D', 'dom']];
   function sveglie() { return leggiLocale('aec.sveglie', []); }
@@ -1837,7 +1868,8 @@
     return g.map(function (d) { return GIORNI_SV[d - 1][2]; }).join(' ');
   }
   function riassuntoSveglie() {
-    var l = sveglie();
+    var l = sveglie(), st = sveglieTurno();
+    if (isAndrea() && (st.diurno.on || st.smonto.on)) return (l.length ? l.slice(0, 2).map(oraSv).join(', ') + ' · ' : '') + 'turnario attivo';
     return l.length ? l.slice(0, 3).map(oraSv).join(', ') + (l.length > 3 ? '…' : '') : 'Nell\'orologio del telefono';
   }
   function erroreSveglia(e) { toast(e && e.code === 'NO_OROLOGIO' ? 'Nessuna app Orologio trovata sul telefono' : ((e && e.message) || 'Sveglia non impostata')); }
@@ -1858,6 +1890,17 @@
         '<button type="button" class="chip" data-gset="1,2,3,4,5">lun–ven</button><button type="button" class="chip" data-gset="1,2,3,4,5,6,7">tutti</button></div></div>' +
         '<label class="spunta-vol"><input type="checkbox" name="vibra"' + (nuova.vibra ? ' checked' : '') + '> Vibra anche</label>' +
         '<div class="azioni"><button class="btn" type="submit">Imposta la sveglia</button><button class="btn secondario" type="button" data-orologio>Apri l\'Orologio</button></div></div></div>' +
+        (isAndrea() ? (function () {
+          var st = sveglieTurno(), tcfg = Store.settings().turni, ok = tcfg && tcfg.attivo && tcfg.turno, prossime = ok ? eventiSveglieTurno(22).slice(0, 3) : [];
+          return '<div class="sezione sveglie-turno"><div class="campi"><b>🚒 Segui il turnario</b>' +
+            (ok ? '<span class="aiuto">Suonano in A&amp;C (l\'Orologio non accetta una data precisa), anche con Non disturbare. Ferie, salti turno e giorni cambiati vengono saltati.</span>' : '<span class="aiuto">Prima imposta il tuo turno in Calendario → Turni VVF.</span>') +
+            '<label class="riga-turno"><input type="checkbox" name="st-diurno"' + (st.diurno.on ? ' checked' : '') + (ok ? '' : ' disabled') + '><span>Giorno di <b>diurno</b></span><input type="time" name="st-diurno-ora" value="' + esc(st.diurno.ora) + '"' + (ok ? '' : ' disabled') + '></label>' +
+            '<label class="riga-turno"><input type="checkbox" name="st-smonto"' + (st.smonto.on ? ' checked' : '') + (ok ? '' : ' disabled') + '><span>Giorno <b>dopo la notte</b></span><input type="time" name="st-smonto-ora" value="' + esc(st.smonto.ora) + '"' + (ok ? '' : ' disabled') + '></label>' +
+            (prossime.length ? '<span class="aiuto">Prossime: ' + prossime.map(function (e) { return quandoBreve(e.t); }).join(' · ') + '</span>' : '') +
+            '<div id="st-avviso"></div>' +
+            (ok ? '<div class="azioni"><button type="button" class="btn secondario piccolo" data-prova-sveglia>🔔 Prova il suono</button></div>' : '') +
+            '</div></div>';
+        })() : '') +
         '<p class="testo-muto">La sveglia viene creata nell\'Orologio del telefono: suona anche ad app chiusa e la posticipi o spegni come sempre. Se la modifichi nell\'Orologio, qui resta com\'era.</p>' +
         '<div class="azioni"><button class="btn secondario" type="button" data-indietro>Indietro</button></div></div></form>';
       var f = $('#form-sveglie', foglio);
@@ -1875,6 +1918,24 @@
         };
       });
       $('[data-orologio]', f).onclick = function () { Native.audio.elencoSveglie().catch(erroreSveglia); };
+      function salvaSt() {
+        var st = { diurno: { on: !!(f['st-diurno'] && f['st-diurno'].checked), ora: f['st-diurno-ora'] ? f['st-diurno-ora'].value || '06:30' : '06:30' },
+                   smonto: { on: !!(f['st-smonto'] && f['st-smonto'].checked), ora: f['st-smonto-ora'] ? f['st-smonto-ora'].value || '13:00' : '13:00' } };
+        scriviLocale('aec.sveglieTurno', st);
+        programmaSveglieTurno(true).then(function (r) {
+          var av = $('#st-avviso', f); if (!av) return;
+          var msg = [];
+          if (r && r.prossima) msg.push('Prossima sveglia: <b>' + esc(quandoBreve(r.prossima)) + '</b> · ' + esc(r.nome));
+          else if (st.diurno.on || st.smonto.on) msg.push('Nessuna sveglia nelle prossime 3 settimane.');
+          if (r && r.schermoBloccato === false) msg.push('Per vedere la sveglia a telefono bloccato consenti le notifiche a schermo intero: <button type="button" class="btn secondario piccolo" data-perm-schermo>Consenti</button>');
+          av.innerHTML = msg.length ? '<p class="testo-muto">' + msg.join('<br>') + '</p>' : '';
+          var bp = $('[data-perm-schermo]', av); if (bp) bp.onclick = function () { Native.audio.permessoSchermoSveglia(); };
+        });
+      }
+      ['st-diurno', 'st-diurno-ora', 'st-smonto', 'st-smonto-ora'].forEach(function (n) { if (f[n]) f[n].onchange = salvaSt; });
+      var prova = $('[data-prova-sveglia]', f);
+      if (prova) prova.onclick = function () { Native.audio.provaSveglia().then(function () { toast('Suona: spegnila dalla notifica'); }).catch(function () { toast('Disponibile solo nell\'app Android'); }); };
+      if (f['st-diurno'] && (f['st-diurno'].checked || f['st-smonto'].checked)) salvaSt();
       $('[data-indietro]', f).onclick = apriModi;
       f.onsubmit = function (e) {
         e.preventDefault(); leggiForm();

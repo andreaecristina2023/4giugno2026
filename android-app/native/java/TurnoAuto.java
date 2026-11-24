@@ -28,6 +28,8 @@ public class TurnoAuto extends BroadcastReceiver {
         // sveglia di inizio/fine turno, riavvio del telefono o aggiornamento dell'app
         final PendingResult pr = goAsync();
         try { programma(c); } finally { pr.finish(); }
+        // al riavvio o dopo un aggiornamento riprogrammo anche le sveglie del turnario
+        if (!AZIONE.equals(intent.getAction())) SvegliaTurno.programma(c);
     }
 
     private static JSONObject trovaModo(JSONObject conf, String id) {

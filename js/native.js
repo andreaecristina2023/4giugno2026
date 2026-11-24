@@ -156,6 +156,10 @@ var Native = (function () {
     elencoSveglie: function () { return AudioPl ? AudioPl.elencoSveglie() : soloApp(); },
     // modo automatico durante i turni VVF: { attivo, inTurno, dopo, modi, intervalli: [[inizioMs, fineMs]] }
     turnoAuto: function (conf) { return AudioPl ? AudioPl.turnoAuto(conf) : soloApp(); },
+    // sveglie che seguono il turnario: { attive, eventi: [ { t: ms, nome } ] }
+    sveglieTurno: function (conf) { return AudioPl ? AudioPl.sveglieTurno(conf) : soloApp(); },
+    provaSveglia: function () { return AudioPl ? AudioPl.provaSveglia({ nome: 'Prova' }) : soloApp(); },
+    permessoSchermoSveglia: function () { return AudioPl ? AudioPl.permessoSchermoSveglia() : soloApp(); },
     // dati per il widget "A&C Comandi": { modi, andrea, dnsHost }
     salvaWidget: function (dati) {
       if (!AudioPl) return Promise.resolve();

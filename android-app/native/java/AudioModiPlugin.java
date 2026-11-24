@@ -153,6 +153,50 @@ public class AudioModiPlugin extends Plugin {
         }
     }
 
+    /**
+     * Sveglie dal turnario: { attive, eventi: [ { t: ms, nome } ] }. Risponde con la prossima sveglia
+     * e se Android lascia mostrare la schermata della sveglia a telefono bloccato.
+     */
+    @PluginMethod
+    public void sveglieTurno(PluginCall call) {
+        try {
+            ComandiTelefono.prefs(getContext()).edit().putString("sveglieTurno", call.getData().toString()).commit();
+            SvegliaTurno.programma(getContext());
+            JSObject r = new JSObject();
+            android.content.SharedPreferences p = ComandiTelefono.prefs(getContext());
+            boolean attive = call.getBoolean("attive", false);
+            r.put("prossima", attive ? p.getLong("svegliaProssima", 0) : 0);
+            r.put("nome", p.getString("svegliaProssimaNome", ""));
+            android.app.NotificationManager nm = (android.app.NotificationManager) getContext().getSystemService(android.content.Context.NOTIFICATION_SERVICE);
+            r.put("schermoBloccato", android.os.Build.VERSION.SDK_INT < 34 || (nm != null && nm.canUseFullScreenIntent()));
+            android.app.AlarmManager am = (android.app.AlarmManager) getContext().getSystemService(android.content.Context.ALARM_SERVICE);
+            r.put("esatte", android.os.Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms());
+            call.resolve(r);
+        } catch (Exception e) {
+            call.reject("Sveglie non programmate: " + e.getMessage());
+        }
+    }
+
+    /** Prova della sveglia: suona subito. */
+    @PluginMethod
+    public void provaSveglia(PluginCall call) {
+        SvegliaTurno.suona(getContext(), call.getString("nome", "Prova"), System.currentTimeMillis());
+        call.resolve();
+    }
+
+    /** Pagina di Android per consentire la sveglia a schermo intero (Android 14+). */
+    @PluginMethod
+    public void permessoSchermoSveglia(PluginCall call) {
+        try {
+            android.content.Intent i = new android.content.Intent(android.os.Build.VERSION.SDK_INT >= 34 ? "android.settings.MANAGE_APP_USE_FULL_SCREEN_INTENT" : android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS,
+                android.net.Uri.parse("package:" + getContext().getPackageName()));
+            if (android.os.Build.VERSION.SDK_INT < 34) { i = new android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS); i.putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getContext().getPackageName()); }
+            i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(i);
+            call.resolve();
+        } catch (Exception e) { call.reject("Impostazioni non disponibili"); }
+    }
+
     /** Il sito ha salvato modi o impostazioni: ridisegno il widget. */
     @PluginMethod
     public void aggiornaWidget(PluginCall call) {

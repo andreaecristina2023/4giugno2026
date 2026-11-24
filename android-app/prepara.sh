@@ -66,6 +66,10 @@ if 'CasaWidget' not in s:
         <activity android:name=".ModiPopup" android:exported="false" android:taskAffinity="" android:excludeFromRecents="true" android:noHistory="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" android:label="Modi" />
         <receiver android:name=".VpnEvento" android:exported="true" android:permission="it.andreaecristina.casa.permission.VPN" />
+        <receiver android:name=".SvegliaTurno" android:exported="false" />
+        <activity android:name=".SvegliaSchermo" android:exported="false" android:showWhenLocked="true" android:turnScreenOn="true"
+            android:excludeFromRecents="true" android:taskAffinity="" android:launchMode="singleInstance"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar" />
         <service android:name=".FotoWidgetService" android:exported="false" android:permission="android.permission.BIND_REMOTEVIEWS" />
     </application>'''
     s = s.replace('</application>', ricevitore, 1)
@@ -77,6 +81,9 @@ permessi = [
     '<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />',
     '<uses-feature android:name="android.hardware.camera" android:required="false" />',
     '<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />',
+    # sveglie del turnario: schermata a telefono bloccato e sveglie esatte (Android 12)
+    '<uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />',
+    '<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />',
     # stato della VPN (widget e DNS)
     '<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />',
     # modi audio: Non disturbare, volumi, rotazione schermo
