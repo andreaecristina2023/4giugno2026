@@ -923,34 +923,84 @@
     });
   }
   // Fotocamera con riquadro: il documento va centrato nel riquadro e viene ritagliato al suo interno.
+  // Autofocus continuo quando il telefono lo permette, tocco per mettere a fuoco, e scatto con la foto vera
+  // della fotocamera (ImageCapture.takePhoto: piena risoluzione e messa a fuoco) invece di un fotogramma del video.
   function scattaConRiquadro() {
     return new Promise(function (ok, ko) {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return ko(new Error('Fotocamera non disponibile'));
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 } }, audio: false }).then(function (flusso) {
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 2560 }, height: { ideal: 1440 } }, audio: false }).then(function (flusso) {
+        var traccia = flusso.getVideoTracks()[0], caps = {};
+        try { caps = traccia.getCapabilities ? traccia.getCapabilities() : {}; } catch (e) { caps = {}; }
+        var modi = caps.focusMode || [];
+        function fuocoContinuo() {
+          if (modi.indexOf('continuous') >= 0) return traccia.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(function () {});
+          return Promise.resolve();
+        }
+        fuocoContinuo();
         var box = document.createElement('dialog');
         box.className = 'camera-guida';
-        box.innerHTML = '<div class="camera-vista"><video playsinline muted></video><div class="camera-riquadro" aria-hidden="true"></div></div>' +
-          '<p class="camera-suggerimento">Centra il documento nel riquadro, senza riflessi</p>' +
-          '<div class="camera-azioni"><button class="btn secondario" type="button" data-annulla-cam>Annulla</button><button class="btn" type="button" data-scatta-cam>Scatta</button></div>';
+        box.innerHTML = '<div class="camera-vista"><video playsinline muted></video><div class="camera-riquadro" aria-hidden="true"></div><span class="camera-fuoco" aria-hidden="true"></span></div>' +
+          '<p class="camera-suggerimento">Centra il documento nel riquadro, senza riflessi.<br><small>Tocca il documento per mettere a fuoco.</small></p>' +
+          '<div class="camera-azioni"><button class="btn secondario" type="button" data-annulla-cam>Annulla</button><button class="btn" type="button" data-scatta-cam>Scatta</button></div>' +
+          '<button class="camera-nativa" type="button" data-nativa-cam>📷 Usa la fotocamera del telefono</button>';
         document.body.appendChild(box);
         box.addEventListener('cancel', function (e) { e.preventDefault(); var b = box.querySelector('[data-annulla-rit],[data-annulla-cam],[data-annulla-mappa]'); if (b) b.click(); });
         box.showModal();
-        var video = box.querySelector('video'), vista = box.querySelector('.camera-vista');
-        function chiudi() { flusso.getTracks().forEach(function (t) { t.stop(); }); box.close(); box.remove(); }
+        var video = box.querySelector('video'), vista = box.querySelector('.camera-vista'), anello = box.querySelector('.camera-fuoco');
+        var chiuso = false;
+        function chiudi() { if (chiuso) return; chiuso = true; flusso.getTracks().forEach(function (t) { t.stop(); }); box.close(); box.remove(); }
         video.onloadedmetadata = function () { vista.style.aspectRatio = video.videoWidth + ' / ' + video.videoHeight; };
         video.srcObject = flusso; video.play().catch(function () {});
+        // tocco per mettere a fuoco (dove il telefono lo permette), poi torna al fuoco continuo
+        var ritorno = null;
+        vista.addEventListener('click', function (e) {
+          var r = vista.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+          anello.style.left = (x * 100) + '%'; anello.style.top = (y * 100) + '%';
+          anello.classList.remove('attivo'); void anello.offsetWidth; anello.classList.add('attivo');
+          var vincoli = {};
+          if (caps.pointsOfInterest) vincoli.pointsOfInterest = [{ x: x, y: y }];
+          if (modi.indexOf('single-shot') >= 0) vincoli.focusMode = 'single-shot';
+          else if (modi.indexOf('continuous') >= 0) vincoli.focusMode = 'continuous';
+          if (Object.keys(vincoli).length) traccia.applyConstraints({ advanced: [vincoli] }).catch(function () {});
+          clearTimeout(ritorno); ritorno = setTimeout(fuocoContinuo, 2500);
+        });
         box.querySelector('[data-annulla-cam]').onclick = function () { chiudi(); ko(new Error('annullato')); };
-        box.querySelector('[data-scatta-cam]').onclick = function () {
-          var vw = video.videoWidth, vh = video.videoHeight;
-          if (!vw || !vh) return;
-          // riquadro: 82% della larghezza, proporzione carta d'identità (1,586), come nel disegno
-          var rw = vw * 0.82, rh = rw / 1.586;
-          if (rh > vh * 0.9) { rh = vh * 0.9; rw = rh * 1.586; }
-          var rx = (vw - rw) / 2, ry = (vh - rh) / 2;
-          var cv = document.createElement('canvas'); cv.width = Math.round(rw); cv.height = Math.round(rh);
-          cv.getContext('2d').drawImage(video, rx, ry, rw, rh, 0, 0, cv.width, cv.height);
-          chiudi();
+        box.querySelector('[data-nativa-cam]').onclick = function () { chiudi(); ko(new Error('nativa')); };
+        // ritaglio del riquadro: 82% della larghezza dell'inquadratura, proporzione carta d'identità (1,586)
+        function ritaglia(sorgente, sw, sh) {
+          var vw = video.videoWidth || sw, vh = video.videoHeight || sh;
+          // la foto può avere proporzioni diverse dal video: l'inquadratura è la parte centrale della foto
+          var iw = sw, ih = sw * vh / vw;
+          if (ih > sh) { ih = sh; iw = sh * vw / vh; }
+          var ix = (sw - iw) / 2, iy = (sh - ih) / 2;
+          var rw = iw * 0.82, rh = rw / 1.586;
+          if (rh > ih * 0.9) { rh = ih * 0.9; rw = rh * 1.586; }
+          var rx = ix + (iw - rw) / 2, ry = iy + (ih - rh) / 2;
+          var scala = Math.min(1, 2400 / rw);
+          var cv = document.createElement('canvas'); cv.width = Math.round(rw * scala); cv.height = Math.round(rh * scala);
+          cv.getContext('2d').drawImage(sorgente, rx, ry, rw, rh, 0, 0, cv.width, cv.height);
+          return cv;
+        }
+        function consegna(cv) {
           cv.toBlob(function (b) { if (!b) return ko(new Error('scatto non riuscito')); ok(new File([b], 'scatto-' + Date.now() + '.jpg', { type: 'image/jpeg' })); }, 'image/jpeg', 0.92);
+        }
+        function daVideo() {
+          var vw = video.videoWidth, vh = video.videoHeight;
+          if (!vw || !vh) return false;
+          var cv = ritaglia(video, vw, vh); chiudi(); consegna(cv); return true;
+        }
+        var bScatta = box.querySelector('[data-scatta-cam]');
+        bScatta.onclick = function () {
+          if (!video.videoWidth) return;
+          if (!window.ImageCapture) { daVideo(); return; }
+          bScatta.disabled = true; bScatta.textContent = 'Metto a fuoco…';
+          var ic;
+          try { ic = new window.ImageCapture(traccia); } catch (e) { daVideo(); return; }
+          ic.takePhoto().then(function (blob) {
+            return (window.createImageBitmap ? createImageBitmap(blob) : Promise.reject()).then(function (img) {
+              var cv = ritaglia(img, img.width, img.height); chiudi(); consegna(cv);
+            });
+          }).catch(function () { if (!daVideo()) { bScatta.disabled = false; bScatta.textContent = 'Scatta'; } });
         };
       }).catch(ko);
     });

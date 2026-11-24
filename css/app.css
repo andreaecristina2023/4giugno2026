@@ -519,3 +519,10 @@ a.contatto[data-naviga-lat], a.contatto[data-naviga-q] { text-decoration: none; 
 .riga-turno { display: grid; grid-template-columns: 24px minmax(0, 1fr) 118px; gap: 10px; align-items: center; font-size: 16px; }
 .riga-turno input[type=checkbox] { width: 22px; height: 22px; accent-color: var(--sangiovese); }
 .riga-turno input[type=time] { min-height: 44px; padding: 8px 10px; }
+
+/* fotocamera: anello di messa a fuoco e tasto per la fotocamera del telefono */
+.camera-fuoco { position: absolute; width: 64px; height: 64px; margin: -32px 0 0 -32px; border: 2px solid #E0BC52; border-radius: 50%; opacity: 0; pointer-events: none; }
+.camera-fuoco.attivo { animation: fuoco .9s ease-out; }
+@keyframes fuoco { 0% { opacity: 1; transform: scale(1.4); } 40% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1); } }
+.camera-nativa { align-self: center; background: none; border: 0; color: #cfd6cc; font-size: 15px; text-decoration: underline; padding: 8px; cursor: pointer; }
+.camera-suggerimento small { font-weight: 400; opacity: .8; }
