@@ -4,7 +4,10 @@ import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
+
+import androidx.activity.result.ActivityResult;
 
 import org.json.JSONObject;
 
@@ -177,9 +180,50 @@ public class AudioModiPlugin extends Plugin {
         }
     }
 
+    /** Sceglie un brano dal telefono per la sveglia: { uri, nome } (permesso di lettura che resta). */
+    @PluginMethod
+    public void scegliBrano(PluginCall call) {
+        android.content.Intent i = new android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT);
+        i.addCategory(android.content.Intent.CATEGORY_OPENABLE);
+        i.setType("audio/*");
+        startActivityForResult(call, i, "branoScelto");
+    }
+
+    @ActivityCallback
+    private void branoScelto(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        if (result.getResultCode() != android.app.Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null) { call.reject("Nessun brano scelto", "ANNULLATO"); return; }
+        android.net.Uri u = result.getData().getData();
+        try { getContext().getContentResolver().takePersistableUriPermission(u, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION); } catch (Exception e) { /* alcuni gestori non lo permettono */ }
+        String nome = "";
+        try (android.database.Cursor cur = getContext().getContentResolver().query(u, new String[] { android.provider.OpenableColumns.DISPLAY_NAME }, null, null, null)) {
+            if (cur != null && cur.moveToFirst()) nome = cur.getString(0);
+        } catch (Exception e) { /* niente */ }
+        JSObject r = new JSObject();
+        r.put("uri", u.toString());
+        r.put("nome", nome == null ? "" : nome);
+        call.resolve(r);
+    }
+
+    /** Ferma il suono della prova (o della sveglia). */
+    @PluginMethod
+    public void fermaSveglia(PluginCall call) {
+        SvegliaSuono.ferma(getContext());
+        call.resolve();
+    }
+
     /** Prova della sveglia: suona subito. */
     @PluginMethod
     public void provaSveglia(PluginCall call) {
+        try {
+            JSObject suono = call.getObject("suono");
+            if (suono != null) {
+                android.content.SharedPreferences p = ComandiTelefono.prefs(getContext());
+                org.json.JSONObject conf = new org.json.JSONObject(p.getString("sveglieTurno", "{}"));
+                conf.put("suono", suono);
+                p.edit().putString("sveglieTurno", conf.toString()).commit();
+            }
+        } catch (Exception e) { /* niente */ }
         SvegliaTurno.suona(getContext(), call.getString("nome", "Prova"), System.currentTimeMillis());
         call.resolve();
     }

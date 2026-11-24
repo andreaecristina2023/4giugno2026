@@ -21,8 +21,7 @@ import org.json.JSONObject;
  * Sveglie che seguono il turnario VVF (l'Orologio di Android non accetta sveglie in una data precisa).
  * L'app salva in CapacitorStorage, chiave "sveglieTurno": { attive, eventi: [ { t: ms, nome: "Diurno" } ] }.
  * Una sola sveglia di sistema alla volta (setAlarmClock: esatta, anche in risparmio energetico); quando suona
- * mostra una notifica con suono da sveglia che si ripete (canale "Sveglie", passa anche con Non disturbare)
- * e la schermata SvegliaSchermo con Spegni / Posticipa 10 minuti.
+ * avvia SvegliaSuono (notifica, suono scelto in loop, schermata SvegliaSchermo con Spegni / Posticipa 10 minuti).
  */
 public class SvegliaTurno extends BroadcastReceiver {
 
@@ -51,8 +50,7 @@ public class SvegliaTurno extends BroadcastReceiver {
     }
 
     static void spegni(Context c) {
-        NotificationManager nm = (NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE);
-        if (nm != null) nm.cancel(ID_NOTIFICA);
+        SvegliaSuono.ferma(c);
     }
 
     static void posticipa(Context c, String nome) {
@@ -62,56 +60,9 @@ public class SvegliaTurno extends BroadcastReceiver {
         programma(c);
     }
 
-    private static void canale(Context c) {
-        if (Build.VERSION.SDK_INT < 26) return;
-        NotificationManager nm = (NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE);
-        if (nm == null || nm.getNotificationChannel(CANALE) != null) return;
-        NotificationChannel ch = new NotificationChannel(CANALE, "Sveglie dei turni", NotificationManager.IMPORTANCE_HIGH);
-        ch.setDescription("Sveglie che seguono il turnario VVF");
-        Uri suono = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
-        if (suono == null) suono = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
-        ch.setSound(suono, new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
-        ch.enableVibration(true);
-        ch.setVibrationPattern(new long[] { 0, 800, 400, 800, 400, 800 });
-        ch.setBypassDnd(true);
-        ch.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
-        nm.createNotificationChannel(ch);
-    }
-
-    private static PendingIntent azione(Context c, String a, String nome, int codice) {
-        Intent i = new Intent(c, SvegliaTurno.class).setAction(a).putExtra("nome", nome);
-        return PendingIntent.getBroadcast(c, codice, i, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-    }
-
+    /** Fa suonare la sveglia (servizio in primo piano con notifica e suono scelto). */
     static void suona(Context c, String nome, long t) {
-        canale(c);
-        if (nome == null || nome.isEmpty()) nome = "Sveglia";
-        Intent schermo = new Intent(c, SvegliaSchermo.class).putExtra("nome", nome).putExtra("t", t)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        PendingIntent ps = PendingIntent.getActivity(c, 4300, schermo, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        String ora = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.ITALY).format(new java.util.Date(t));
-        Notification.Builder b = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(c, CANALE) : new Notification.Builder(c);
-        b.setSmallIcon(c.getResources().getIdentifier("ic_stat_casa", "drawable", c.getPackageName()))
-            .setContentTitle("⏰ " + ora + " · " + nome)
-            .setContentText("Sveglia del turnario")
-            .setCategory(Notification.CATEGORY_ALARM)
-            .setPriority(Notification.PRIORITY_MAX)
-            .setVisibility(Notification.VISIBILITY_PUBLIC)
-            .setOngoing(true)
-            .setAutoCancel(false)
-            .setContentIntent(ps)
-            .setFullScreenIntent(ps, true)
-            .addAction(new Notification.Action.Builder(null, "Spegni", azione(c, SPEGNI, nome, 4301)).build())
-            .addAction(new Notification.Action.Builder(null, "Posticipa 10 min", azione(c, POSTICIPA, nome, 4302)).build());
-        if (Build.VERSION.SDK_INT >= 26) b.setTimeoutAfter(10 * 60 * 1000L); // dopo 10 minuti smette
-        if (Build.VERSION.SDK_INT < 26) {
-            b.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM), android.media.AudioManager.STREAM_ALARM);
-            b.setVibrate(new long[] { 0, 800, 400, 800 });
-        }
-        Notification n = b.build();
-        n.flags |= Notification.FLAG_INSISTENT; // il suono si ripete finché non la spegni
-        NotificationManager nm = (NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE);
-        if (nm != null) nm.notify(ID_NOTIFICA, n);
+        SvegliaSuono.avvia(c, nome == null || nome.isEmpty() ? "Sveglia" : nome, t);
     }
 
     /** Programma la prossima sveglia (eventi del turnario o posticipo). */

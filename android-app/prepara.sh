@@ -67,6 +67,7 @@ if 'CasaWidget' not in s:
             android:theme="@android:style/Theme.Translucent.NoTitleBar" android:label="Modi" />
         <receiver android:name=".VpnEvento" android:exported="true" android:permission="it.andreaecristina.casa.permission.VPN" />
         <receiver android:name=".SvegliaTurno" android:exported="false" />
+        <service android:name=".SvegliaSuono" android:exported="false" android:foregroundServiceType="mediaPlayback" />
         <activity android:name=".SvegliaSchermo" android:exported="false" android:showWhenLocked="true" android:turnScreenOn="true"
             android:excludeFromRecents="true" android:taskAffinity="" android:launchMode="singleInstance"
             android:theme="@android:style/Theme.DeviceDefault.NoActionBar" />
@@ -83,6 +84,9 @@ permessi = [
     '<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />',
     # sveglie del turnario: schermata a telefono bloccato e sveglie esatte (Android 12)
     '<uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />',
+    '<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />',
+    '<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />',
+    '<uses-permission android:name="android.permission.VIBRATE" />',
     '<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />',
     # stato della VPN (widget e DNS)
     '<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />',
@@ -95,7 +99,7 @@ permessi = [
     # sveglie nell'app Orologio
     '<uses-permission android:name="com.android.alarm.permission.SET_ALARM" />',
     # FortiClient: per poterlo trovare e aprire (Android 11+ nasconde le altre app)
-    '<queries><package android:name="com.fortinet.forticlient_vpn" /><package android:name="com.fortinet.forticlient" /><package android:name="com.fortinet.forticlient_fa" /><package android:name="it.andreaecristina.casa.vpn" /></queries>',
+    '<queries><package android:name="com.fortinet.forticlient_vpn" /><package android:name="com.fortinet.forticlient" /><package android:name="com.fortinet.forticlient_fa" /><package android:name="it.andreaecristina.casa.vpn" /><package android:name="com.spotify.music" /></queries>',
     # A&C e A&C VPN si parlano solo tra loro (stessa firma)
     '<permission android:name="it.andreaecristina.casa.permission.VPN" android:protectionLevel="signature" />',
     '<uses-permission android:name="it.andreaecristina.casa.permission.VPN" />',

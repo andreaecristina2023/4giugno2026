@@ -35,6 +35,19 @@ public class SvegliaSchermo extends Activity {
         return b;
     }
 
+    private void apriSpotify(android.content.Intent sp) {
+        try {
+            startActivity(sp);
+            // dopo qualche secondo premo "Play" per far partire la riproduzione in Spotify
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                android.media.AudioManager am = (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
+                if (am == null || am.isMusicActive()) return;
+                am.dispatchMediaKeyEvent(new android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_MEDIA_PLAY));
+                am.dispatchMediaKeyEvent(new android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_MEDIA_PLAY));
+            }, 3500);
+        } catch (Exception e) { /* Spotify non installato: resta la suoneria */ }
+    }
+
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
@@ -79,6 +92,15 @@ public class SvegliaSchermo extends Activity {
         Button dopo = tasto("Posticipa 10 minuti", Color.parseColor("#2E3A33"), Color.parseColor("#E6EBE3"));
         dopo.setOnClickListener(v -> { SvegliaTurno.posticipa(this, nome); finish(); });
         l.addView(dopo);
+
+        // Spotify: apro il brano o la playlist e provo a farla partire; la suoneria resta finché la musica non parte
+        final android.content.Intent sp = SvegliaSuono.intentSpotify(this);
+        if (sp != null) {
+            Button bs = tasto("▶ Spotify", Color.parseColor("#1DB954"), Color.parseColor("#0B1F12"));
+            bs.setOnClickListener(v -> apriSpotify(sp));
+            l.addView(bs);
+            if (b == null) apriSpotify(sp); // solo alla prima apertura, non quando lo schermo ruota
+        }
 
         setContentView(l);
     }

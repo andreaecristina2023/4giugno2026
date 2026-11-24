@@ -526,3 +526,6 @@ a.contatto[data-naviga-lat], a.contatto[data-naviga-q] { text-decoration: none; 
 @keyframes fuoco { 0% { opacity: 1; transform: scale(1.4); } 40% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1); } }
 .camera-nativa { align-self: center; background: none; border: 0; color: #cfd6cc; font-size: 15px; text-decoration: underline; padding: 8px; cursor: pointer; }
 .camera-suggerimento small { font-weight: 400; opacity: .8; }
+.suono-sveglia { display: grid; gap: 8px; margin-top: 4px; }
+.suono-riga { display: flex; gap: 10px; align-items: center; justify-content: space-between; font-size: 15px; }
+.suono-riga span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

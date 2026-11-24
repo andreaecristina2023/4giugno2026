@@ -1878,7 +1878,8 @@
   // ---------- SVEGLIE DAL TURNARIO (suonano in A&C: l'Orologio non accetta una data precisa) ----------
   function sveglieTurno() {
     var x = leggiLocale('aec.sveglieTurno', {});
-    return { diurno: Object.assign({ on: false, ora: '06:30' }, x.diurno || {}), smonto: Object.assign({ on: false, ora: '13:00' }, x.smonto || {}) };
+    return { diurno: Object.assign({ on: false, ora: '06:30' }, x.diurno || {}), smonto: Object.assign({ on: false, ora: '13:00' }, x.smonto || {}),
+      suono: Object.assign({ tipo: 'sistema', uri: '', nome: '', spotify: '', link: '' }, x.suono || {}) };
   }
   // eventi dei prossimi 22 giorni: mattina del diurno e giorno dopo la notte (ferie, salti e cambi già considerati)
   function eventiSveglieTurno(giorni) {
@@ -1897,12 +1898,21 @@
   function programmaSveglieTurno(forza) {
     if (!Native.isApp) return Promise.resolve(null);
     var st = sveglieTurno(), attive = isAndrea() && (st.diurno.on || st.smonto.on);
-    var conf = { attive: attive, eventi: attive ? eventiSveglieTurno(22) : [] };
+    var conf = { attive: attive, eventi: attive ? eventiSveglieTurno(22) : [], suono: st.suono };
     var firma = JSON.stringify(conf);
     if (!forza && firma === firmaSveglieTurno) return Promise.resolve(null);
     firmaSveglieTurno = firma;
     return Native.audio.sveglieTurno(conf).catch(function () { return null; });
   }
+  // link di Spotify (Condividi → Copia link) o URI spotify:… → URI spotify:tipo:id
+  function uriSpotify(t) {
+    t = String(t || '').trim();
+    var m = t.match(/^spotify:(track|playlist|album|artist|episode|show):([A-Za-z0-9]+)/);
+    if (m) return 'spotify:' + m[1] + ':' + m[2];
+    m = t.match(/open\.spotify\.com\/(?:intl-[a-z]{2}\/)?(?:embed\/)?(track|playlist|album|artist|episode|show)\/([A-Za-z0-9]+)/);
+    return m ? 'spotify:' + m[1] + ':' + m[2] : '';
+  }
+  var NOMI_SPOTIFY = { track: 'brano', playlist: 'playlist', album: 'album', artist: 'artista', episode: 'episodio', show: 'podcast' };
   function quandoBreve(ms) { var d = new Date(ms); return C.dataBreve(C.iso(d)) + ' ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
 
   // ---------- SVEGLIE (create nell'app Orologio del telefono) ----------
@@ -1947,6 +1957,12 @@
             '<label class="riga-turno"><input type="checkbox" name="st-diurno"' + (st.diurno.on ? ' checked' : '') + (ok ? '' : ' disabled') + '><span>Giorno di <b>diurno</b></span><input type="time" name="st-diurno-ora" value="' + esc(st.diurno.ora) + '"' + (ok ? '' : ' disabled') + '></label>' +
             '<label class="riga-turno"><input type="checkbox" name="st-smonto"' + (st.smonto.on ? ' checked' : '') + (ok ? '' : ' disabled') + '><span>Giorno <b>dopo la notte</b></span><input type="time" name="st-smonto-ora" value="' + esc(st.smonto.ora) + '"' + (ok ? '' : ' disabled') + '></label>' +
             (prossime.length ? '<span class="aiuto">Prossime: ' + prossime.map(function (e) { return quandoBreve(e.t); }).join(' · ') + '</span>' : '') +
+            '<div class="suono-sveglia"><b>Suono</b><div class="tipi tre-tasti" role="group" aria-label="Suono della sveglia">' +
+              [['sistema', '🔔 Sveglia'], ['file', '🎵 Brano'], ['spotify', '🟢 Spotify']].map(function (o) { return '<button type="button" data-suono="' + o[0] + '" style="--c:var(--ardesia)" aria-pressed="' + (st.suono.tipo === o[0]) + '">' + o[1] + '</button>'; }).join('') + '</div>' +
+              (st.suono.tipo === 'file' ? '<div class="suono-riga"><span>' + (st.suono.nome ? '🎵 ' + esc(st.suono.nome) : 'Nessun brano scelto') + '</span><button type="button" class="btn secondario piccolo" data-scegli-brano>' + (st.suono.uri ? 'Cambia' : 'Scegli dal telefono') + '</button></div>' : '') +
+              (st.suono.tipo === 'spotify' ? '<label class="campo">Link di Spotify<span class="aiuto">In Spotify: ⋯ sul brano o sulla playlist → Condividi → Copia link, poi incollalo qui. Alla sveglia si apre Spotify e parte la musica; la suoneria resta finché la musica non parte davvero.</span><input type="url" name="st-spotify" value="' + esc(st.suono.link || '') + '" placeholder="https://open.spotify.com/playlist/…"></label>' +
+                (st.suono.spotify ? '<span class="aiuto">✓ ' + esc(NOMI_SPOTIFY[st.suono.spotify.split(':')[1]] || 'link') + ' di Spotify</span>' : '') : '') +
+            '</div>' +
             '<div id="st-avviso"></div>' +
             (ok ? '<div class="azioni"><button type="button" class="btn secondario piccolo" data-prova-sveglia>🔔 Prova il suono</button></div>' : '') +
             '</div></div>';
@@ -1970,7 +1986,8 @@
       $('[data-orologio]', f).onclick = function () { Native.audio.elencoSveglie().catch(erroreSveglia); };
       function salvaSt() {
         var st = { diurno: { on: !!(f['st-diurno'] && f['st-diurno'].checked), ora: f['st-diurno-ora'] ? f['st-diurno-ora'].value || '06:30' : '06:30' },
-                   smonto: { on: !!(f['st-smonto'] && f['st-smonto'].checked), ora: f['st-smonto-ora'] ? f['st-smonto-ora'].value || '13:00' : '13:00' } };
+                   smonto: { on: !!(f['st-smonto'] && f['st-smonto'].checked), ora: f['st-smonto-ora'] ? f['st-smonto-ora'].value || '13:00' : '13:00' },
+                   suono: sveglieTurno().suono };
         scriviLocale('aec.sveglieTurno', st);
         programmaSveglieTurno(true).then(function (r) {
           var av = $('#st-avviso', f); if (!av) return;
@@ -1983,8 +2000,32 @@
         });
       }
       ['st-diurno', 'st-diurno-ora', 'st-smonto', 'st-smonto-ora'].forEach(function (n) { if (f[n]) f[n].onchange = salvaSt; });
+      function cambiaSuono(patch) {
+        var st = sveglieTurno(); st.suono = Object.assign(st.suono, patch);
+        scriviLocale('aec.sveglieTurno', st); programmaSveglieTurno(true);
+        setTimeout(disegnaSv, 0); // dopo l'evento in corso (es. il campo che perde il fuoco)
+      }
+      function scegliBrano() {
+        Native.audio.scegliBrano().then(function (r) { cambiaSuono({ tipo: 'file', uri: r.uri, nome: r.nome || 'Brano' }); toast('Brano scelto: ' + (r.nome || '')); })
+          .catch(function (e) { if (!e || e.code !== 'ANNULLATO') toast((e && e.message) || 'Brano non scelto'); });
+      }
+      f.querySelectorAll('[data-suono]').forEach(function (b) { b.onclick = function () {
+        if (b.dataset.suono === 'file' && !sveglieTurno().suono.uri) { scegliBrano(); return; } // prima scelgo il brano
+        cambiaSuono({ tipo: b.dataset.suono });
+      }; });
+      var sb = $('[data-scegli-brano]', f);
+      if (sb) sb.onclick = scegliBrano;
+      var lk = f['st-spotify'];
+      if (lk) lk.onchange = function () {
+        var u = uriSpotify(lk.value);
+        if (lk.value.trim() && !u) { toast('Non è un link di Spotify: usa Condividi → Copia link'); return; }
+        cambiaSuono({ link: lk.value.trim(), spotify: u });
+        if (u) toast('Spotify: ' + (NOMI_SPOTIFY[u.split(':')[1]] || 'link') + ' salvato');
+      };
       var prova = $('[data-prova-sveglia]', f);
-      if (prova) prova.onclick = function () { Native.audio.provaSveglia().then(function () { toast('Suona: spegnila dalla notifica'); }).catch(function () { toast('Disponibile solo nell\'app Android'); }); };
+      if (prova) prova.onclick = function () {
+        Native.audio.provaSveglia(sveglieTurno().suono).then(function () { toast('Suona: tocca Ferma', 'Ferma', function () { Native.audio.fermaSveglia(); }); }).catch(function () { toast('Disponibile solo nell\'app Android'); });
+      };
       if (f['st-diurno'] && (f['st-diurno'].checked || f['st-smonto'].checked)) salvaSt();
       $('[data-indietro]', f).onclick = apriModi;
       f.onsubmit = function (e) {
