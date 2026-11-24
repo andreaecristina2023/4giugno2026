@@ -29,19 +29,22 @@
     return out;
   }
 
-  // «Personalizzato» in tutti i menu a tendina (classe sel-pers): compare un campo per scrivere il valore
+  // «Personalizzato» in tutti i menu a tendina (classe sel-pers): compare un campo per scrivere il valore.
+  // Gira in fase di cattura e ferma l'evento: così i moduli che si ridisegnano al cambio (es. Wallet) non
+  // cancellano il campo appena comparso e non salvano il valore interno "__pers__".
   document.addEventListener('change', function (e) {
     var s = e.target;
     if (!s || s.tagName !== 'SELECT' || !s.classList.contains('sel-pers')) return;
     var campo = s.nextElementSibling && s.nextElementSibling.classList.contains('pers-testo') ? s.nextElementSibling : null;
     if (s.value === '__pers__') {
+      e.stopPropagation();
       var op = s.querySelector('option[data-pers]');
       if (!op) { op = document.createElement('option'); op.setAttribute('data-pers', ''); s.insertBefore(op, s.querySelector('option[value="__pers__"]')); }
       op.value = ''; op.textContent = 'Personalizzato'; op.selected = true;
       if (!campo) { campo = document.createElement('input'); campo.type = 'text'; campo.className = 'pers-testo'; campo.maxLength = 60; campo.placeholder = 'Scrivi il valore'; campo.setAttribute('aria-label', 'Valore personalizzato'); s.insertAdjacentElement('afterend', campo); }
       campo.focus();
     } else if (campo) campo.remove();
-  });
+  }, true);
   document.addEventListener('input', function (e) {
     var t = e.target;
     if (!t || !t.classList || !t.classList.contains('pers-testo')) return;
@@ -554,6 +557,7 @@
   }
   // ---------- wallet: carte fedeltà, check-in e pagamento ----------
   var CATEGORIE_CARTA = ['Fedeltà', 'Check-in', 'Pagamento'];
+  function catCarta(c) { return c && c.categoria && c.categoria !== '__pers__' ? c.categoria : 'Fedeltà'; }
   var COLORI_CORNICE = ['', '#2F6DB5', '#2E8B57', '#E3B505', '#D7263D', '#8A5A2B', '#7D4FA8', '#1E7F8C'];
   // colore e bordo attorno al codice (foto) della carta; senza colore nessuna cornice
   // codice a barre del codice della carta (SVG): EAN-13/EAN-8 se il codice è numerico di quella lunghezza, altrimenti Code 128
@@ -579,9 +583,9 @@
   function vistaWallet() {
     var carte = Store.lista().filter(function (v) { return v.tipo === 'carta'; });
     var h = testata('Wallet', carte.length ? carte.length + (carte.length === 1 ? ' carta' : ' carte') : 'Carte e biglietti');
-    var catCarte = CATEGORIE_CARTA.concat(carte.map(function (c) { return c.categoria || 'Fedeltà'; }).filter(function (x, i, a) { return CATEGORIE_CARTA.indexOf(x) < 0 && a.indexOf(x) === i; }));
+    var catCarte = CATEGORIE_CARTA.concat(carte.map(catCarta).filter(function (x, i, a) { return CATEGORIE_CARTA.indexOf(x) < 0 && a.indexOf(x) === i; }));
     catCarte.forEach(function (cat) {
-      var gruppo = carte.filter(function (c) { return (c.categoria || 'Fedeltà') === cat; }).sort(function (a, b) { return (a.titolo || '').localeCompare(b.titolo || ''); });
+      var gruppo = carte.filter(function (c) { return catCarta(c) === cat; }).sort(function (a, b) { return (a.titolo || '').localeCompare(b.titolo || ''); });
       if (!gruppo.length) return;
       h += '<h2>' + cat + ' <small>' + gruppo.length + '</small></h2><div class="wallet-griglia">' + gruppo.map(function (c) {
         var pf = (c.allegati || []).filter(function (a) { return /^image\//.test(a.mime || ''); })[0];
@@ -601,7 +605,7 @@
       return '<button type="button" class="carta-foto"' + cornicStyle(c.cornice) + ' data-apri-allegato="' + esc(a.id) + '" data-nome="' + esc(a.nome) + '" data-mime="' + esc(a.mime || '') + '">' + (/^image\//.test(a.mime || '') ? '<img class="anteprima" data-anteprima="' + esc(a.id) + '" data-mime="' + esc(a.mime || '') + '" alt="" src="">' : '📄 ' + esc(a.nome)) + '</button>';
     }).join('');
     foglio.innerHTML = '<div class="maniglia"></div><h3 id="foglio-titolo">' + esc(c.titolo || 'Carta') + '</h3><div class="campi">' +
-      '<p class="testo-muto" style="margin:0">' + esc(c.categoria || 'Fedeltà') + '</p>' +
+      '<p class="testo-muto" style="margin:0">' + esc(catCarta(c)) + '</p>' +
       (c.codice && c.categoria !== 'Pagamento' ? '<p class="carta-codice" aria-label="Codice">' + esc(c.codice) + '</p>' : '') +
       (c.codice && c.categoria !== 'Pagamento' ? '<div class="carta-qr-box"' + cornicStyle(c.cornice) + '><div class="carta-qr-bianco">' + barcodeCarta(c.codice, c.formato) + '</div></div>' : '') +
       (foto || '<p class="testo-muto">Nessuna foto.</p>') +
@@ -629,10 +633,11 @@
   function apriCarta(id) {
     var orig = id ? Store.get(id) : null;
     var c = orig ? JSON.parse(JSON.stringify(orig)) : { id: C.nuovoId(), tipo: 'carta', titolo: '', categoria: 'Fedeltà', codice: '', note: '', allegati: [] };
+    c.categoria = catCarta(c);
     c.allegati = c.allegati || [];
     var wrap = { carta: [c] }, ctx = 'wallet|carta|' + c.id, form = null;
     foglio.classList.remove('visore');
-    function snap() { if (!form) return; c.titolo = form.titolo.value.trim(); c.categoria = form.categoria.value; c.codice = form.codice.value.trim(); c.note = form.note.value; c.docRif = form.docRif.value; c.cornice = form.cornice ? form.cornice.value : (c.cornice || ''); c.formato = form.formato ? form.formato.value : (c.formato || ''); }
+    function snap() { if (!form) return; c.titolo = form.titolo.value.trim(); if (form.categoria.value !== '__pers__') c.categoria = form.categoria.value || c.categoria; c.codice = form.codice.value.trim(); c.note = form.note.value; c.docRif = form.docRif.value; c.cornice = form.cornice ? form.cornice.value : (c.cornice || ''); c.formato = form.formato ? form.formato.value : (c.formato || ''); }
     function disegna() {
       foglio.innerHTML = '<form method="dialog" id="form-carta"><div class="maniglia"></div><h3 id="foglio-titolo">' + (id ? 'Modifica' : 'Nuova carta') + '</h3><div class="campi">' +
         '<label class="campo">Nome<input type="text" name="titolo" required maxlength="60" value="' + esc(c.titolo) + '" placeholder="Es. Esselunga, Imbarco Volo BLQ"></label>' +
@@ -1277,7 +1282,7 @@
       it.avviso = an >= 0 && f.avvN.value !== '' ? an + ' ' + f.avvU.value : '';
       if (f.importo) it.importo = f.importo.value === '' ? '' : Math.round(parseFloat(f.importo.value) * 100) / 100;
       else it.importo = '';
-      if (f.categoria) it.categoria = f.categoria.value;
+      if (f.categoria && f.categoria.value !== '__pers__') it.categoria = f.categoria.value;
       if (f.targa) it.targa = f.targa.value.toUpperCase().replace(/\s+/g, '');
       if (f.telefono) it.telefono = f.telefono.value.trim();
       if (f.email) it.email = f.email.value.trim();

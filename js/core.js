@@ -378,6 +378,7 @@ var Casa = (function () {
   // opzioni di un menu a tendina: la lista, il valore salvato (anche se personalizzato) e la voce «Personalizzato»
   function opzioni(lista, selezionato, vuota) {
     var l = (lista || []).slice(), h = vuota != null ? '<option value="">' + escHtml(vuota) + '</option>' : '';
+    if (selezionato === '__pers__') selezionato = '';
     if (selezionato && l.indexOf(selezionato) < 0) l.push(selezionato);
     h += l.map(function (x) { return '<option value="' + escHtml(x) + '"' + (x === selezionato ? ' selected' : '') + '>' + escHtml(x) + '</option>'; }).join('');
     return h + '<option value="__pers__">Personalizzato</option>';
