@@ -228,5 +228,15 @@ var Native = (function () {
     }
   };
 
-  return { isApp: isApp, audio: audio, luci: luci, naviga: naviga, linkNaviga: linkNaviga, urlNaviga: urlNaviga, permesso: permesso, aggiorna: aggiorna, notificaSubito: notificaSubito, creaCanale: creaCanale, aggiornaFoto: aggiornaFoto };
+  // TV LG sul Wi-Fi di casa (solo app)
+  var tv = {
+    stato: function () { return AudioPl && AudioPl.tvStato ? AudioPl.tvStato().catch(function () { return { collegata: false }; }) : Promise.resolve({ collegata: false }); },
+    cerca: function () { return AudioPl.tvCerca(); },
+    abbina: function (ip) { return AudioPl.tvAbbina({ ip: ip }); },
+    info: function () { return AudioPl.tvInfo(); },
+    comando: function (tipo, valore, payload) { var o = { tipo: tipo, valore: valore || '' }; if (payload) o.payload = payload; return AudioPl.tvComando(o); },
+    togli: function () { return AudioPl.tvTogli(); }
+  };
+
+  return { isApp: isApp, audio: audio, luci: luci, tv: tv, naviga: naviga, linkNaviga: linkNaviga, urlNaviga: urlNaviga, permesso: permesso, aggiorna: aggiorna, notificaSubito: notificaSubito, creaCanale: creaCanale, aggiornaFoto: aggiornaFoto };
 })();

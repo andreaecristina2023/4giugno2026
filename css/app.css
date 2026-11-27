@@ -623,3 +623,21 @@ a.contatto[data-naviga-lat], a.contatto[data-naviga-q] { text-decoration: none; 
 .sugg-aer button { text-align: left; padding: 9px 12px; border: 1px solid var(--confine); border-radius: 12px; background: var(--superficie); color: inherit; font: inherit; font-size: 15px; }
 .sugg-aer button b { display: inline-block; min-width: 3.2em; }
 .sugg-aer button small { color: var(--muschio); }
+
+/* 📺 telecomando TV */
+.tv-telecomando { display: grid; gap: 14px; margin-top: 8px; }
+.tv-riga { display: flex; gap: 8px; }
+.tv-riga > .tv-tasto { flex: 1; }
+.tv-tasto { min-height: 52px; border-radius: 16px; border: 1px solid var(--confine); background: var(--superficie); color: inherit; font: inherit; font-size: 17px; font-weight: 600; }
+.tv-tasto:active { transform: scale(.96); background: var(--confine); }
+.tv-tasto.verde { color: #2E7D4F; } .tv-tasto.rosso { color: var(--sangiovese); }
+.tv-tre { align-items: center; justify-content: space-between; }
+.tv-colonna { display: grid; gap: 6px; justify-items: center; width: 64px; }
+.tv-colonna .tv-tasto { width: 64px; font-size: 24px; }
+.tv-colonna span { color: var(--muschio); font-size: 13px; }
+.tv-croce { display: grid; grid-template-columns: repeat(3, 64px); grid-template-rows: repeat(3, 64px); gap: 6px; }
+.tv-croce .su { grid-column: 2; grid-row: 1; } .tv-croce .sx { grid-column: 1; grid-row: 2; } .tv-croce .ok { grid-column: 2; grid-row: 2; border-radius: 50%; background: var(--sangiovese); color: #fff; border: none; }
+.tv-croce .dx { grid-column: 3; grid-row: 2; } .tv-croce .giu { grid-column: 2; grid-row: 3; }
+.tv-numeri summary { color: var(--muschio); cursor: pointer; }
+.tv-griglia { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 8px; }
+.tv-app { display: flex; flex-wrap: wrap; gap: 8px; }

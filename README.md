@@ -136,6 +136,12 @@ Dal tasto dei modi (🔈 in alto) → **💡 Luci → Apri**: una scheda per ogn
 
 La prova gratuita di Tuya (servizio IoT Core) dura un mese e va **rinnovata**: Cloud → Cloud Services → IoT Core → *Extend Trial Period* (modulo da compilare, di solito accettato in poche ore, fino a 6 mesi alla volta). Quando scade, A&C mostra il messaggio "periodo di prova scaduto".
 
+## 📺 TV (telecomando LG, solo app)
+
+Dal tasto dei modi → **📺 TV → Apri**: telecomando per le TV LG webOS (es. 43LJ614V) sul Wi-Fi di casa — Accendi/Spegni, Sorgente (ingressi HDMI e TV), volume, canali, frecce e OK, Indietro, Home, Muto, Play/Pausa, Menu, Esci, numeri e le app installate (Netflix, YouTube, Prime Video, RaiPlay…).
+
+**Una volta:** sulla TV *Impostazioni → Rete → LG Connect Apps → Attivo* e, per accenderla dal telefono, *Impostazioni → Generali → Mobile TV On → Accendi tramite Wi-Fi*. In A&C: **⚙ Collega la TV → 🔎 Cerca la TV → Abbina** e sulla TV tocca **Consenti**. A&C salva la chiave dell'abbinamento, il MAC (per l'accensione via Wake-on-LAN), le app e gli ingressi. Protocollo SSAP su WebSocket (porta 3000, o 3001 con TLS), tasti tramite il "pointer input socket".
+
 ## Naviga (Google Maps in auto)
 
 Ovunque ci sia un indirizzo o una posizione c'è il tasto **🧭 Naviga**: voci (indirizzo o punto segnato, oppure un indirizzo scritto nelle note della voce), check-in degli hotel, concerti (luogo), hotel e luoghi dei viaggi, segnaposto sulla mappa del viaggio, casa (Impostazioni → anagrafica), e le **note** che contengono coordinate (es. `44.123456, 12.345678` o in gradi °), un link di Google Maps o un indirizzo che inizia con Via, Viale, Piazza, Corso, Largo, Strada, Località… Nell'app Android si apre Google Maps già in **navigazione in auto** (`google.navigation:…&mode=d`); nel browser il link delle indicazioni in auto con avvio della navigazione. Un link corto di Maps (maps.app.goo.gl) si apre in Maps, dove si tocca Avvia.

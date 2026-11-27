@@ -1550,13 +1550,109 @@
     else if (d.luceCol) comandoLuce(d.luceCol, { colore: { h: +t.value, s: 100 } });
   });
 
+  // ---------- 📺 TV (LG webOS, sul Wi-Fi di casa; solo app) ----------
+  var tv = { conf: null };
+  var APP_TV = [['netflix', 'Netflix'], ['youtube.leanback.v4', 'YouTube'], ['amazon', 'Prime Video'], ['com.disney.disneyplus-prod', 'Disney+'], ['raiplay', 'RaiPlay'], ['mediasetplay', 'Mediaset'], ['dazn', 'DAZN'], ['spotify-beehive', 'Spotify'], ['com.webos.app.livetv', 'TV']];
+  function caricaTv() { return Native.tv.stato().then(function (c) { tv.conf = c; if (rotta() === 'tv') disegna(); }); }
+  function appTv() {
+    var app = (tv.conf && tv.conf.app) || [];
+    if (!app.length) return APP_TV.map(function (a) { return { id: a[0], nome: a[1] }; });
+    // prima le più usate se ci sono, poi le altre
+    var note = APP_TV.map(function (a) { return a[0]; });
+    var scelte = app.filter(function (a) { return note.indexOf(a.id) >= 0 || /netflix|youtube|prime|amazon|disney|rai|mediaset|dazn|spotify|now|infinity|pluto|plex|tim/i.test(a.id + ' ' + a.nome); });
+    return (scelte.length ? scelte : app).slice(0, 12);
+  }
+  function vistaTv() {
+    var c = tv.conf, h = testata('TV', c && c.collegata ? 'LG · ' + esc(c.ip || '') : 'Telecomando LG');
+    h += '<div class="azioni luci-azioni"><button type="button" class="btn secondario piccolo" data-tv-imposta>⚙ Collega la TV</button></div>';
+    if (!Native.isApp) h += '<div class="vuoto">Il telecomando funziona solo nell\'app Android, sul Wi-Fi di casa.</div>';
+    else if (!c) { h += '<div class="vuoto">…</div>'; caricaTv(); }
+    else if (!c.collegata) h += guidaTv();
+    else {
+      var t = function (tipo, val, testo, cls, aria) { return '<button type="button" class="tv-tasto' + (cls ? ' ' + cls : '') + '" data-tv="' + tipo + '" data-val="' + esc(val || '') + '" aria-label="' + esc(aria || testo) + '">' + testo + '</button>'; };
+      h += '<div class="tv-telecomando">' +
+        '<div class="tv-riga">' + t('accendi', '', '⏻ Accendi', 'verde') + t('spegni', '', '⏻ Spegni', 'rosso') + t('ingressi', '', '⤵ Sorgente') + '</div>' +
+        '<div class="tv-riga tv-tre">' +
+          '<div class="tv-colonna">' + t('ssap', 'ssap://audio/volumeUp', '＋', '', 'Volume su') + '<span>Vol</span>' + t('ssap', 'ssap://audio/volumeDown', '－', '', 'Volume giù') + '</div>' +
+          '<div class="tv-croce">' + t('tasto', 'UP', '▲', 'su', 'Su') + t('tasto', 'LEFT', '◀', 'sx', 'Sinistra') + t('tasto', 'ENTER', 'OK', 'ok', 'OK') + t('tasto', 'RIGHT', '▶', 'dx', 'Destra') + t('tasto', 'DOWN', '▼', 'giu', 'Giù') + '</div>' +
+          '<div class="tv-colonna">' + t('ssap', 'ssap://tv/channelUp', '＋', '', 'Canale su') + '<span>Ch</span>' + t('ssap', 'ssap://tv/channelDown', '－', '', 'Canale giù') + '</div>' +
+        '</div>' +
+        '<div class="tv-riga">' + t('tasto', 'BACK', '↩ Indietro') + t('tasto', 'HOME', '⌂ Home') + t('muto', '', '🔇 Muto') + '</div>' +
+        '<div class="tv-riga">' + t('ssap', 'ssap://media.controls/play', '▶ Play') + t('ssap', 'ssap://media.controls/pause', '⏸ Pausa') + t('tasto', 'MENU', '⚙ Menu') + t('tasto', 'EXIT', '✕ Esci') + '</div>' +
+        '<details class="tv-numeri"><summary>Numeri</summary><div class="tv-griglia">' + [1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map(function (n) { return t('tasto', String(n), String(n)); }).join('') + '</div></details>' +
+        '<h2>App</h2><div class="tv-app">' + appTv().map(function (a) { return '<button type="button" class="chip" data-tv="app" data-val="' + esc(a.id) + '">' + esc(a.nome) + '</button>'; }).join('') + '</div>' +
+        '</div>';
+    }
+    vista.innerHTML = h;
+  }
+  function guidaTv() {
+    return '<div class="sezione guida-tuya"><p><b>Collega la TV LG</b> (una volta sola):</p><ol class="passi">' +
+      '<li>Accendi la TV e controlla che telefono e TV siano sullo stesso Wi-Fi.</li>' +
+      '<li>Sulla TV: <b>Impostazioni → Rete → LG Connect Apps → Attivo</b>. Per accenderla dal telefono anche: <b>Impostazioni → Generali → Mobile TV On → Accendi tramite Wi-Fi</b>.</li>' +
+      '<li>Qui: <b>⚙ Collega la TV → Cerca la TV → Abbina</b>, poi sulla TV tocca <b>Consenti</b>.</li></ol></div>';
+  }
+  function impostaTv() {
+    var c = tv.conf || {};
+    foglio.classList.remove('visore');
+    foglio.innerHTML = '<form method="dialog" id="form-tv"><div class="maniglia"></div><h3 id="foglio-titolo">📺 Collega la TV</h3><div class="campi">' +
+      '<label class="campo">Indirizzo della TV<span class="aiuto">Lo trova «Cerca la TV». A mano: sulla TV, Impostazioni → Rete → Connessione Wi-Fi → Impostazioni Wi-Fi avanzate.</span><input type="text" name="ip" inputmode="decimal" value="' + esc(c.ip || '') + '" placeholder="192.168.1.…"></label>' +
+      '<div class="azioni"><button class="btn secondario" type="button" data-tv-cerca>🔎 Cerca la TV</button><button class="btn" type="submit">Abbina</button></div>' +
+      '<p class="testo-muto">All\'abbinamento la TV mostra una richiesta: tocca <b>Consenti</b> con il telecomando (hai un minuto).</p>' +
+      (c.collegata ? '<p class="testo-muto">Collegata' + (c.mac ? ' · MAC ' + esc(c.mac) + ' (per accenderla)' : ' · MAC non ancora letto: «Accendi» non funziona finché non tocchi ↻') + '</p>' +
+        '<div class="azioni"><button class="btn secondario" type="button" data-tv-info>↻ Rileggi app e MAC</button><button class="btn pericolo" type="button" data-tv-togli>Scollega</button></div>' : '') +
+      '<div class="azioni"><button class="btn secondario" type="button" data-chiudi>Chiudi</button></div></div></form>';
+    var f = $('#form-tv', foglio);
+    $('[data-chiudi]', f).onclick = function () { foglio.close(); };
+    $('[data-tv-cerca]', f).onclick = function (e) {
+      var b = e.target; b.disabled = true; toast('Cerco la TV sul Wi-Fi…');
+      Native.tv.cerca().then(function (r) { b.disabled = false; if (r.ip) { f.ip.value = r.ip; toast('Trovata: ' + r.ip); } else toast('Non trovata: è accesa? È attivo LG Connect Apps? Puoi scrivere l\'indirizzo a mano'); })
+        .catch(function (err) { b.disabled = false; toast(err.message); });
+    };
+    var bi = $('[data-tv-info]', f); if (bi) bi.onclick = function () { toast('Leggo app e MAC…'); Native.tv.info().then(function (r) { tv.conf = r; foglio.close(); toast('Fatto' + (r.mac ? '' : ' (MAC non disponibile)')); disegna(); }).catch(function (err) { toast(err.message); }); };
+    var bt = $('[data-tv-togli]', f); if (bt) bt.onclick = function () { if (!confirm('Scollegare la TV da questo telefono?')) return; Native.tv.togli().then(function () { tv.conf = null; foglio.close(); caricaTv(); }); };
+    f.onsubmit = function (e) {
+      e.preventDefault();
+      var ip = f.ip.value.trim(); if (!ip) { toast('Scrivi l\'indirizzo o tocca Cerca la TV'); return; }
+      toast('📺 Sulla TV tocca «Consenti»…');
+      Native.tv.abbina(ip).then(function (r) { tv.conf = r; foglio.close(); toast('TV collegata'); disegna(); }).catch(function (err) { toast(err.message || 'Abbinamento non riuscito'); });
+    };
+    foglio.showModal();
+  }
+  function sceltaIngresso() {
+    var l = (tv.conf && tv.conf.ingressi) || [];
+    if (!l.length) { Native.tv.comando('tasto', 'INPUT')['catch'](function () {}); return; }
+    foglio.classList.remove('visore');
+    foglio.innerHTML = '<form method="dialog"><div class="maniglia"></div><h3 id="foglio-titolo">Sorgente</h3><div class="campi"><div class="tv-app">' +
+      l.map(function (x) { return '<button type="button" class="chip" data-ingresso="' + esc(x.id) + '">' + esc(x.nome) + '</button>'; }).join('') +
+      '<button type="button" class="chip" data-ingresso="__tv">📺 TV</button></div><div class="azioni"><button class="btn secondario" type="submit">Chiudi</button></div></div></form>';
+    foglio.querySelectorAll('[data-ingresso]').forEach(function (b) { b.onclick = function () {
+      var p = b.dataset.ingresso === '__tv' ? Native.tv.comando('app', 'com.webos.app.livetv') : Native.tv.comando('ingresso', b.dataset.ingresso);
+      p.then(function () { foglio.close(); }).catch(function (err) { toast(err.message); });
+    }; });
+    foglio.showModal();
+  }
+  var tvMuto = false;
+  vista.addEventListener('click', function (e) {
+    if (rotta() !== 'tv') return;
+    var b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.tvImposta !== undefined) { impostaTv(); return; }
+    var tipo = b.dataset.tv; if (!tipo) return;
+    if (tipo === 'ingressi') { sceltaIngresso(); return; }
+    if (navigator.vibrate) navigator.vibrate(15);
+    var p;
+    if (tipo === 'muto') { tvMuto = !tvMuto; p = Native.tv.comando('ssap', 'ssap://audio/setMute', { mute: tvMuto }); }
+    else p = Native.tv.comando(tipo, b.dataset.val);
+    if (tipo === 'accendi') toast('Accendo la TV…');
+    p.catch(function (err) { toast(err.message || 'La TV non risponde'); });
+  });
+
   // ---------- routing e eventi ----------
-  var VISTE = { wallet: vistaWallet, lista: vistaLista, oggi: vistaOggi, calendario: vistaCalendario, conti: vistaConti, rifiuti: vistaRifiuti, viaggi: vistaViaggi, viaggio: vistaViaggio, concerti: vistaConcerti, archivio: vistaArchivio, album: vistaAlbum, altro: vistaAltro, luci: vistaLuci };
+  var VISTE = { wallet: vistaWallet, lista: vistaLista, oggi: vistaOggi, calendario: vistaCalendario, conti: vistaConti, rifiuti: vistaRifiuti, viaggi: vistaViaggi, viaggio: vistaViaggio, concerti: vistaConcerti, archivio: vistaArchivio, album: vistaAlbum, altro: vistaAltro, luci: vistaLuci, tv: vistaTv };
   function rotta() { var r = location.hash.replace('#', '').split('/')[0]; return VISTE[r] ? r : 'oggi'; }
   function disegna() {
     var r = rotta(), y = window.scrollY;
     VISTE[r]();
-    $('#fab').style.display = (r === 'altro' || r === 'album' || r === 'viaggio' || r === 'luci') ? 'none' : '';
+    $('#fab').style.display = (r === 'altro' || r === 'album' || r === 'viaggio' || r === 'luci' || r === 'tv') ? 'none' : '';
     var rNav = r === 'viaggio' ? 'viaggi' : r;
     document.querySelectorAll('nav.barra-nav a').forEach(function (a) { if (a.dataset.r === rNav) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
     window.scrollTo(0, y);
@@ -1983,6 +2079,7 @@
       '<div class="rotazione-rapida"><span><b>Rotazione schermo</b><span class="testo-muto" id="rot-stato">…</span></span>' +
       '<span class="tipi due-tasti" role="group" aria-label="Rotazione schermo"><button type="button" data-rot="auto" style="--c:var(--ardesia)">Automatica</button><button type="button" data-rot="bloccata" style="--c:var(--ardesia)">Bloccata</button></span></div>' +
       '<div class="rotazione-rapida"><span><b>💡 Luci</b><span class="testo-muto">Tuya / Smart Life</span></span><a class="btn piccolo" href="#luci" data-vai-luci>Apri</a></div>' +
+      (Native.isApp ? '<div class="rotazione-rapida"><span><b>📺 TV</b><span class="testo-muto">Telecomando LG</span></span><a class="btn piccolo" href="#tv" data-vai-luci>Apri</a></div>' : '') +
       '<div class="rotazione-rapida"><span><b>⏰ Sveglie</b><span class="testo-muto">' + esc(riassuntoSveglie()) + '</span></span><button type="button" class="btn piccolo" data-sveglie>Imposta</button></div>' +
       (isAndrea() ? (function () {
         var ta = turnoAuto(), opz = function (sel, extra) { return extra + lista.map(function (m) { return '<option value="' + esc(m.id) + '"' + (m.id === sel ? ' selected' : '') + '>' + esc(m.icona + ' ' + m.nome) + '</option>'; }).join(''); };
@@ -2013,7 +2110,7 @@
     }
     Native.audio.stato().then(function (st) { segnaRot(st.rotazione); segnaRete(st); if (st.dnsHost && !dnsHost() && $('[name=dnshost]', f)) $('[name=dnshost]', f).value = st.dnsHost; }).catch(function () { segnaRot(''); });
     $('[data-sveglie]', f).onclick = function () { apriSveglie(); };
-    var vl = $('[data-vai-luci]', f); if (vl) vl.onclick = function () { foglio.close(); };
+    f.querySelectorAll('[data-vai-luci]').forEach(function (vl) { vl.onclick = function () { foglio.close(); }; });
     function salvaTurnoAuto(cambi) {
       var ta = Object.assign(turnoAuto(), cambi); scriviLocale('aec.turnoAuto', ta);
       return programmaTurnoAuto(true);

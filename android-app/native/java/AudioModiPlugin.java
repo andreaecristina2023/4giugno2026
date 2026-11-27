@@ -305,6 +305,34 @@ public class AudioModiPlugin extends Plugin {
         call.resolve();
     }
 
+    // ---------- TV LG (webOS) sul Wi-Fi di casa ----------
+    @PluginMethod
+    public void tvStato(PluginCall call) {
+        try {
+            JSONObject d = TvCasa.conf(getContext());
+            d.remove("chiave");
+            d.put("collegata", !TvCasa.conf(getContext()).optString("chiave").isEmpty());
+            call.resolve(JSObject.fromJSONObject(d));
+        } catch (Exception e) { call.reject(e.getMessage()); }
+    }
+    @PluginMethod
+    public void tvCerca(PluginCall call) { inFondo(call, () -> { String ip = TvCasa.cerca(getContext()); return new JSONObject().put("ip", ip == null ? "" : ip); }); }
+    @PluginMethod
+    public void tvAbbina(PluginCall call) {
+        String ip = call.getString("ip", "").trim();
+        if (ip.isEmpty()) { call.reject("Scrivi l'indirizzo della TV"); return; }
+        inFondo(call, () -> { JSONObject d = TvCasa.abbina(getContext(), ip); d.remove("chiave"); return d.put("collegata", true); });
+    }
+    @PluginMethod
+    public void tvInfo(PluginCall call) { inFondo(call, () -> { JSONObject d = TvCasa.aggiornaInfo(getContext()); d.remove("chiave"); return d.put("collegata", true); }); }
+    @PluginMethod
+    public void tvComando(PluginCall call) {
+        JSObject cmd = call.getData();
+        inFondo(call, () -> TvCasa.comando(getContext(), cmd));
+    }
+    @PluginMethod
+    public void tvTogli(PluginCall call) { TvCasa.prefs(getContext()).edit().remove("tv").apply(); call.resolve(); }
+
     /** Il sito ha salvato le luci del widget: ridisegno "A&C Luci". */
     @PluginMethod
     public void aggiornaLuci(PluginCall call) {
