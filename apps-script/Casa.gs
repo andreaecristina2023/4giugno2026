@@ -1,4 +1,5 @@
 // ===== Casa: incolla TUTTO questo file in Code.gs (Estensioni → Apps Script) =====
+// Dopo la prima volta si aggiorna da solo: A&C → Altro → "Aggiorna lo script".
 
 /**
  * Casa — backend su Google Sheet.
@@ -53,6 +54,7 @@ function setup() {
   Logger.log('Pronto. Chiave: ' + chiave + ' — fuso orario script: ' + tz + (tz !== 'Europe/Rome' ? '  ⚠ Imposta Europe/Rome in Impostazioni progetto' : ''));
   Logger.log(cartellaFoto ? 'Cartella foto: ' + cartellaFoto.getUrl() : '⚠ Cartella foto non creata: ' + erroreCartella);
   Logger.log('Ricorda: Esegui il deployment → Gestisci deployment → modifica → Nuova versione, altrimenti il sito usa ancora il codice vecchio.');
+  Logger.log('Aggiornamenti futuri: A&C → Altro → "Aggiorna lo script" (serve l\'API Apps Script attiva in script.google.com/home/usersettings).');
 }
 
 // ---------------- API ----------------
@@ -87,6 +89,9 @@ function doPost(e) {
     else if (req.azione === 'luce_stato') out = { ok: true, luce: luceStato(req.id) };
     else if (req.azione === 'scena_avvia') out = scenaAvvia(req);
     else if (req.azione === 'tuya_imposta') out = tuyaImposta(req);
+    else if (req.azione === 'script_aggiorna') out = aggiornaDaGithub({ forza: !!req.forza, url: req.url });
+    else if (req.azione === 'script_ripristina') out = ripristinaScript({ url: req.url });
+    else if (req.azione === 'script_info') out = infoScript();
     else throw new Error('Azione sconosciuta');
   } catch (err) {
     out = { ok: false, errore: String(err.message || err) };
@@ -811,6 +816,128 @@ function verificaTuya() {
   luci.forEach(function (d) { var l = tuyaLuce(d); Logger.log('  💡 ' + l.nome + ' [' + l.categoria + '] ' + (l.online ? 'online' : 'OFFLINE') + ' · ' + (l.acceso ? 'accesa' : 'spenta') + (l.luminosita != null ? ' · ' + l.luminosita + '%' : '')); });
   var sc = tuyaScene((dev[0] || {}).uid);
   Logger.log(sc.length ? '✅ Scene Tap-to-Run: ' + sc.map(function (x) { return x.nome; }).join(', ') : 'ℹ Nessuna scena Tap-to-Run trovata (o non accessibile).');
+}
+
+// ---------------- aggiornamento automatico da GitHub ----------------
+// Lo script scarica apps-script/Casa.gs dal repository, sostituisce il proprio codice e
+// ripubblica la stessa app web (l'URL /exec non cambia). Serve, una volta sola:
+//  - script.google.com/home/usersettings → "API Google Apps Script" attiva
+//  - il manifest appsscript.json del repository (contiene i permessi script.projects e script.deployments)
+var GITHUB_REPO = 'andreaecristina2023/4giugno2026';
+var GITHUB_FILE = 'apps-script/Casa.gs';
+var GITHUB_MANIFEST = 'apps-script/appsscript.json';
+var SCRIPT_API = 'https://script.googleapis.com/v1/projects/';
+
+function scriptApi(metodo, percorso, corpo) {
+  var opz = { method: metodo, muteHttpExceptions: true, contentType: 'application/json', headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() } };
+  if (corpo) opz.payload = JSON.stringify(corpo);
+  var r = UrlFetchApp.fetch(SCRIPT_API + ScriptApp.getScriptId() + percorso, opz);
+  var testo = r.getContentText(), d = {};
+  try { d = JSON.parse(testo || '{}'); } catch (e) { d = {}; }
+  if (r.getResponseCode() >= 300) {
+    var msg = (d.error && d.error.message) || testo.slice(0, 200);
+    if (/usersettings|has not enabled the Apps Script API/i.test(msg)) msg = 'attiva l\'API di Apps Script: apri script.google.com/home/usersettings e accendi "API Google Apps Script", poi riprova (può servire qualche minuto)';
+    else if (/insufficient|scope|PERMISSION_DENIED/i.test(msg)) msg = 'mancano i permessi per aggiornarsi: incolla una volta a mano Casa.gs e appsscript.json dal repository, esegui setup e accetta (' + msg + ')';
+    else if (/has not been used in project|is disabled/i.test(msg)) msg = 'l\'API di Apps Script non è attiva nel progetto Google Cloud dello script (' + msg + ')';
+    throw new Error('Aggiornamento: ' + msg);
+  }
+  return d;
+}
+
+function githubJson(url) {
+  var r = UrlFetchApp.fetch(url, { muteHttpExceptions: true, headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'AeC-Casa' } });
+  if (r.getResponseCode() !== 200) throw new Error('GitHub risponde ' + r.getResponseCode() + ' per ' + url.replace(/^https:\/\/[^/]+/, ''));
+  return JSON.parse(r.getContentText());
+}
+function githubRaw(sha, percorso) {
+  var r = UrlFetchApp.fetch('https://raw.githubusercontent.com/' + GITHUB_REPO + '/' + sha + '/' + percorso, { muteHttpExceptions: true });
+  return r.getResponseCode() === 200 ? r.getContentText() : null;
+}
+
+function scopi(manifest) { return ((manifest && manifest.oauthScopes) || []).slice().sort(); }
+
+// Deployment dell'app web da aggiornare: quello dell'URL indicato (o di questo script), altrimenti tutti quelli con versione
+function deploymentDaAggiornare(url) {
+  var elenco = (scriptApi('get', '/deployments?pageSize=50').deployments || []).filter(function (d) {
+    return d.deploymentConfig && d.deploymentConfig.versionNumber && (d.entryPoints || []).some(function (p) { return p.entryPointType === 'WEB_APP'; });
+  });
+  var ids = [url, (function () { try { return ScriptApp.getService().getUrl(); } catch (e) { return ''; } })()]
+    .map(function (u) { var m = /\/macros\/s\/([^/]+)\//.exec(u || ''); return m ? m[1] : ''; }).filter(String);
+  var scelti = elenco.filter(function (d) { return ids.indexOf(d.deploymentId) >= 0; });
+  return scelti.length ? scelti : elenco;
+}
+
+function aggiornaDaGithub(opz) {
+  opz = opz || {};
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) throw new Error('Aggiornamento già in corso');
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var ultimo = githubJson('https://api.github.com/repos/' + GITHUB_REPO + '/commits?path=' + encodeURIComponent(GITHUB_FILE) + '&per_page=1')[0];
+    if (!ultimo) throw new Error('Nessuna versione di ' + GITHUB_FILE + ' su GitHub');
+    var sha = ultimo.sha, info = { sha: sha.slice(0, 7), data: ultimo.commit.committer.date, messaggio: String(ultimo.commit.message || '').split('\n')[0] };
+    if (props.getProperty('GITHUB_SHA') === sha && !opz.forza) return { ok: true, aggiornato: false, messaggio: 'Lo script è già all\'ultima versione', versione: info };
+
+    var codice = githubRaw(sha, GITHUB_FILE);
+    if (!codice || codice.length < 20000 || codice.indexOf('function doPost') < 0 || codice.indexOf('function aggiornaDaGithub') < 0)
+      throw new Error('Il file scaricato da GitHub non sembra lo script di casa: aggiornamento annullato');
+
+    var attuale = scriptApi('get', '/content');
+    var file = (attuale.files || []).map(function (f) { return { name: f.name, type: f.type, source: f.source }; });
+    var principale = file.filter(function (f) { return f.type === 'SERVER_JS' && f.source.indexOf('function doPost') >= 0; })[0];
+    if (!principale) throw new Error('Non trovo il file con doPost nel progetto');
+    principale.source = codice;
+
+    // manifest: lo prendo dal repository solo se non chiede permessi nuovi (quelli vanno accettati nell'editor)
+    var avviso = '';
+    var man = file.filter(function (f) { return f.name === 'appsscript'; })[0];
+    var nuovoMan = githubRaw(sha, GITHUB_MANIFEST);
+    if (man && nuovoMan) {
+      try {
+        var mA = JSON.parse(man.source), mN = JSON.parse(nuovoMan);
+        var nuovi = scopi(mN).filter(function (s) { return scopi(mA).indexOf(s) < 0; });
+        if (!nuovi.length && scopi(mN).length) man.source = nuovoMan;
+        else if (nuovi.length) avviso = 'La nuova versione chiede permessi in più: apri l\'editor, incolla appsscript.json dal repository ed esegui setup.';
+      } catch (e) { avviso = 'Manifest del repository non leggibile: tenuto quello attuale.'; }
+    }
+
+    scriptApi('put', '/content', { files: file });
+    var ver = scriptApi('post', '/versions', { description: 'GitHub ' + info.sha + ' · ' + info.messaggio.slice(0, 80) });
+    var dep = deploymentDaAggiornare(opz.url);
+    if (!dep.length) throw new Error('Codice aggiornato, ma non trovo il deployment dell\'app web: fai Gestisci deployment → Nuova versione a mano');
+    var precedente = dep[0].deploymentConfig.versionNumber;
+    dep.forEach(function (d) {
+      scriptApi('put', '/deployments/' + d.deploymentId, { deploymentConfig: { scriptId: ScriptApp.getScriptId(), versionNumber: ver.versionNumber, manifestFileName: 'appsscript', description: d.deploymentConfig.description || 'A&C' } });
+    });
+    props.setProperties({ GITHUB_SHA: sha, GITHUB_DATA: info.data, VERSIONE_PRECEDENTE: String(precedente), VERSIONE_ATTUALE: String(ver.versionNumber) });
+    return { ok: true, aggiornato: true, messaggio: 'Script aggiornato (versione ' + ver.versionNumber + ')', versione: info, numero: ver.versionNumber, precedente: precedente, avviso: avviso };
+  } finally { lock.releaseLock(); }
+}
+
+// Riporta l'app web alla versione pubblicata prima dell'ultimo aggiornamento
+function ripristinaScript(opz) {
+  opz = opz || {};
+  var props = PropertiesService.getScriptProperties();
+  var prec = +props.getProperty('VERSIONE_PRECEDENTE');
+  if (!prec) throw new Error('Non c\'è una versione precedente da ripristinare');
+  var dep = deploymentDaAggiornare(opz.url);
+  dep.forEach(function (d) {
+    scriptApi('put', '/deployments/' + d.deploymentId, { deploymentConfig: { scriptId: ScriptApp.getScriptId(), versionNumber: prec, manifestFileName: 'appsscript', description: d.deploymentConfig.description || 'A&C' } });
+  });
+  props.setProperties({ VERSIONE_ATTUALE: String(prec), VERSIONE_PRECEDENTE: '' });
+  props.deleteProperty('GITHUB_SHA');
+  return { ok: true, messaggio: 'App web riportata alla versione ' + prec + ' (il codice nell\'editor resta quello nuovo)' };
+}
+
+function infoScript() {
+  var p = PropertiesService.getScriptProperties();
+  return { ok: true, sha: (p.getProperty('GITHUB_SHA') || '').slice(0, 7), data: p.getProperty('GITHUB_DATA') || '', versione: +p.getProperty('VERSIONE_ATTUALE') || null, precedente: +p.getProperty('VERSIONE_PRECEDENTE') || null };
+}
+
+// Da eseguire a mano nell'editor (anche per provare che l'API funzioni)
+function aggiornaScript() {
+  try { var r = aggiornaDaGithub({ forza: true }); Logger.log('✅ ' + r.messaggio + ' — ' + r.versione.sha + ' ' + r.versione.messaggio + (r.avviso ? '\n⚠ ' + r.avviso : '')); }
+  catch (e) { Logger.log('❌ ' + e.message); }
 }
 
 

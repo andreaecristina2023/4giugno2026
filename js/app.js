@@ -1184,6 +1184,8 @@
       '<label class="campo">Chiave<span class="aiuto">Non serve se hai incollato il link di collegamento. È nel foglio Google «Casa», scheda «Impostazioni» in basso, cella B1. Compare dopo aver eseguito la funzione setup nello script.</span><input type="password" name="chiave" value="' + esc(conf.chiave) + '" autocomplete="off"></label>' +
       '<div class="azioni"><button class="btn" type="submit">Collega e sincronizza</button><button class="btn secondario" type="button" data-azione="scansiona-qr">Inquadra QR</button>' + (Store.configurato() ? '<button class="btn secondario" type="button" data-azione="scollega">Scollega</button>' : '') + '</div></form></div>';
 
+    if (Store.configurato()) h += '<h2>Script del foglio</h2><div class="sezione"><p class="testo-muto" style="margin:0 0 10px">Scarica da GitHub l\'ultima versione dello script e la ripubblica (stesso indirizzo). Serve una volta l\'API di Apps Script attiva: <a href="https://script.google.com/home/usersettings" target="_blank" rel="noopener">impostazioni di Apps Script</a>.</p>' +
+      '<p id="info-script" class="testo-muto" style="margin:0 0 10px"></p><div class="azioni"><button class="btn" type="button" data-azione="aggiorna-script">⟳ Aggiorna lo script</button><button class="btn secondario" type="button" data-azione="ripristina-script">↶ Versione precedente</button></div></div>';
     h += '<h2>Promemoria</h2><div class="sezione">';
     if (Native.isApp) h += '<p>L\'app programma da sola le notifiche dei prossimi 21 giorni: bidoni la sera prima alle ' + esc(rifiuti().oraAvviso || '20:00') + ', pagamenti 2 giorni prima e il giorno stesso alle 9, appuntamenti con l\'anticipo scelto.</p><div class="azioni"><button class="btn secondario" type="button" data-azione="permesso">Controlla il permesso notifiche</button></div>';
     else h += '<p>Nel browser l\'avviso arriva solo a sito aperto. Per le notifiche vere installa l\'app Android, oppure attiva il bot Telegram nello script.</p><div class="azioni"><a class="btn" href="' + REPO + '/releases/latest" target="_blank" rel="noopener">Scarica l\'app Android</a><button class="btn secondario" type="button" data-azione="permesso">Attiva avvisi nel browser</button></div>';
@@ -1194,6 +1196,23 @@
     h += '<h2>Aree personali</h2><div class="schede" role="group" aria-label="Area personale">' + ['Andrea', 'Cristina'].map(function (p) { return '<button type="button" data-area="' + esc(p) + '" aria-pressed="' + (areaScelta === p) + '">👤 ' + esc(p) + '</button>'; }).join('') + '</div>' + areaPersonale(areaScelta);
     h += '<p class="testo-muto" style="margin-top:24px">' + voci().length + ' voci salvate · <a href="' + REPO + '" target="_blank" rel="noopener">codice su GitHub</a></p>';
     vista.innerHTML = h;
+    if (Store.configurato()) infoScript();
+  }
+  function infoScript() {
+    Store.chiama('script_info').then(function (r) {
+      var el = document.getElementById('info-script'); if (!el) return;
+      el.textContent = r.sha ? 'Installata: ' + r.sha + (r.data ? ' del ' + new Date(r.data).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' }) : '') + (r.versione ? ' · versione ' + r.versione : '') : 'Versione installata a mano (non ancora aggiornata da qui).';
+    }).catch(function (e) {
+      var el = document.getElementById('info-script'); if (el) el.textContent = /Aggiorna lo script/.test(e.message) ? 'Lo script del foglio non ha ancora l\'aggiornamento automatico: va incollato a mano una volta (README, "Aggiornare lo script").' : '';
+    });
+  }
+  function aggiornaScript(ripristina) {
+    if (ripristina && !confirm('Riportare lo script alla versione pubblicata prima dell\'ultimo aggiornamento?')) return;
+    toast(ripristina ? 'Ripristino…' : 'Aggiorno lo script… (qualche secondo)');
+    Store.chiama(ripristina ? 'script_ripristina' : 'script_aggiorna', { url: Store.conf().url }).then(function (r) {
+      toast(r.messaggio + (r.versione && r.aggiornato ? ' — ' + r.versione.messaggio : '') + (r.avviso ? ' ⚠ ' + r.avviso : ''));
+      setTimeout(infoScript, 1500);
+    }).catch(function (e) { toast(e.message); });
   }
 
   // ---------- FORM VOCE ----------
@@ -1604,6 +1623,8 @@
     else if (d.fileApri) apriFilePersonale(d.fileApri);
     else if (d.docNuovo !== undefined) apriDocumento(null, d.persona);
     else if (d.docModifica) apriDocumento(d.docModifica);
+    else if (d.azione === 'aggiorna-script') aggiornaScript(false);
+    else if (d.azione === 'ripristina-script') aggiornaScript(true);
     else if (d.azione === 'scollega') { Store.setConf({ url: '', chiave: '' }); toast('Scollegato: i dati restano su questo telefono'); }
     else if (d.azione === 'permesso') Native.permesso().then(function (p) { toast(p === 'granted' ? 'Notifiche attive' : 'Notifiche non concesse: abilitale dalle impostazioni del telefono'); });
     else if (d.azione === 'esporta') {

@@ -42,11 +42,19 @@ Se modifichi lo script dopo, ricorda **Distribuisci → Gestisci distribuzioni �
 
 ## Aggiornare lo script
 
-Quando cambia `apps-script/Casa.gs` (per esempio per l'album foto):
+**Dalla seconda volta in poi basta un tasto:** A&C → **Altro → Script del foglio → ⟳ Aggiorna lo script**. Lo script scarica da GitHub l'ultima versione di `apps-script/Casa.gs` (e del manifest, se non chiede permessi nuovi), sostituisce il proprio codice, crea una versione nuova e la pubblica sulla stessa app web: l'URL `/exec` non cambia. **↶ Versione precedente** riporta l'app web alla versione di prima. Dall'editor si può fare lo stesso eseguendo `aggiornaScript`.
 
-1. Apri lo script (script.google.com, progetto della casa), seleziona tutto il codice e incolla la versione nuova di [`Casa.gs`](https://raw.githubusercontent.com/andreaecristina2023/4giugno2026/main/apps-script/Casa.gs). Salva.
-2. Scegli `setup` → **Esegui**: Google chiede i permessi nuovi (per l'album, l'accesso a Drive). La chiave resta la stessa.
-3. **Esegui il deployment → Gestisci deployment → matita → Versione: Nuova versione → Esegui il deployment**. L'URL `/exec` non cambia.
+Attenzione: così chi può modificare questo repository GitHub può cambiare anche lo script, che lavora con l'account Google del proprietario. Tieni il repository solo tuo.
+
+**La prima volta (una sola), a mano:**
+
+1. Vai su [script.google.com/home/usersettings](https://script.google.com/home/usersettings) e accendi **API Google Apps Script**.
+2. Apri lo script (script.google.com, progetto della casa). In **Impostazioni progetto** (ingranaggio) spunta **Mostra il file manifest "appsscript.json" nell'editor**.
+3. Nel file `appsscript.json` incolla [`appsscript.json`](https://raw.githubusercontent.com/andreaecristina2023/4giugno2026/main/apps-script/appsscript.json) (contiene i permessi, compreso quello per aggiornarsi, e il servizio Drive per l'OCR). Nel file del codice seleziona tutto e incolla [`Casa.gs`](https://raw.githubusercontent.com/andreaecristina2023/4giugno2026/main/apps-script/Casa.gs). Salva.
+4. Scegli `setup` → **Esegui** e accetta tutti i permessi ("Seleziona tutto"). La chiave resta la stessa.
+5. **Esegui il deployment → Gestisci deployment → matita → Versione: Nuova versione → Esegui il deployment**.
+
+Se una versione futura chiede permessi nuovi, il tasto lo dice: in quel caso ripeti i passi 3–5.
 
 Le cartelle "A&C Album" (foto) e "A&C Allegati" (biglietti, documenti di viaggio) vengono create accanto al foglio "Casa". Se l'album non va, esegui la funzione `verificaAlbum`: nel registro trovi il link alla cartella oppure il motivo dell'errore.
 
@@ -115,7 +123,7 @@ Dal tasto dei modi (🔈 in alto) → **💡 Luci → Apri**: una scheda per ogn
 2. **Cloud → Development → Create Cloud Project**: nome "A&C", Industry *Smart Home*, Development Method *Smart Home*, Data Center **Central Europe**. Nella pagina dei servizi lascia **IoT Core** (con Authorization e Smart Home Scene Linkage) e conferma.
 3. Nel progetto: **Devices → Link App Account → Add App Account**: compare un QR. Nell'app **Smart Life** o **Tuya Smart**: Io/Profilo → icona di scansione in alto → inquadra il QR e conferma. I dispositivi compaiono nella scheda Devices.
 4. Nel progetto: **Overview** → copia **Access ID** e **Access Secret**.
-5. Aggiorna lo script (sezione "Aggiornare lo script": incolla il nuovo `Casa.gs`, esegui `setup`, nuova versione del deployment).
+5. Aggiorna lo script (sezione "Aggiornare lo script": la prima volta a mano, poi con il tasto ⟳ Aggiorna lo script).
 6. In A&C: **💡 Luci → ⚙ Collegamento Tuya** → incolla Access ID e Access Secret, data center Europa centrale → **Salva e prova**. In alternativa mettile a mano nelle proprietà script `TUYA_ID`, `TUYA_SECRET` (e `TUYA_REGIONE`: `eu`, `weu`, `us`, `ueaz`, `in`, `cn`).
 7. Se qualcosa non va: nell'editor dello script esegui **`verificaTuya`** e guarda il registro (dice se le chiavi sono giuste, quante luci vede, oppure cosa manca).
 
