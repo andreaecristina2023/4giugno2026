@@ -58,6 +58,8 @@ Se una versione futura chiede permessi nuovi, il tasto lo dice: in quel caso rip
 
 Le cartelle "A&C Album" (foto) e "A&C Allegati" (biglietti, documenti di viaggio) vengono create accanto al foglio "Casa". Se l'album non va, esegui la funzione `verificaAlbum`: nel registro trovi il link alla cartella oppure il motivo dell'errore.
 
+**💡 Luce con la sveglia** (sveglie del turnario, solo app): *Niente*, *💡 Con la sveglia* (quando suona la luce si accende in bianco) o *🌅 Alba* (5–30 minuti prima si accende arancio al minimo e sale piano fino al bianco all'ora della sveglia; notifica silenziosa con "Ferma la luce"). Si scelgono luminosità e bianco finale (caldo ↔ freddo) e, se ci sono più luci con ★, quale. Serve il telefono sul Wi-Fi di casa con le luci in modalità Wi-Fi; fuori casa la sveglia suona lo stesso. "Prova la luce" / "Prova l'alba (40 secondi)" per vedere l'effetto; la prova del suono non accende la luce.
+
 ## Turni VVF
 
 Calendario → **Turni VVF**: scegli turno (A, B, C, D) e saltoturno (1–8). Il calendario usa la stessa sequenza a 32 giorni di FireOps (`SEQUENZA_TURNI`, riferimento 26/01/2026), verificata identica su 2025–2028: sigla maiuscola = diurno, minuscola = notte (es. B6 / b6). I turni del tuo saltoturno sono segnati come salto. Ogni giorno mostra chi è in servizio (diurno sopra, notte sotto, il tuo turno sottolineato). Toccando un giorno lo cambi (ferie, permesso, malattia, recupero, congedo, straordinario, addestramento, corso, presidio rurale, boschiva AIB, cambio turno) con orario e nota; per le assenze puoi segnare più turni in una volta. Il turno di oggi e chi è in servizio compaiono nella schermata Oggi e in entrambi i widget.

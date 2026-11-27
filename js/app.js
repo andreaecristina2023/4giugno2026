@@ -2076,7 +2076,8 @@
   function sveglieTurno() {
     var x = leggiLocale('aec.sveglieTurno', {});
     return { diurno: Object.assign({ on: false, ora: '06:30' }, x.diurno || {}), smonto: Object.assign({ on: false, ora: '13:00' }, x.smonto || {}),
-      suono: Object.assign({ tipo: 'sistema', uri: '', nome: '', spotify: '', link: '' }, x.suono || {}) };
+      suono: Object.assign({ tipo: 'sistema', uri: '', nome: '', spotify: '', link: '' }, x.suono || {}),
+      luce: Object.assign({ modo: 'no', id: '', minuti: 10, luminosita: 70, temperatura: 25 }, x.luce || {}) };
   }
   // eventi dei prossimi 22 giorni: mattina del diurno e giorno dopo la notte (ferie, salti e cambi già considerati)
   function eventiSveglieTurno(giorni) {
@@ -2097,7 +2098,7 @@
     var st = sveglieTurno(), attive = isAndrea() && (st.diurno.on || st.smonto.on);
     var voli = Viaggi.eventiSveglieVoli(); // sveglie dei voli impostate su questo telefono
     var eventi = (attive ? eventiSveglieTurno(22) : []).concat(voli).sort(function (a, b) { return a.t - b.t; });
-    var conf = { attive: attive || voli.length > 0, eventi: eventi, suono: st.suono };
+    var conf = { attive: attive || voli.length > 0, eventi: eventi, suono: st.suono, luce: st.luce };
     var firma = JSON.stringify(conf);
     if (!forza && firma === firmaSveglieTurno) return Promise.resolve(null);
     firmaSveglieTurno = firma;
@@ -2162,6 +2163,19 @@
               (st.suono.tipo === 'spotify' ? '<label class="campo">Link di Spotify<span class="aiuto">In Spotify: ⋯ sul brano o sulla playlist → Condividi → Copia link, poi incollalo qui. Alla sveglia si apre Spotify e parte la musica; la suoneria resta finché la musica non parte davvero.</span><input type="url" name="st-spotify" value="' + esc(st.suono.link || '') + '" placeholder="https://open.spotify.com/playlist/…"></label>' +
                 (st.suono.spotify ? '<span class="aiuto">✓ ' + esc(NOMI_SPOTIFY[st.suono.spotify.split(':')[1]] || 'link') + ' di Spotify</span>' : '') : '') +
             '</div>' +
+            (Native.isApp ? (function () {
+              var lc = st.luce, tutte = (luci.dati && luci.dati.luci) || [];
+              return '<div class="suono-sveglia"><b>💡 Luce</b><div class="tipi tre-tasti" role="group" aria-label="Luce con la sveglia">' +
+                [['no', 'Niente'], ['insieme', '💡 Con la sveglia'], ['alba', '🌅 Alba']].map(function (o) { return '<button type="button" data-luce-sv="' + o[0] + '" style="--c:var(--ardesia)" aria-pressed="' + (lc.modo === o[0]) + '">' + o[1] + '</button>'; }).join('') + '</div>' +
+                (lc.modo === 'no' ? '' :
+                  '<span class="aiuto">' + (lc.modo === 'alba' ? 'Prima della sveglia la luce si accende arancio al minimo e sale piano fino al bianco all\'ora della sveglia.' : 'Quando suona la sveglia la luce si accende in bianco.') + ' Serve il telefono sul Wi-Fi di casa (luci in modalità Wi-Fi); fuori casa la sveglia suona lo stesso.</span>' +
+                  (tutte.length > 1 ? '<label class="campo">Quale luce<select name="st-luce-id"><option value="">La luce del widget (prima con ★)</option>' + tutte.map(function (l) { return '<option value="' + esc(l.id) + '"' + (lc.id === l.id ? ' selected' : '') + '>' + esc(l.nome) + '</option>'; }).join('') + '</select></label>' : '') +
+                  (lc.modo === 'alba' ? '<label class="campo">Inizia prima di<select name="st-luce-min">' + [5, 10, 15, 20, 30].map(function (m) { return '<option value="' + m + '"' + (+lc.minuti === m ? ' selected' : '') + '>' + m + ' minuti</option>'; }).join('') + '</select></label>' : '') +
+                  '<label class="campo">Luminosità finale: <b data-lum-sv>' + lc.luminosita + '%</b><input type="range" name="st-luce-lum" min="10" max="100" step="5" value="' + lc.luminosita + '"></label>' +
+                  '<label class="campo">Bianco finale: caldo ↔ freddo<input type="range" name="st-luce-temp" min="0" max="100" step="5" value="' + lc.temperatura + '"></label>' +
+                  '<div class="azioni"><button type="button" class="btn secondario piccolo" data-prova-luce>' + (lc.modo === 'alba' ? '🌅 Prova l\'alba (40 secondi)' : '💡 Prova la luce') + '</button></div>') +
+                '</div>';
+            })() : '') +
             '<div id="st-avviso"></div>' +
             (ok ? '<div class="azioni"><button type="button" class="btn secondario piccolo" data-prova-sveglia>🔔 Prova il suono</button></div>' : '') +
             '</div></div>';
@@ -2186,7 +2200,7 @@
       function salvaSt() {
         var st = { diurno: { on: !!(f['st-diurno'] && f['st-diurno'].checked), ora: f['st-diurno-ora'] ? f['st-diurno-ora'].value || '06:30' : '06:30' },
                    smonto: { on: !!(f['st-smonto'] && f['st-smonto'].checked), ora: f['st-smonto-ora'] ? f['st-smonto-ora'].value || '13:00' : '13:00' },
-                   suono: sveglieTurno().suono };
+                   suono: sveglieTurno().suono, luce: sveglieTurno().luce };
         scriviLocale('aec.sveglieTurno', st);
         programmaSveglieTurno(true).then(function (r) {
           var av = $('#st-avviso', f); if (!av) return;
@@ -2222,6 +2236,21 @@
         if (lk.value.trim() && !u) { toast('Non è un link di Spotify: usa Condividi → Copia link'); return; }
         cambiaSuono({ link: lk.value.trim(), spotify: u });
         if (u) toast('Spotify: ' + (NOMI_SPOTIFY[u.split(':')[1]] || 'link') + ' salvato');
+      };
+      function cambiaLuce(patch, ridisegna) {
+        var st = sveglieTurno(); st.luce = Object.assign(st.luce, patch);
+        scriviLocale('aec.sveglieTurno', st); programmaSveglieTurno(true);
+        if (ridisegna) setTimeout(disegnaSv, 0);
+      }
+      f.querySelectorAll('[data-luce-sv]').forEach(function (b) { b.onclick = function () { cambiaLuce({ modo: b.dataset.luceSv }, true); }; });
+      if (f['st-luce-id']) f['st-luce-id'].onchange = function () { cambiaLuce({ id: f['st-luce-id'].value }); };
+      if (f['st-luce-min']) f['st-luce-min'].onchange = function () { cambiaLuce({ minuti: +f['st-luce-min'].value }); };
+      if (f['st-luce-lum']) { f['st-luce-lum'].oninput = function () { var b = $('[data-lum-sv]', f); if (b) b.textContent = f['st-luce-lum'].value + '%'; }; f['st-luce-lum'].onchange = function () { cambiaLuce({ luminosita: +f['st-luce-lum'].value }); }; }
+      if (f['st-luce-temp']) f['st-luce-temp'].onchange = function () { cambiaLuce({ temperatura: +f['st-luce-temp'].value }); };
+      var pl = $('[data-prova-luce]', f);
+      if (pl) pl.onclick = function () {
+        var lc = sveglieTurno().luce;
+        Native.audio.provaLuce(lc).then(function () { toast(lc.modo === 'alba' ? '🌅 Alba di prova: 40 secondi' : '💡 Luce accesa'); }).catch(function (e) { toast((e && e.message) || 'Luce non disponibile'); });
       };
       var prova = $('[data-prova-sveglia]', f);
       if (prova) prova.onclick = function () {

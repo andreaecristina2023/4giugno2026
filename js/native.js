@@ -168,6 +168,7 @@ var Native = (function () {
     turnoAuto: function (conf) { return AudioPl ? AudioPl.turnoAuto(conf) : soloApp(); },
     // sveglie che seguono il turnario: { attive, eventi: [ { t: ms, nome } ] }
     sveglieTurno: function (conf) { return AudioPl ? AudioPl.sveglieTurno(conf) : soloApp(); },
+    provaLuce: function (luce) { return AudioPl ? AudioPl.provaLuce({ luce: luce }) : soloApp(); },
     provaSveglia: function (suono) { return AudioPl ? AudioPl.provaSveglia({ nome: 'Prova', suono: suono || null }) : soloApp(); },
     fermaSveglia: function () { return AudioPl ? AudioPl.fermaSveglia() : soloApp(); },
     // brano dal telefono per la sveglia: { uri, nome }

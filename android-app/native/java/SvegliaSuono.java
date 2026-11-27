@@ -121,6 +121,7 @@ public class SvegliaSuono extends Service {
         if (Build.VERSION.SDK_INT >= 29) startForeground(ID_NOTIFICA, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
         else startForeground(ID_NOTIFICA, n);
         suona();
+        if (!"Prova".equals(nome)) AlbaLuce.allaSveglia(this); // luce con la sveglia (se scelta), non nella prova del suono
         h.removeCallbacksAndMessages(null);
         h.postDelayed(this::fine, 10 * 60 * 1000L); // dopo 10 minuti smette
         return START_NOT_STICKY;

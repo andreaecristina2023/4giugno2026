@@ -214,6 +214,22 @@ public class AudioModiPlugin extends Plugin {
     }
 
     /** Prova della sveglia: suona subito. */
+    /** Prova della luce della sveglia: "insieme" subito, "alba" accelerata in 40 secondi. */
+    @PluginMethod
+    public void provaLuce(PluginCall call) {
+        try {
+            JSObject luce = call.getObject("luce");
+            android.content.SharedPreferences p = ComandiTelefono.prefs(getContext());
+            org.json.JSONObject conf = new org.json.JSONObject(p.getString("sveglieTurno", "{}"));
+            if (luce != null) { conf.put("luce", luce); p.edit().putString("sveglieTurno", conf.toString()).commit(); }
+            org.json.JSONObject l = AlbaLuce.conf(getContext());
+            if (AlbaLuce.idLuce(getContext(), l).isEmpty()) { call.reject("Scegli prima le luci in 💡 Luci (☆) o leggile dal Wi-Fi"); return; }
+            if ("alba".equals(l.optString("modo"))) AlbaLuce.avvia(getContext(), System.currentTimeMillis() + 40000);
+            else { final android.content.Context app = getContext().getApplicationContext(); new Thread(() -> AlbaLuce.finale(app, l)).start(); }
+            call.resolve();
+        } catch (Exception e) { call.reject(e.getMessage()); }
+    }
+
     @PluginMethod
     public void provaSveglia(PluginCall call) {
         try {

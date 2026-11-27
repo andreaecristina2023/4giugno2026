@@ -28,6 +28,7 @@ public class SvegliaTurno extends BroadcastReceiver {
     static final String SUONA = "it.andreaecristina.casa.SVEGLIA_SUONA";
     static final String SPEGNI = "it.andreaecristina.casa.SVEGLIA_SPEGNI";
     static final String POSTICIPA = "it.andreaecristina.casa.SVEGLIA_POSTICIPA";
+    static final String ALBA = "it.andreaecristina.casa.SVEGLIA_ALBA";
     static final String CANALE = "casa-sveglie";
     static final int ID_NOTIFICA = 4242;
 
@@ -42,6 +43,8 @@ public class SvegliaTurno extends BroadcastReceiver {
             programma(c);
         } else if (SPEGNI.equals(a)) {
             spegni(c);
+        } else if (ALBA.equals(a)) {
+            AlbaLuce.avvia(c, i.getLongExtra("t", System.currentTimeMillis() + 600000L)); // luce che si accende piano prima della sveglia
         } else if (POSTICIPA.equals(a)) {
             posticipa(c, i.getStringExtra("nome"));
         } else {
@@ -71,6 +74,8 @@ public class SvegliaTurno extends BroadcastReceiver {
         Intent i = new Intent(c, SvegliaTurno.class).setAction(SUONA);
         PendingIntent vecchia = PendingIntent.getBroadcast(c, 4200, i, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         am.cancel(vecchia);
+        Intent ia = new Intent(c, SvegliaTurno.class).setAction(ALBA);
+        am.cancel(PendingIntent.getBroadcast(c, 4210, ia, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
 
         long ora = System.currentTimeMillis(), quando = -1, ultima = prefs(c).getLong("svegliaUltima", 0);
         String nome = "";
@@ -99,5 +104,17 @@ public class SvegliaTurno extends BroadcastReceiver {
             am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, quando, pi);
         }
         prefs(c).edit().putLong("svegliaProssima", quando).putString("svegliaProssimaNome", nome).apply();
+
+        // luce "alba": parte qualche minuto prima (non per i posticipi)
+        JSONObject luce = AlbaLuce.conf(c);
+        long alba = quando - Math.max(1, luce.optInt("minuti", 10)) * 60000L;
+        if ("alba".equals(luce.optString("modo")) && quando != posticipo && alba > ora + 5000) {
+            ia.putExtra("t", quando);
+            PendingIntent pa = PendingIntent.getBroadcast(c, 4210, ia, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            try {
+                if (Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, alba, pa);
+                else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, alba, pa);
+            } catch (SecurityException e) { am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, alba, pa); }
+        }
     }
 }

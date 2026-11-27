@@ -68,6 +68,7 @@ if 'CasaWidget' not in s:
         <receiver android:name=".VpnEvento" android:exported="true" android:permission="it.andreaecristina.casa.permission.VPN" />
         <receiver android:name=".SvegliaTurno" android:exported="false" />
         <service android:name=".SvegliaSuono" android:exported="false" android:foregroundServiceType="mediaPlayback" />
+        <service android:name=".AlbaLuce" android:exported="false" android:foregroundServiceType="dataSync" />
         <activity android:name=".SvegliaSchermo" android:exported="false" android:showWhenLocked="true" android:turnScreenOn="true"
             android:excludeFromRecents="true" android:taskAffinity="" android:launchMode="singleInstance"
             android:theme="@android:style/Theme.DeviceDefault.NoActionBar" />
@@ -88,6 +89,8 @@ permessi = [
     '<uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />',
     '<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />',
     '<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />',
+    '<uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />',
+    '<uses-permission android:name="android.permission.WAKE_LOCK" />',
     '<uses-permission android:name="android.permission.VIBRATE" />',
     '<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />',
     # stato della VPN (widget e DNS)
