@@ -82,6 +82,11 @@ function doPost(e) {
     else if (req.azione === 'voli_prezzi') out = voliPrezzi();
     else if (req.azione === 'voli_controlla') out = voliControlla(req);
     else if (req.azione === 'voli_imposta') out = voliImposta(req);
+    else if (req.azione === 'luci_elenco') out = luciElenco();
+    else if (req.azione === 'luce_comando') out = luceComando(req);
+    else if (req.azione === 'luce_stato') out = { ok: true, luce: luceStato(req.id) };
+    else if (req.azione === 'scena_avvia') out = scenaAvvia(req);
+    else if (req.azione === 'tuya_imposta') out = tuyaImposta(req);
     else throw new Error('Azione sconosciuta');
   } catch (err) {
     out = { ok: false, errore: String(err.message || err) };
@@ -565,6 +570,250 @@ function voliImposta(req) {
 }
 
 
+// ---------------- Luci Tuya / Smart Life (cloud Tuya) ----------------
+// Le chiavi del progetto cloud (iot.tuya.com → Cloud → il tuo progetto → Overview: Access ID e Access Secret)
+// si salvano dall'app (💡 Luci → ⚙) oppure a mano nelle proprietà script TUYA_ID, TUYA_SECRET, TUYA_REGIONE.
+// Non tornano mai al telefono. Per provare: esegui verificaTuya() e guarda il registro.
+var TUYA_REGIONI = {
+  'eu': 'https://openapi.tuyaeu.com',          // Europa centrale (Italia)
+  'weu': 'https://openapi-weaz.tuyaeu.com',    // Europa occidentale
+  'us': 'https://openapi.tuyaus.com',          // America occidentale
+  'ueaz': 'https://openapi-ueaz.tuyaus.com',   // America orientale
+  'in': 'https://openapi.tuyain.com',          // India
+  'cn': 'https://openapi.tuyacn.com'           // Cina
+};
+var TUYA_CATEGORIE_LUCI = ['dj', 'dd', 'xdd', 'fwd', 'dc', 'tgq', 'tgkg', 'kg', 'cz', 'pc', 'sxd', 'tyndj', 'gyd', 'fsd', 'mbd', 'ykq', 'ty'];
+
+function tuyaConf() {
+  var p = PropertiesService.getScriptProperties();
+  var reg = p.getProperty('TUYA_REGIONE') || 'eu';
+  return { id: (p.getProperty('TUYA_ID') || '').trim(), secret: (p.getProperty('TUYA_SECRET') || '').trim(), regione: reg, base: (TUYA_REGIONI[reg] || reg).replace(/\/+$/, '') };
+}
+function tuyaConfigurato() { var c = tuyaConf(); return !!(c.id && c.secret); }
+
+function tuyaImposta(req) {
+  var p = PropertiesService.getScriptProperties();
+  if (req.id !== undefined) { if (req.id) p.setProperty('TUYA_ID', String(req.id).trim()); else p.deleteProperty('TUYA_ID'); }
+  if (req.secret !== undefined && req.secret !== '••••') { if (req.secret) p.setProperty('TUYA_SECRET', String(req.secret).trim()); else p.deleteProperty('TUYA_SECRET'); }
+  if (req.regione) p.setProperty('TUYA_REGIONE', String(req.regione));
+  CacheService.getScriptCache().remove('tuya_token');
+  if (!tuyaConfigurato()) return { ok: true, configurato: false };
+  tuyaToken(true); // prova subito le chiavi: se sono sbagliate l'errore arriva all'app
+  return { ok: true, configurato: true, regione: tuyaConf().regione };
+}
+
+function tuyaHex(bytes) { return bytes.map(function (b) { return ('0' + (b & 0xff).toString(16)).slice(-2); }).join(''); }
+function tuyaSha256(testo) { return tuyaHex(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, testo || '', Utilities.Charset.UTF_8)); }
+function tuyaHmac(testo, chiave) { return tuyaHex(Utilities.computeHmacSha256Signature(testo, chiave, Utilities.Charset.UTF_8)).toUpperCase(); }
+
+// firma Tuya: HMAC-SHA256(client_id + access_token + t + nonce + stringToSign, secret) in maiuscolo,
+// stringToSign = METODO \n sha256(corpo) \n (intestazioni firmate: nessuna) \n url con la query in ordine alfabetico
+function tuyaFirma(c, token, t, metodo, url, corpo) {
+  var sts = metodo + '\n' + tuyaSha256(corpo) + '\n\n' + url;
+  return tuyaHmac(c.id + (token || '') + t + sts, c.secret);
+}
+
+function tuyaErrore(j) {
+  var codice = j && j.code, msg = (j && j.msg) || 'errore sconosciuto';
+  var spiegazioni = {
+    1004: 'Firma non valida: controlla l\'Access Secret',
+    1010: 'Token scaduto, riprova',
+    1011: 'Token non valido, riprova',
+    1106: 'Permesso negato: collega l\'account Smart Life/Tuya Smart al progetto (Devices → Link App Account) e controlla il data center',
+    1108: 'Data center sbagliato: scegli quello del tuo account (per l\'Italia di solito Europa centrale)',
+    2009: 'Il progetto non può usare questa funzione: aggiungi il servizio "IoT Core" (Service API)',
+    2017: 'Scena non trovata',
+    2008: 'Comando non supportato da questo dispositivo',
+    28841101: 'Il periodo di prova di Tuya è scaduto: rinnovalo su iot.tuya.com → Cloud → Cloud Services → IoT Core → Extend Trial Period',
+    28841105: 'Il progetto non è autorizzato: aggiungi il servizio "IoT Core" oppure rinnova la prova',
+    28841002: 'Il periodo di prova di Tuya è scaduto: rinnovalo su iot.tuya.com'
+  };
+  return (spiegazioni[codice] ? spiegazioni[codice] + ' (' : 'Tuya: ' + msg + ' (') + 'codice ' + codice + ')';
+}
+
+function tuyaToken(forza) {
+  var cache = CacheService.getScriptCache();
+  if (!forza) { var t0 = cache.get('tuya_token'); if (t0) return t0; }
+  var r = tuyaChiama('GET', '/v1.0/token', { grant_type: 1 }, null, true);
+  var durata = Math.max(60, Math.min(21600, (r.expire_time || 7200) - 120));
+  cache.put('tuya_token', r.access_token, durata);
+  return r.access_token;
+}
+
+function tuyaChiama(metodo, percorso, query, corpo, perToken, giaRiprovato) {
+  var c = tuyaConf();
+  if (!c.id || !c.secret) throw new Error('TUYA_NON_CONFIGURATO');
+  var q = query ? Object.keys(query).sort().filter(function (k) { return query[k] !== '' && query[k] != null; }).map(function (k) { return k + '=' + query[k]; }).join('&') : '';
+  var url = percorso + (q ? '?' + q : '');
+  var body = corpo ? JSON.stringify(corpo) : '';
+  var token = perToken ? '' : tuyaToken();
+  var t = String(Date.now());
+  var intest = { client_id: c.id, sign: tuyaFirma(c, token, t, metodo, url, body), t: t, sign_method: 'HMAC-SHA256', lang: 'it' };
+  if (token) intest.access_token = token;
+  var opz = { method: metodo.toLowerCase(), headers: intest, muteHttpExceptions: true, contentType: 'application/json' };
+  if (body) opz.payload = body;
+  var risp = UrlFetchApp.fetch(c.base + url, opz), j;
+  try { j = JSON.parse(risp.getContentText()); } catch (e) { throw new Error('Risposta non valida da Tuya (' + risp.getResponseCode() + ')'); }
+  if (!j.success) {
+    if (!perToken && !giaRiprovato && (j.code === 1010 || j.code === 1011)) { CacheService.getScriptCache().remove('tuya_token'); return tuyaChiama(metodo, percorso, query, corpo, false, true); }
+    throw new Error(tuyaErrore(j));
+  }
+  return j.result;
+}
+
+// specifiche di un dispositivo (funzioni e intervalli dei valori), tenute in cache 6 ore
+function tuyaSpec(id) {
+  var cache = CacheService.getScriptCache(), k = 'tuya_spec_' + id, v = cache.get(k);
+  if (v) return JSON.parse(v);
+  var r = {};
+  try { r = tuyaChiama('GET', '/v1.0/iot-03/devices/' + id + '/specification') || {}; } catch (e) { r = {}; }
+  var fun = {};
+  (r.functions || []).concat(r.status || []).forEach(function (f) {
+    if (fun[f.code]) return;
+    var val = {}; try { val = typeof f.values === 'string' ? JSON.parse(f.values) : (f.values || {}); } catch (e) { val = {}; }
+    fun[f.code] = { tipo: f.type, valori: val };
+  });
+  cache.put(k, JSON.stringify(fun), 21600);
+  return fun;
+}
+function tuyaPrimo(spec, stato, codici) { for (var i = 0; i < codici.length; i++) if (spec[codici[i]] || (stato && codici[i] in stato)) return codici[i]; return ''; }
+function tuyaIntervallo(spec, codice, min, max) { var v = (spec[codice] || {}).valori || {}; return { min: v.min != null ? +v.min : min, max: v.max != null ? +v.max : max }; }
+function tuyaPct(v, r) { return Math.max(0, Math.min(100, Math.round((+v - r.min) * 100 / ((r.max - r.min) || 1)))); }
+function tuyaDaPct(p, r) { return Math.round(r.min + (Math.max(0, Math.min(100, +p)) / 100) * (r.max - r.min)); }
+
+// trasforma stato e specifiche Tuya in una luce semplice per l'app (percentuali)
+function tuyaLuce(dev, statoLista) {
+  var stato = {};
+  (statoLista || dev.status || []).forEach(function (x) { stato[x.code] = x.value; });
+  var spec = tuyaSpec(dev.id);
+  var sw = tuyaPrimo(spec, stato, ['switch_led', 'switch_1', 'switch']);
+  var br = tuyaPrimo(spec, stato, ['bright_value_v2', 'bright_value', 'bright_value_1']);
+  var tp = tuyaPrimo(spec, stato, ['temp_value_v2', 'temp_value']);
+  var co = tuyaPrimo(spec, stato, ['colour_data_v2', 'colour_data']);
+  var rBr = tuyaIntervallo(spec, br, br === 'bright_value' ? 25 : 10, br === 'bright_value' ? 255 : 1000);
+  var rTp = tuyaIntervallo(spec, tp, 0, tp === 'temp_value' ? 255 : 1000);
+  var maxCol = co === 'colour_data' ? 255 : 1000, col = null;
+  if (co && stato[co]) { try { col = typeof stato[co] === 'string' ? JSON.parse(stato[co]) : stato[co]; } catch (e) { col = null; } }
+  var modo = stato.work_mode || 'white';
+  var luce = {
+    id: dev.id, nome: dev.name || 'Luce', categoria: dev.category || '', online: dev.online !== false,
+    acceso: sw ? !!stato[sw] : null, modo: modo,
+    ha: { interruttore: !!sw, luminosita: !!br, temperatura: !!tp, colore: !!co },
+    luminosita: br && stato[br] != null ? tuyaPct(stato[br], rBr) : null,
+    temperatura: tp && stato[tp] != null ? tuyaPct(stato[tp], rTp) : null,
+    colore: col ? { h: +col.h || 0, s: Math.round((+col.s || 0) * 100 / maxCol), v: Math.round((+col.v || 0) * 100 / maxCol) } : null,
+    uid: dev.uid || ''
+  };
+  if (modo === 'colour' && luce.colore) luce.luminosita = luce.colore.v;
+  return luce;
+}
+
+function tuyaDispositivi() {
+  var out = [], chiave = '', giri = 0;
+  do {
+    var r = tuyaChiama('GET', '/v1.0/iot-01/associated-users/devices', { last_row_key: chiave, size: 100 }) || {};
+    out = out.concat(r.devices || r.list || []);
+    chiave = r.last_row_key || '';
+    if (!r.has_more) break;
+  } while (chiave && ++giri < 10);
+  return out;
+}
+function eLuce(dev) {
+  if (TUYA_CATEGORIE_LUCI.indexOf(dev.category) >= 0) return true;
+  return (dev.status || []).some(function (x) { return /^(switch_led|bright_value|colour_data)/.test(x.code); });
+}
+
+function tuyaScene(uid) {
+  var scene = [];
+  if (!uid) return scene;
+  var case_ = [];
+  try { case_ = tuyaChiama('GET', '/v1.0/users/' + uid + '/homes') || []; } catch (e) { return scene; }
+  case_.forEach(function (h) {
+    var idCasa = h.home_id || h.id;
+    var l = [];
+    try { l = tuyaChiama('GET', '/v1.1/homes/' + idCasa + '/scenes') || []; } catch (e) { l = []; }
+    l.forEach(function (sc) { scene.push({ id: sc.scene_id || sc.id, nome: sc.name || 'Scena', casa: String(idCasa), nomeCasa: h.name || '' }); });
+  });
+  return scene;
+}
+
+function luciElenco() {
+  if (!tuyaConfigurato()) return { ok: true, configurato: false, regione: tuyaConf().regione };
+  var dev = tuyaDispositivi();
+  var luci = dev.filter(eLuce).map(function (d) { return tuyaLuce(d); });
+  var uid = (dev[0] || {}).uid || '';
+  return { ok: true, configurato: true, regione: tuyaConf().regione, luci: luci, altri: dev.length - luci.length, scene: tuyaScene(uid) };
+}
+
+function luceStato(id) {
+  var info = tuyaChiama('GET', '/v1.0/iot-03/devices/' + id) || { id: id };
+  var st = tuyaChiama('GET', '/v1.0/iot-03/devices/' + id + '/status') || [];
+  return tuyaLuce({ id: id, name: info.name, category: info.category, online: info.online, uid: info.uid }, st);
+}
+
+// req: { id, acceso?, luminosita? (0-100), temperatura? (0-100), colore? { h 0-360, s 0-100 } }
+function luceComando(req) {
+  if (!req.id) throw new Error('Manca la luce');
+  var attuale = luceStato(req.id), spec = tuyaSpec(req.id), cmd = [];
+  var stato = {};
+  var sw = tuyaPrimo(spec, null, ['switch_led', 'switch_1', 'switch']);
+  var br = tuyaPrimo(spec, null, ['bright_value_v2', 'bright_value', 'bright_value_1']);
+  var tp = tuyaPrimo(spec, null, ['temp_value_v2', 'temp_value']);
+  var co = tuyaPrimo(spec, null, ['colour_data_v2', 'colour_data']);
+  var maxCol = co === 'colour_data' ? 255 : 1000;
+  if (req.acceso !== undefined && sw) cmd.push({ code: sw, value: !!req.acceso });
+  if (req.colore && co) {
+    var v = attuale.colore && attuale.colore.v ? attuale.colore.v : (attuale.luminosita || 100);
+    if (req.luminosita != null) v = +req.luminosita;
+    cmd.push({ code: 'work_mode', value: 'colour' });
+    cmd.push({ code: co, value: { h: Math.round(+req.colore.h) % 361, s: Math.round(+req.colore.s * maxCol / 100), v: Math.max(Math.round(maxCol / 100), Math.round(v * maxCol / 100)) } });
+    if (sw && req.acceso === undefined) cmd.push({ code: sw, value: true });
+  } else {
+    if (req.temperatura != null && tp) {
+      if (spec.work_mode) cmd.push({ code: 'work_mode', value: 'white' });
+      cmd.push({ code: tp, value: tuyaDaPct(req.temperatura, tuyaIntervallo(spec, tp, 0, tp === 'temp_value' ? 255 : 1000)) });
+    }
+    if (req.luminosita != null) {
+      if (attuale.modo === 'colour' && co && attuale.colore && req.temperatura == null) {
+        cmd.push({ code: co, value: { h: attuale.colore.h, s: Math.round(attuale.colore.s * maxCol / 100), v: Math.max(Math.round(maxCol / 100), Math.round(+req.luminosita * maxCol / 100)) } });
+      } else if (br) {
+        cmd.push({ code: br, value: tuyaDaPct(Math.max(1, +req.luminosita), tuyaIntervallo(spec, br, br === 'bright_value' ? 25 : 10, br === 'bright_value' ? 255 : 1000)) });
+      }
+    }
+    if ((req.temperatura != null || req.luminosita != null) && sw && req.acceso === undefined) cmd.push({ code: sw, value: true });
+  }
+  if (!cmd.length) throw new Error('Questa luce non supporta il comando');
+  tuyaChiama('POST', '/v1.0/iot-03/devices/' + req.id + '/commands', null, { commands: cmd });
+  Utilities.sleep(700);
+  var dopo; try { dopo = luceStato(req.id); } catch (e) { dopo = attuale; }
+  return { ok: true, luce: dopo };
+}
+
+function scenaAvvia(req) {
+  if (!req.casa || !req.scena) throw new Error('Manca la scena');
+  tuyaChiama('POST', '/v1.0/homes/' + req.casa + '/scenes/' + req.scena + '/trigger', null, {});
+  return { ok: true };
+}
+
+// Da eseguire a mano nell'editor: dice se le chiavi funzionano e cosa vede
+function verificaTuya() {
+  var c = tuyaConf();
+  if (!c.id || !c.secret) { Logger.log('❌ Mancano le chiavi: aggiungi TUYA_ID e TUYA_SECRET (Access ID e Access Secret del progetto cloud) nelle proprietà script, oppure inseriscile dall\'app (💡 Luci → ⚙).'); return; }
+  Logger.log('Data center: ' + c.regione + ' (' + c.base + ')');
+  try { tuyaToken(true); Logger.log('✅ Chiavi valide: token ottenuto'); }
+  catch (e) { Logger.log('❌ Chiavi non valide o data center sbagliato: ' + e.message); return; }
+  var dev;
+  try { dev = tuyaDispositivi(); }
+  catch (e) { Logger.log('❌ Elenco dispositivi non disponibile: ' + e.message + '\n   Controlla: servizio "IoT Core" attivo, account Smart Life/Tuya Smart collegato (Devices → Link App Account), periodo di prova non scaduto.'); return; }
+  if (!dev.length) { Logger.log('⚠ Nessun dispositivo: collega l\'account dell\'app al progetto (Devices → Link App Account → inquadra il QR con Smart Life o Tuya Smart) e controlla che il data center del progetto sia quello dell\'account.'); return; }
+  var luci = dev.filter(eLuce);
+  Logger.log('✅ ' + dev.length + ' dispositivi, di cui ' + luci.length + ' luci/prese:');
+  luci.forEach(function (d) { var l = tuyaLuce(d); Logger.log('  💡 ' + l.nome + ' [' + l.categoria + '] ' + (l.online ? 'online' : 'OFFLINE') + ' · ' + (l.acceso ? 'accesa' : 'spenta') + (l.luminosita != null ? ' · ' + l.luminosita + '%' : '')); });
+  var sc = tuyaScene((dev[0] || {}).uid);
+  Logger.log(sc.length ? '✅ Scene Tap-to-Run: ' + sc.map(function (x) { return x.nome; }).join(', ') : 'ℹ Nessuna scena Tap-to-Run trovata (o non accessibile).');
+}
+
+
 // ===== Logica condivisa (copia di js/core.js) =====
 /* Casa — logica condivisa (browser, app Android e Google Apps Script).
    Nessuna dipendenza, nessun DOM: solo date, ricorrenze e calendario rifiuti. */
@@ -586,6 +835,9 @@ var Casa = (function () {
 
   var TIPI = {
     appuntamento: { nome: 'Appuntamento', plurale: 'Appuntamenti' },
+    spesa:        { nome: 'Spesa',        plurale: 'Spesa' },
+    nota:         { nome: 'Nota',         plurale: 'Note' },
+    carta:        { nome: 'Carta',        plurale: 'Carte' },
     pagamento:    { nome: 'Pagamento',    plurale: 'Pagamenti' },
     scadenza:     { nome: 'Scadenza',     plurale: 'Scadenze' },
     promemoria:   { nome: 'Promemoria',   plurale: 'Promemoria' },
@@ -767,7 +1019,11 @@ var Casa = (function () {
     smonto:        { nome: 'Smonto',        breve: 'S', colore: '#8C96A8', lavoro: false },
     riposo:        { nome: 'Riposo',        breve: 'R', colore: '#9AA59C', lavoro: false },
     salto:         { nome: 'Salto turno',   breve: 'X', colore: '#C2338F', lavoro: false },
-    ferie:         { nome: 'Ferie',         breve: 'F', colore: '#4BA3C7', lavoro: false },
+    ferie:         { nome: 'Ferie',         breve: 'F', colore: '#4BA3C7', lavoro: false, assenza: true },
+    permesso:      { nome: 'Permesso',      breve: 'P', colore: '#5B8FB9', lavoro: false, assenza: true },
+    malattia:      { nome: 'Malattia',      breve: 'MAL', colore: '#B0413E', lavoro: false, assenza: true },
+    recupero:      { nome: 'Recupero',      breve: 'REC', colore: '#7FA37A', lavoro: false, assenza: true },
+    congedo:       { nome: 'Congedo',       breve: 'CON', colore: '#8E7CC3', lavoro: false, assenza: true },
     straordinario: { nome: 'Straordinario', breve: '+', colore: '#B5452F', lavoro: true },
     addestramento: { nome: 'Addestramento', breve: 'ADD', colore: '#5E8C31', lavoro: true },
     corso:         { nome: 'Corso',         breve: 'CRS', colore: '#7D4FA8', lavoro: true },
@@ -940,7 +1196,18 @@ var Casa = (function () {
   function nuovoId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
   function euro(n) { return '€ ' + Number(n || 0).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 
+  // opzioni di un menu a tendina: la lista, il valore salvato (anche se personalizzato) e la voce «Personalizzato»
+  function opzioni(lista, selezionato, vuota) {
+    var l = (lista || []).slice(), h = vuota != null ? '<option value="">' + escHtml(vuota) + '</option>' : '';
+    if (selezionato === '__pers__') selezionato = '';
+    if (selezionato && l.indexOf(selezionato) < 0) l.push(selezionato);
+    h += l.map(function (x) { return '<option value="' + escHtml(x) + '"' + (x === selezionato ? ' selected' : '') + '>' + escHtml(x) + '</option>'; }).join('');
+    return h + '<option value="__pers__">Personalizzato</option>';
+  }
+  function escHtml(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
   return {
+    opzioni: opzioni,
     GIORNI: GIORNI, GIORNI_LUNGHI: GIORNI_LUNGHI, MESI: MESI, FRAZIONI: FRAZIONI, TIPI: TIPI, TIPI_BASE: TIPI_BASE, UNITA: UNITA, UNITA_RIPETI: UNITA_RIPETI, UNITA_AVVISO: UNITA_AVVISO,
     STATI_TURNO: STATI_TURNO, turnoDel: turnoDel, testoTurno: testoTurno, turniDelGiorno: turniDelGiorno, servizioDel: servizioDel,
     leggiDurata: leggiDurata, testoDurata: testoDurata, nomeRipeti: nomeRipeti, volteAnno: volteAnno, anticipoMinuti: anticipoMinuti,

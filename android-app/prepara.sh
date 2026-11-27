@@ -71,6 +71,12 @@ if 'CasaWidget' not in s:
         <activity android:name=".SvegliaSchermo" android:exported="false" android:showWhenLocked="true" android:turnScreenOn="true"
             android:excludeFromRecents="true" android:taskAffinity="" android:launchMode="singleInstance"
             android:theme="@android:style/Theme.DeviceDefault.NoActionBar" />
+        <receiver android:name=".LuciWidget" android:exported="false" android:label="A&amp;C Luci">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_luci_info" />
+        </receiver>
         <service android:name=".FotoWidgetService" android:exported="false" android:permission="android.permission.BIND_REMOTEVIEWS" />
     </application>'''
     s = s.replace('</application>', ricevitore, 1)

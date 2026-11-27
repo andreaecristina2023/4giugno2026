@@ -587,3 +587,33 @@ a.contatto[data-naviga-lat], a.contatto[data-naviga-q] { text-decoration: none; 
 #form-prezzo fieldset .aiuto { display: block; margin-top: 0; color: var(--muschio); font-size: 14px; font-weight: 400; }
 .sc-sveglia { background: none; border: 0; padding: 0; margin: 6px 0 0; font-weight: 700; color: var(--ardesia); font-size: 14px; cursor: pointer; text-align: left; }
 .sv-volo-rapide { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* ---------- 💡 luci ---------- */
+.luci-azioni { margin: -6px 0 14px; }
+.luci-griglia { display: grid; gap: 12px; }
+.luce-card { background: var(--superficie); border: 1px solid var(--confine); border-left: 6px solid var(--luce); border-radius: 16px; padding: 12px 14px; display: grid; gap: 10px; }
+.luce-card.offline { opacity: .6; }
+.luce-testa { display: grid; grid-template-columns: 36px minmax(0, 1fr) 36px auto; gap: 10px; align-items: center; }
+.luce-lampadina { font-size: 26px; text-align: center; filter: grayscale(1) opacity(.5); }
+.luce-card.accesa .luce-lampadina { filter: drop-shadow(0 0 6px var(--luce)); }
+.luce-nome { display: grid; min-width: 0; }
+.luce-nome b { font-family: var(--titolo); font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.luce-nome small { color: var(--muschio); font-size: 13px; }
+.luce-stella { background: none; border: 0; font-size: 22px; color: var(--albana); cursor: pointer; padding: 4px; }
+.interruttore { width: 56px; height: 32px; border-radius: 999px; border: 0; background: var(--confine); position: relative; cursor: pointer; padding: 0; }
+.interruttore span { position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: left .15s; }
+.interruttore[aria-checked="true"] { background: var(--ok); }
+.interruttore[aria-checked="true"] span { left: 27px; }
+.luce-riga { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 8px; align-items: center; font-size: 18px; }
+.luce-riga.luce-temp { grid-template-columns: 26px minmax(0, 1fr) 22px; }
+.luce-riga input[type=range] { width: 100%; accent-color: var(--albana); }
+.luce-tonalita input[type=range] { -webkit-appearance: none; appearance: none; height: 14px; border-radius: 999px; background: linear-gradient(90deg, hsl(0,90%,55%), hsl(60,90%,55%), hsl(120,90%,45%), hsl(180,90%,45%), hsl(240,90%,60%), hsl(300,90%,55%), hsl(360,90%,55%)); }
+.luce-temp input[type=range] { -webkit-appearance: none; appearance: none; height: 14px; border-radius: 999px; background: linear-gradient(90deg, #FFB46B, #FFF4E0, #CFE3FF); }
+.luce-tonalita input[type=range]::-webkit-slider-thumb, .luce-temp input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; background: #fff; border: 2px solid var(--inchiostro); }
+.luce-preset { display: flex; gap: 8px; flex-wrap: wrap; padding-left: 34px; }
+.luce-preset button { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--superficie); box-shadow: 0 0 0 1px var(--confine); background: hsl(var(--h), 90%, 55%); cursor: pointer; }
+.luce-preset .preset-bianco { background: #FFF6E5; color: #8a7a55; font-weight: 700; font-size: 12px; }
+.luci-scene { display: grid; gap: 8px; }
+.scena-riga { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.scena-riga .btn { flex: 1; justify-content: flex-start; }
+.guida-tuya .passi li { margin-bottom: 4px; }

@@ -17,6 +17,7 @@ Sito e app Android per la casa di Fratta Terme: bidoni della raccolta Alea, paga
 | Concerti | Data, ora, cantante, luogo, prezzo e biglietti digitali (PDF o foto) da aprire anche senza rete |
 | Album | Foto di casa (carosello di foto a caso che scorre da solo + griglia per mese di scatto letto dai metadati EXIF, presentazione a schermo intero), salvate nel Google Drive (cartella "A&C Album") |
 | Modi (🔔 in alto, solo app) | Modi audio Normale, Moto, Lavoro, Notte, Silenzioso, Solo musica e personalizzati; rotazione schermo; sveglie; per Andrea modo automatico nei turni, VPN FortiClient e DNS privato |
+| Luci (💡, dal tasto dei modi) | Luci e prese Tuya / Smart Life: accendi, luminosità, bianco, colore, scene; widget "A&C Luci" |
 | Impostazioni (⚙ in alto) | Chi usa il telefono, casa, collegamento al foglio, QR code per l'altro telefono, notifiche, backup; in fondo le **aree personali** di Andrea e Cristina: dati (telefono, nascita, email, codice fiscale), documenti e **file e PDF** (curriculum, certificati, attestati, contratti…) salvati nel Drive (cartella "A&C Allegati") |
 
 Le festività seguono le regole dell'Eco-Calendario Alea: un ritiro che cade di festa si sposta al sabato prima (lun–mer) o al sabato dopo (gio–ven); se cade di sabato salta. Pasquetta è calcolata in automatico. Per i casi particolari annunciati da Alea c'è "Aggiungi una variazione".
@@ -101,6 +102,24 @@ Viaggi → in fondo **Monitora prezzi** → "+ Monitora un volo" (oppure "📉 M
 ## Sveglia per il volo e icona aereo
 
 Ogni volo ha il tasto **⏰ Sveglia**: propone 3 ore prima della partenza (tasti 2, 3, 4, 5 ore prima, oppure giorno e ora a mano). Suona in A&C come le sveglie del turnario (stesso suono scelto in Modi → Sveglie, schermata Spegni / Posticipa anche a telefono bloccato), anche ad app chiusa. Vale solo per il telefono su cui la imposti; dopo il tocco il tasto mostra giorno e ora. Le notifiche dei voli (3 ore prima) e delle partenze hanno l'icona dell'aereo al posto della casetta; nel widget A&C i voli hanno ✈.
+
+## 💡 Luci (Tuya / Smart Life)
+
+Dal tasto dei modi (🔈 in alto) → **💡 Luci → Apri**: una scheda per ogni luce o presa dell'account Smart Life / Tuya Smart con interruttore, luminosità, bianco caldo/freddo, colore (barra della tonalità e colori pronti, "B" = torna al bianco) e stato (non raggiungibile se offline); sotto le scene **Tap-to-Run** con ▶. Funziona anche dal browser. Le luci passano dallo script del foglio di casa, che parla con il cloud Tuya: le chiavi Tuya stanno solo nello script.
+
+**Widget "A&C Luci"** (tieni premuto sulla home → Widget → A&C Luci): fino a 6 luci (quelle con ★ nella pagina Luci, altrimenti le prime 6): un tocco accende o spegne, giallo se accesa, ⚠ se non raggiungibile; sotto la scena con ★ e ⚙ per aprire A&C. Lo stato si riallinea ogni mezz'ora e dopo ogni tocco.
+
+**Configurazione (una volta, dal computer):**
+
+1. Vai su [iot.tuya.com](https://iot.tuya.com) e crea un account sviluppatore (gratuito).
+2. **Cloud → Development → Create Cloud Project**: nome "A&C", Industry *Smart Home*, Development Method *Smart Home*, Data Center **Central Europe**. Nella pagina dei servizi lascia **IoT Core** (con Authorization e Smart Home Scene Linkage) e conferma.
+3. Nel progetto: **Devices → Link App Account → Add App Account**: compare un QR. Nell'app **Smart Life** o **Tuya Smart**: Io/Profilo → icona di scansione in alto → inquadra il QR e conferma. I dispositivi compaiono nella scheda Devices.
+4. Nel progetto: **Overview** → copia **Access ID** e **Access Secret**.
+5. Aggiorna lo script (sezione "Aggiornare lo script": incolla il nuovo `Casa.gs`, esegui `setup`, nuova versione del deployment).
+6. In A&C: **💡 Luci → ⚙ Collegamento Tuya** → incolla Access ID e Access Secret, data center Europa centrale → **Salva e prova**. In alternativa mettile a mano nelle proprietà script `TUYA_ID`, `TUYA_SECRET` (e `TUYA_REGIONE`: `eu`, `weu`, `us`, `ueaz`, `in`, `cn`).
+7. Se qualcosa non va: nell'editor dello script esegui **`verificaTuya`** e guarda il registro (dice se le chiavi sono giuste, quante luci vede, oppure cosa manca).
+
+La prova gratuita di Tuya (servizio IoT Core) dura un mese e va **rinnovata**: Cloud → Cloud Services → IoT Core → *Extend Trial Period* (modulo da compilare, di solito accettato in poche ore, fino a 6 mesi alla volta). Quando scade, A&C mostra il messaggio "periodo di prova scaduto".
 
 ## Naviga (Google Maps in auto)
 

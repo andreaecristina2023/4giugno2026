@@ -208,5 +208,13 @@ var Native = (function () {
     naviga(a.dataset.navigaQ ? { q: a.dataset.navigaQ } : { lat: a.dataset.navigaLat, lon: a.dataset.navigaLon });
   }, true);
 
-  return { isApp: isApp, audio: audio, naviga: naviga, linkNaviga: linkNaviga, urlNaviga: urlNaviga, permesso: permesso, aggiorna: aggiorna, notificaSubito: notificaSubito, creaCanale: creaCanale, aggiornaFoto: aggiornaFoto };
+  // widget "A&C Luci": { url, chiave, chi, luci: [{ id, nome, acceso, online, colore }], scena }
+  var luci = {
+    salvaWidget: function (dati) {
+      if (!AudioPl) return Promise.resolve();
+      return Prefs.set({ key: 'luci', value: JSON.stringify(dati) }).then(function () { return AudioPl.aggiornaLuci(); }).catch(function () {});
+    }
+  };
+
+  return { isApp: isApp, audio: audio, luci: luci, naviga: naviga, linkNaviga: linkNaviga, urlNaviga: urlNaviga, permesso: permesso, aggiorna: aggiorna, notificaSubito: notificaSubito, creaCanale: creaCanale, aggiornaFoto: aggiornaFoto };
 })();

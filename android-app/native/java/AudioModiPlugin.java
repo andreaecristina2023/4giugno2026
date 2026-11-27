@@ -242,6 +242,13 @@ public class AudioModiPlugin extends Plugin {
         } catch (Exception e) { call.reject("Impostazioni non disponibili"); }
     }
 
+    /** Il sito ha salvato le luci del widget: ridisegno "A&C Luci". */
+    @PluginMethod
+    public void aggiornaLuci(PluginCall call) {
+        LuciWidget.aggiornaTutti(getContext());
+        call.resolve();
+    }
+
     /** Il sito ha salvato modi o impostazioni: ridisegno il widget. */
     @PluginMethod
     public void aggiornaWidget(PluginCall call) {

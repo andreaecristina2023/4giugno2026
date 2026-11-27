@@ -1336,13 +1336,145 @@
     toast('Dati di ' + nome + ' salvati');
   });
 
+
+  // ---------- 💡 LUCI (Tuya / Smart Life tramite lo script del foglio) ----------
+  var luci = { dati: null, quando: 0, carico: false, errore: '' };
+  var REGIONI_TUYA = [['eu', 'Europa centrale (Italia)'], ['weu', 'Europa occidentale'], ['us', 'America occidentale'], ['ueaz', 'America orientale'], ['in', 'India'], ['cn', 'Cina']];
+  var PRESET_COLORI = [['Rosso', 0], ['Arancio', 30], ['Giallo', 55], ['Verde', 120], ['Azzurro', 190], ['Blu', 230], ['Viola', 275], ['Rosa', 320]];
+  function luciPreferite() { return leggiLocale('aec.luciPreferite', []); }
+  function scenaWidget() { return leggiLocale('aec.luciScena', null); }
+  function caricaLuci(forza) {
+    if (luci.carico || (!forza && luci.dati && Date.now() - luci.quando < 60000)) return Promise.resolve();
+    if (!Store.configurato()) { luci.errore = 'Collega prima il foglio di casa (Impostazioni → Condivisione tra i telefoni).'; return Promise.resolve(); }
+    luci.carico = true; luci.errore = '';
+    if (rotta() === 'luci') disegna();
+    return Store.chiama('luci_elenco').then(function (r) { luci.dati = r; luci.quando = Date.now(); datiWidgetLuci(); })
+      .catch(function (e) { luci.errore = e.message || 'Luci non disponibili'; })
+      .then(function () { luci.carico = false; if (rotta() === 'luci') disegna(); });
+  }
+  // dati per il widget "A&C Luci": indirizzo e chiave dello script, luci preferite (max 6) e una scena
+  function datiWidgetLuci() {
+    if (!Native.isApp || !luci.dati || !luci.dati.configurato) return;
+    var pref = luciPreferite(), tutte = luci.dati.luci || [];
+    var scelte = (pref.length ? pref.map(function (id) { return tutte.filter(function (l) { return l.id === id; })[0]; }).filter(Boolean) : tutte).slice(0, 6);
+    var conf = Store.conf();
+    Native.luci.salvaWidget({ url: conf.url, chiave: conf.chiave, chi: conf.chi || '', luci: scelte.map(function (l) { return { id: l.id, nome: l.nome, acceso: !!l.acceso, online: l.online !== false, colore: l.modo === 'colour' && l.colore ? l.colore.h : null }; }), scena: scenaWidget() });
+  }
+  function aggiornaLuce(nuova) {
+    if (!luci.dati || !nuova) return;
+    luci.dati.luci = (luci.dati.luci || []).map(function (l) { return l.id === nuova.id ? nuova : l; });
+    datiWidgetLuci();
+  }
+  function comandoLuce(id, cmd) {
+    var l = (luci.dati.luci || []).filter(function (x) { return x.id === id; })[0];
+    if (l) { Object.keys(cmd).forEach(function (k) { if (k !== 'colore') l[k] = cmd[k]; }); if (cmd.colore) { l.modo = 'colour'; l.colore = Object.assign({ v: l.luminosita || 100 }, cmd.colore); } if (cmd.temperatura != null) l.modo = 'white'; if (cmd.luminosita != null || cmd.colore || cmd.temperatura != null) l.acceso = true; }
+    disegna();
+    return Store.chiama('luce_comando', Object.assign({ id: id }, cmd)).then(function (r) { aggiornaLuce(r.luce); if (rotta() === 'luci') disegna(); })
+      .catch(function (e) { toast(e.message || 'Comando non riuscito'); caricaLuci(true); });
+  }
+  function cardLuce(l, pref) {
+    var preferita = pref.indexOf(l.id) >= 0, h = l.colore ? l.colore.h : 40;
+    var tinta = l.acceso ? (l.modo === 'colour' && l.colore ? 'hsl(' + l.colore.h + ',85%,58%)' : 'hsl(42,' + (100 - (l.temperatura == null ? 30 : l.temperatura)) + '%,65%)') : 'var(--confine)';
+    return '<div class="luce-card' + (l.acceso ? ' accesa' : '') + (l.online ? '' : ' offline') + '" style="--luce:' + tinta + '" data-luce="' + esc(l.id) + '">' +
+      '<div class="luce-testa"><span class="luce-lampadina" aria-hidden="true">💡</span><span class="luce-nome"><b>' + esc(l.nome) + '</b><small>' + (l.online ? (l.acceso ? 'Accesa' + (l.luminosita != null ? ' · ' + l.luminosita + '%' : '') : 'Spenta') : 'Non raggiungibile') + '</small></span>' +
+        '<button type="button" class="luce-stella" data-luce-preferita="' + esc(l.id) + '" aria-pressed="' + preferita + '" aria-label="' + (preferita ? 'Togli dal widget' : 'Metti nel widget') + '">' + (preferita ? '★' : '☆') + '</button>' +
+        (l.ha.interruttore ? '<button type="button" class="interruttore" data-luce-on="' + esc(l.id) + '" role="switch" aria-checked="' + !!l.acceso + '" aria-label="Accendi o spegni ' + esc(l.nome) + '"' + (l.online ? '' : ' disabled') + '><span></span></button>' : '') + '</div>' +
+      (l.ha.luminosita || l.ha.colore ? '<label class="luce-riga">🔆<input type="range" min="1" max="100" value="' + (l.luminosita || 50) + '" data-luce-lum="' + esc(l.id) + '" aria-label="Luminosità"' + (l.online ? '' : ' disabled') + '></label>' : '') +
+      (l.ha.temperatura ? '<label class="luce-riga luce-temp">🕯<input type="range" min="0" max="100" value="' + (l.temperatura == null ? 50 : l.temperatura) + '" data-luce-temp="' + esc(l.id) + '" aria-label="Bianco: caldo o freddo"' + (l.online ? '' : ' disabled') + '>❄</label>' : '') +
+      (l.ha.colore ? '<label class="luce-riga luce-tonalita">🎨<input type="range" min="0" max="360" value="' + h + '" data-luce-col="' + esc(l.id) + '" aria-label="Colore"' + (l.online ? '' : ' disabled') + '></label>' +
+        '<div class="luce-preset">' + PRESET_COLORI.map(function (c) { return '<button type="button" data-luce-preset="' + esc(l.id) + '" data-h="' + c[1] + '" style="--h:' + c[1] + '" aria-label="' + c[0] + '"' + (l.online ? '' : ' disabled') + '></button>'; }).join('') +
+        (l.ha.temperatura ? '<button type="button" class="preset-bianco" data-luce-bianco="' + esc(l.id) + '" aria-label="Bianco"' + (l.online ? '' : ' disabled') + '>B</button>' : '') + '</div>' : '') +
+      '</div>';
+  }
+  function vistaLuci() {
+    var d = luci.dati, h = testata('Luci', d && d.configurato ? (d.luci || []).filter(function (l) { return l.acceso; }).length + ' accese su ' + (d.luci || []).length : 'Tuya / Smart Life');
+    h += '<div class="azioni luci-azioni"><button type="button" class="btn secondario piccolo" data-luci-aggiorna>↻ Aggiorna</button><button type="button" class="btn secondario piccolo" data-luci-imposta>⚙ Collegamento Tuya</button></div>';
+    if (luci.carico && !d) h += '<div class="vuoto">Cerco le luci…</div>';
+    else if (luci.errore) h += '<div class="vuoto">' + esc(luci.errore) + (/Aggiorna lo script/.test(luci.errore) ? '<br><span class="testo-muto">Serve la nuova versione di Casa.gs (README → «Aggiornare lo script»).</span>' : '') + '</div>';
+    else if (d && !d.configurato) h += guidaTuya();
+    else if (d) {
+      var pref = luciPreferite(), lista = (d.luci || []).slice().sort(function (a, b) { return (pref.indexOf(a.id) < 0) - (pref.indexOf(b.id) < 0) || String(a.nome).localeCompare(String(b.nome)); });
+      h += lista.length ? '<div class="luci-griglia">' + lista.map(function (l) { return cardLuce(l, pref); }).join('') + '</div>' : '<div class="vuoto">Nessuna luce trovata nell\'account collegato' + (d.altri ? ' (' + d.altri + ' altri dispositivi)' : '') + '.</div>';
+      h += '<p class="testo-muto">☆ = nel widget «A&amp;C Luci» (massimo 6; se non ne scegli nessuna, ci vanno le prime 6).</p>';
+      var sw = scenaWidget();
+      h += '<h2>Scene <small>' + (d.scene || []).length + '</small></h2>' + ((d.scene || []).length ? '<div class="sezione luci-scene">' + d.scene.map(function (sc) {
+        var nel = sw && sw.scena === sc.id;
+        return '<div class="scena-riga"><button type="button" class="btn piccolo" data-scena="' + esc(sc.id) + '" data-casa="' + esc(sc.casa) + '">▶ ' + esc(sc.nome) + '</button><button type="button" class="luce-stella" data-scena-widget="' + esc(sc.id) + '" data-casa="' + esc(sc.casa) + '" data-nome="' + esc(sc.nome) + '" aria-pressed="' + !!nel + '" aria-label="' + (nel ? 'Togli dal widget' : 'Metti nel widget') + '">' + (nel ? '★' : '☆') + '</button></div>';
+      }).join('') + '</div>' : '<p class="testo-muto">Nessuna scena «Tap-to-Run» nell\'app Smart Life / Tuya Smart.</p>');
+    }
+    vista.innerHTML = h;
+    if (!luci.carico && !luci.errore && (!d || Date.now() - luci.quando > 60000)) caricaLuci();
+  }
+  function guidaTuya() {
+    return '<div class="sezione guida-tuya"><p><b>Collega le luci di Smart Life / Tuya Smart</b> (una volta sola, dal computer):</p><ol class="passi">' +
+      '<li>Vai su <b>iot.tuya.com</b> e crea un account sviluppatore gratuito (con la stessa email va bene).</li>' +
+      '<li><b>Cloud → Development → Create Cloud Project</b>: nome «A&amp;C», settore Smart Home, metodo <i>Smart Home</i>, data center <b>Central Europe</b>. Nella pagina dei servizi lascia <b>IoT Core</b> (più Authorization e Smart Home Scene Linkage).</li>' +
+      '<li>Nel progetto: <b>Devices → Link App Account → Add App Account</b>: compare un QR. Aprilo con l\'app <b>Smart Life</b> o <b>Tuya Smart</b> (Io/Profilo → icona di scansione in alto) e conferma.</li>' +
+      '<li>Nel progetto: <b>Overview</b>: copia <b>Access ID</b> e <b>Access Secret</b> e incollali qui con <b>⚙ Collegamento Tuya</b>.</li></ol>' +
+      '<p class="testo-muto">Le chiavi restano nello script del foglio di casa, non nel telefono. La prova gratuita di Tuya va rinnovata ogni tanto (Cloud → Cloud Services → IoT Core → Extend Trial Period): se le luci smettono di rispondere, il messaggio lo dirà.</p></div>';
+  }
+  function impostaTuya() {
+    var d = luci.dati || {};
+    foglio.classList.remove('visore');
+    foglio.innerHTML = '<form method="dialog" id="form-tuya"><div class="maniglia"></div><h3 id="foglio-titolo">Collegamento Tuya</h3><div class="campi">' +
+      '<label class="campo">Access ID<span class="aiuto">iot.tuya.com → Cloud → il progetto → Overview</span><input type="text" name="id" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="' + (d.configurato ? 'già inserito: lascia vuoto per non cambiarlo' : 'Es. 7xk3…') + '"></label>' +
+      '<label class="campo">Access Secret<input type="password" name="secret" autocomplete="off" placeholder="' + (d.configurato ? '•••• (già inserito)' : '') + '"></label>' +
+      '<label class="campo">Data center<select name="regione">' + REGIONI_TUYA.map(function (r) { return '<option value="' + r[0] + '"' + ((d.regione || 'eu') === r[0] ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('') + '</select></label>' +
+      '<p class="testo-muto">Le chiavi vanno allo script del foglio di casa e non tornano più al telefono.</p>' +
+      '<div class="azioni"><button class="btn" type="submit">Salva e prova</button><button class="btn secondario" type="button" data-chiudi>Annulla</button>' + (d.configurato ? '<button class="btn pericolo" type="button" data-scollega-tuya style="margin-left:auto">Scollega</button>' : '') + '</div></div></form>';
+    var f = $('#form-tuya', foglio);
+    $('[data-chiudi]', f).onclick = function () { foglio.close(); };
+    var sc = $('[data-scollega-tuya]', f);
+    if (sc) sc.onclick = function () { if (!confirm('Togliere le chiavi Tuya dallo script?')) return; Store.chiama('tuya_imposta', { id: '', secret: '' }).then(function () { foglio.close(); toast('Tuya scollegato'); caricaLuci(true); }).catch(function (e) { toast(e.message); }); };
+    f.onsubmit = function (e) {
+      e.preventDefault();
+      var req = { regione: f.regione.value };
+      if (f.id.value.trim()) req.id = f.id.value.trim();
+      if (f.secret.value.trim()) req.secret = f.secret.value.trim();
+      if (!d.configurato && (!req.id || !req.secret)) { toast('Servono Access ID e Access Secret'); return; }
+      toast('Provo le chiavi…');
+      Store.chiama('tuya_imposta', req).then(function () { foglio.close(); toast('Tuya collegato'); caricaLuci(true); })
+        .catch(function (err) { toast(err.message || 'Chiavi non valide'); });
+    };
+    foglio.showModal();
+  }
+  // gestori della pagina Luci
+  vista.addEventListener('click', function (e) {
+    if (rotta() !== 'luci') return;
+    var t = e.target.closest('button'); if (!t) return;
+    var d = t.dataset;
+    if (d.luciAggiorna !== undefined) caricaLuci(true);
+    else if (d.luciImposta !== undefined) impostaTuya();
+    else if (d.luceOn) { var l = luci.dati.luci.filter(function (x) { return x.id === d.luceOn; })[0]; comandoLuce(d.luceOn, { acceso: !(l && l.acceso) }); }
+    else if (d.lucePreset) comandoLuce(d.lucePreset, { colore: { h: +d.h, s: 100 } });
+    else if (d.luceBianco) { var lb = luci.dati.luci.filter(function (x) { return x.id === d.luceBianco; })[0]; comandoLuce(d.luceBianco, { temperatura: lb && lb.temperatura != null ? lb.temperatura : 50 }); }
+    else if (d.lucePreferita) {
+      var p = luciPreferite(), i = p.indexOf(d.lucePreferita);
+      if (i >= 0) p.splice(i, 1); else { if (p.length >= 6) { toast('Nel widget ci stanno 6 luci'); return; } p.push(d.lucePreferita); }
+      scriviLocale('aec.luciPreferite', p); datiWidgetLuci(); disegna();
+    }
+    else if (d.scena) { t.disabled = true; Store.chiama('scena_avvia', { casa: d.casa, scena: d.scena }).then(function () { toast('Scena avviata'); setTimeout(function () { caricaLuci(true); }, 1500); }).catch(function (err) { toast(err.message); t.disabled = false; }); }
+    else if (d.scenaWidget) {
+      var sw = scenaWidget();
+      scriviLocale('aec.luciScena', sw && sw.scena === d.scenaWidget ? null : { casa: d.casa, scena: d.scenaWidget, nome: d.nome });
+      datiWidgetLuci(); disegna();
+    }
+  });
+  vista.addEventListener('change', function (e) {
+    if (rotta() !== 'luci') return;
+    var t = e.target, d = t.dataset;
+    if (d.luceLum) comandoLuce(d.luceLum, { luminosita: +t.value });
+    else if (d.luceTemp) comandoLuce(d.luceTemp, { temperatura: +t.value });
+    else if (d.luceCol) comandoLuce(d.luceCol, { colore: { h: +t.value, s: 100 } });
+  });
+
   // ---------- routing e eventi ----------
-  var VISTE = { wallet: vistaWallet, lista: vistaLista, oggi: vistaOggi, calendario: vistaCalendario, conti: vistaConti, rifiuti: vistaRifiuti, viaggi: vistaViaggi, viaggio: vistaViaggio, concerti: vistaConcerti, archivio: vistaArchivio, album: vistaAlbum, altro: vistaAltro };
+  var VISTE = { wallet: vistaWallet, lista: vistaLista, oggi: vistaOggi, calendario: vistaCalendario, conti: vistaConti, rifiuti: vistaRifiuti, viaggi: vistaViaggi, viaggio: vistaViaggio, concerti: vistaConcerti, archivio: vistaArchivio, album: vistaAlbum, altro: vistaAltro, luci: vistaLuci };
   function rotta() { var r = location.hash.replace('#', '').split('/')[0]; return VISTE[r] ? r : 'oggi'; }
   function disegna() {
     var r = rotta(), y = window.scrollY;
     VISTE[r]();
-    $('#fab').style.display = (r === 'altro' || r === 'album' || r === 'viaggio') ? 'none' : '';
+    $('#fab').style.display = (r === 'altro' || r === 'album' || r === 'viaggio' || r === 'luci') ? 'none' : '';
     var rNav = r === 'viaggio' ? 'viaggi' : r;
     document.querySelectorAll('nav.barra-nav a').forEach(function (a) { if (a.dataset.r === rNav) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
     window.scrollTo(0, y);
@@ -1766,6 +1898,7 @@
       }).join('') + '</ul>' +
       '<div class="rotazione-rapida"><span><b>Rotazione schermo</b><span class="testo-muto" id="rot-stato">…</span></span>' +
       '<span class="tipi due-tasti" role="group" aria-label="Rotazione schermo"><button type="button" data-rot="auto" style="--c:var(--ardesia)">Automatica</button><button type="button" data-rot="bloccata" style="--c:var(--ardesia)">Bloccata</button></span></div>' +
+      '<div class="rotazione-rapida"><span><b>💡 Luci</b><span class="testo-muto">Tuya / Smart Life</span></span><a class="btn piccolo" href="#luci" data-vai-luci>Apri</a></div>' +
       '<div class="rotazione-rapida"><span><b>⏰ Sveglie</b><span class="testo-muto">' + esc(riassuntoSveglie()) + '</span></span><button type="button" class="btn piccolo" data-sveglie>Imposta</button></div>' +
       (isAndrea() ? (function () {
         var ta = turnoAuto(), opz = function (sel, extra) { return extra + lista.map(function (m) { return '<option value="' + esc(m.id) + '"' + (m.id === sel ? ' selected' : '') + '>' + esc(m.icona + ' ' + m.nome) + '</option>'; }).join(''); };
@@ -1796,6 +1929,7 @@
     }
     Native.audio.stato().then(function (st) { segnaRot(st.rotazione); segnaRete(st); if (st.dnsHost && !dnsHost() && $('[name=dnshost]', f)) $('[name=dnshost]', f).value = st.dnsHost; }).catch(function () { segnaRot(''); });
     $('[data-sveglie]', f).onclick = function () { apriSveglie(); };
+    var vl = $('[data-vai-luci]', f); if (vl) vl.onclick = function () { foglio.close(); };
     function salvaTurnoAuto(cambi) {
       var ta = Object.assign(turnoAuto(), cambi); scriviLocale('aec.turnoAuto', ta);
       return programmaTurnoAuto(true);
