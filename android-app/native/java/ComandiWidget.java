@@ -108,8 +108,9 @@ public class ComandiWidget extends AppWidgetProvider {
         }
 
         boolean andrea = conf.optBoolean("andrea", false);
-        v.setViewVisibility(R.id.c_vpn, andrea ? View.VISIBLE : View.GONE);
-        v.setViewVisibility(R.id.c_dns, andrea ? View.VISIBLE : View.GONE);
+        // VPN solo sul telefono di Andrea (altrove resta lo spazio vuoto); DNS per tutti
+        v.setViewVisibility(R.id.c_vpn, andrea ? View.VISIBLE : View.INVISIBLE);
+        v.setViewVisibility(R.id.c_dns, View.VISIBLE);
         if (andrea) {
             boolean vpn = ComandiTelefono.vpnAttiva(c);
             v.setTextViewText(R.id.c_vpn_t, vpn ? "VPN attiva" : "VPN spenta");
@@ -118,6 +119,8 @@ public class ComandiWidget extends AppWidgetProvider {
             Intent vi = new Intent(c, ModiPopup.class).putExtra("vpn", true);
             vi.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             v.setOnClickPendingIntent(R.id.c_vpn, PendingIntent.getActivity(c, 111, vi, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+        }
+        {
             boolean dns = "host".equals(ComandiTelefono.dnsModo(c));
             boolean pausa = !ComandiTelefono.prefs(c).getString("dnsDaRipristinare", "").isEmpty();
             v.setTextViewText(R.id.c_dns_t, dns ? "DNS attivo" : pausa ? "DNS in pausa" : "DNS disattivato");

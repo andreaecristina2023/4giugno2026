@@ -1902,7 +1902,7 @@
   // a meno che non sia in pausa per la VPN o spento a mano (dall'app o dal widget)
   function dnsDiDefault(st) {
     var host = dnsHost() || st.dnsHost || '';
-    if (!isAndrea() || !host || !st.permessoDns || st.vpn || st.dnsInPausa || st.dnsManualeOff || st.dnsModo === 'host') return;
+    if (!host || !st.permessoDns || st.vpn || st.dnsInPausa || st.dnsManualeOff || st.dnsModo === 'host') return;
     if (!dnsHost()) scriviLocale('aec.dnsHost', host);
     Native.audio.dns('host', host).then(function () { toast('DNS privato attivo: ' + host); }).catch(function () {});
   }
@@ -1990,8 +1990,8 @@
           '<span class="tipi due-tasti" role="group" aria-label="Modo automatico nei turni"><button type="button" data-tauto="1" style="--c:var(--sangiovese)" aria-pressed="' + ta.attivo + '">Sì</button><button type="button" data-tauto="0" style="--c:var(--sangiovese)" aria-pressed="' + !ta.attivo + '">No</button></span>' +
           '<div class="due"><label class="campo">Durante il turno<select name="ta-in">' + opz(ta.inTurno, '') + '</select></label><label class="campo">A fine turno<select name="ta-dopo">' + opz(ta.dopo, '<option value="">Il modo di prima</option>') + '</select></label></div></div>';
       })() : '') +
-      (isAndrea() ? '<div class="rotazione-rapida"><span><b>VPN FortiClient</b><span class="testo-muto" id="vpn-stato">…</span></span><button type="button" class="btn piccolo" data-forti>VPN</button></div><div class="vpn-auto" id="vpn-auto"></div>' +
-        '<div class="rotazione-rapida dns"><span><b>DNS privato</b><span class="testo-muto" id="dns-stato">…</span></span>' +
+      (isAndrea() ? '<div class="rotazione-rapida"><span><b>VPN FortiClient</b><span class="testo-muto" id="vpn-stato">…</span></span><button type="button" class="btn piccolo" data-forti>VPN</button></div><div class="vpn-auto" id="vpn-auto"></div>' : '') +
+      (Native.isApp ? '<div class="rotazione-rapida dns"><span><b>DNS privato</b><span class="testo-muto" id="dns-stato">…</span></span>' +
         '<span class="tipi due-tasti" role="group" aria-label="DNS privato"><button type="button" data-dns="host" style="--c:var(--ardesia)">Attivo</button><button type="button" data-dns="off" style="--c:var(--ardesia)">Disattivato</button></span>' +
         '<label class="campo dns-host">Indirizzo del DNS<input type="text" name="dnshost" inputmode="url" autocapitalize="off" spellcheck="false" maxlength="120" value="' + esc(dnsHost()) + '" placeholder="es. dns.adguard-dns.com"></label></div>' : '') +
       '<div class="azioni"><button class="btn secondario" type="button" data-nuovo-modo>Nuovo modo</button><button class="btn secondario" type="submit">Chiudi</button></div></form>';
