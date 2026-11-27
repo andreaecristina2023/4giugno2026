@@ -873,14 +873,21 @@ function aggiornaDaGithub(opz) {
   if (!lock.tryLock(5000)) throw new Error('Aggiornamento già in corso');
   try {
     var props = PropertiesService.getScriptProperties();
-    var ultimo = githubJson('https://api.github.com/repos/' + GITHUB_REPO + '/commits?path=' + encodeURIComponent(GITHUB_FILE) + '&per_page=1')[0];
-    if (!ultimo) throw new Error('Nessuna versione di ' + GITHUB_FILE + ' su GitHub');
-    var sha = ultimo.sha, info = { sha: sha.slice(0, 7), data: ultimo.commit.committer.date, messaggio: String(ultimo.commit.message || '').split('\n')[0] };
-    if (props.getProperty('GITHUB_SHA') === sha && !opz.forza) return { ok: true, aggiornato: false, messaggio: 'Lo script è già all\'ultima versione', versione: info };
-
-    var codice = githubRaw(sha, GITHUB_FILE);
+    // GitHub limita spesso le sue API dai server di Google: le uso solo per il nome della modifica, se rispondono
+    var ref = 'main', info = null;
+    try {
+      var ultimo = githubJson('https://api.github.com/repos/' + GITHUB_REPO + '/commits?path=' + encodeURIComponent(GITHUB_FILE) + '&per_page=1')[0];
+      if (ultimo) { ref = ultimo.sha; info = { sha: ultimo.sha.slice(0, 7), data: ultimo.commit.committer.date, messaggio: String(ultimo.commit.message || '').split('\n')[0] }; }
+    } catch (e) { /* vado sul ramo main */ }
+    var nocache = ref === 'main' ? '?t=' + Date.now() : '';
+    var codice = githubRaw(ref, GITHUB_FILE + nocache);
+    if (!codice && ref !== 'main') { ref = 'main'; nocache = '?t=' + Date.now(); codice = githubRaw(ref, GITHUB_FILE + nocache); info = null; }
     if (!codice || codice.length < 20000 || codice.indexOf('function doPost') < 0 || codice.indexOf('function aggiornaDaGithub') < 0)
       throw new Error('Il file scaricato da GitHub non sembra lo script di casa: aggiornamento annullato');
+    var impronta = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, codice, Utilities.Charset.UTF_8)
+      .map(function (b) { return ('0' + (b & 255).toString(16)).slice(-2); }).join('');
+    if (!info) info = { sha: impronta.slice(0, 7), data: new Date().toISOString(), messaggio: 'ultima versione di main' };
+    if (props.getProperty('GITHUB_IMPRONTA') === impronta && !opz.forza) return { ok: true, aggiornato: false, messaggio: 'Lo script è già all\'ultima versione', versione: info };
 
     var attuale = scriptApi('get', '/content');
     var file = (attuale.files || []).map(function (f) { return { name: f.name, type: f.type, source: f.source }; });
@@ -891,7 +898,7 @@ function aggiornaDaGithub(opz) {
     // manifest: lo prendo dal repository solo se non chiede permessi nuovi (quelli vanno accettati nell'editor)
     var avviso = '';
     var man = file.filter(function (f) { return f.name === 'appsscript'; })[0];
-    var nuovoMan = githubRaw(sha, GITHUB_MANIFEST);
+    var nuovoMan = githubRaw(ref, GITHUB_MANIFEST + nocache);
     if (man && nuovoMan) {
       try {
         var mA = JSON.parse(man.source), mN = JSON.parse(nuovoMan);
@@ -909,7 +916,7 @@ function aggiornaDaGithub(opz) {
     dep.forEach(function (d) {
       scriptApi('put', '/deployments/' + d.deploymentId, { deploymentConfig: { scriptId: ScriptApp.getScriptId(), versionNumber: ver.versionNumber, manifestFileName: 'appsscript', description: d.deploymentConfig.description || 'A&C' } });
     });
-    props.setProperties({ GITHUB_SHA: sha, GITHUB_DATA: info.data, VERSIONE_PRECEDENTE: String(precedente), VERSIONE_ATTUALE: String(ver.versionNumber) });
+    props.setProperties({ GITHUB_SHA: info.sha, GITHUB_IMPRONTA: impronta, GITHUB_DATA: info.data, VERSIONE_PRECEDENTE: String(precedente), VERSIONE_ATTUALE: String(ver.versionNumber) });
     return { ok: true, aggiornato: true, messaggio: 'Script aggiornato (versione ' + ver.versionNumber + ')', versione: info, numero: ver.versionNumber, precedente: precedente, avviso: avviso };
   } finally { lock.releaseLock(); }
 }
@@ -925,7 +932,7 @@ function ripristinaScript(opz) {
     scriptApi('put', '/deployments/' + d.deploymentId, { deploymentConfig: { scriptId: ScriptApp.getScriptId(), versionNumber: prec, manifestFileName: 'appsscript', description: d.deploymentConfig.description || 'A&C' } });
   });
   props.setProperties({ VERSIONE_ATTUALE: String(prec), VERSIONE_PRECEDENTE: '' });
-  props.deleteProperty('GITHUB_SHA');
+  props.deleteProperty('GITHUB_SHA'); props.deleteProperty('GITHUB_IMPRONTA');
   return { ok: true, messaggio: 'App web riportata alla versione ' + prec + ' (il codice nell\'editor resta quello nuovo)' };
 }
 
