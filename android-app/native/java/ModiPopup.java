@@ -75,7 +75,7 @@ public class ModiPopup extends Activity {
         TextView titolo = new TextView(this);
         titolo.setText("Modi");
         titolo.setTextColor(inchiostro);
-        titolo.setTextSize(20);
+        titolo.setTextSize(17);
         titolo.setTypeface(titolo.getTypeface(), android.graphics.Typeface.BOLD);
         titolo.setPadding(dp(4), 0, 0, dp(10));
         carta2.addView(titolo);
@@ -96,13 +96,13 @@ public class ModiPopup extends Activity {
             LinearLayout riga = new LinearLayout(this);
             riga.setOrientation(LinearLayout.HORIZONTAL);
             riga.setGravity(Gravity.CENTER_VERTICAL);
-            riga.setPadding(dp(12), dp(10), dp(12), dp(10));
+            riga.setPadding(dp(12), dp(7), dp(12), dp(7));
             riga.setBackground(sfondo(on ? attivoSfondo : carta, 14, on ? sangiovese : confine));
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            lp.bottomMargin = dp(8);
+            lp.bottomMargin = dp(6);
             TextView ic = new TextView(this);
             ic.setText(m.optString("icona", "🔔"));
-            ic.setTextSize(24);
+            ic.setTextSize(20);
             ic.setPadding(0, 0, dp(12), 0);
             riga.addView(ic);
             LinearLayout testi = new LinearLayout(this);
@@ -110,10 +110,10 @@ public class ModiPopup extends Activity {
             TextView nome = new TextView(this);
             nome.setText(m.optString("nome", "Modo") + (on ? "  ✓" : ""));
             nome.setTextColor(inchiostro);
-            nome.setTextSize(17);
+            nome.setTextSize(16);
             nome.setTypeface(nome.getTypeface(), android.graphics.Typeface.BOLD);
             testi.addView(nome);
-            String d = descrizione(m);
+            String d = ""; // elenco essenziale: solo icona e nome
             if (!d.isEmpty()) {
                 TextView sotto = new TextView(this);
                 sotto.setText(d);

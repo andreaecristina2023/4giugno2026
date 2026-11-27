@@ -17,7 +17,7 @@ Sito e app Android per la casa di Fratta Terme: bidoni della raccolta Alea, paga
 | Concerti | Data, ora, cantante, luogo, prezzo e biglietti digitali (PDF o foto) da aprire anche senza rete |
 | Album | Foto di casa (carosello di foto a caso che scorre da solo + griglia per mese di scatto letto dai metadati EXIF, presentazione a schermo intero), salvate nel Google Drive (cartella "A&C Album") |
 | Modi (🔔 in alto, solo app) | Modi audio Normale, Moto, Lavoro, Notte, Silenzioso, Solo musica e personalizzati; rotazione schermo; sveglie; per Andrea modo automatico nei turni, VPN FortiClient e DNS privato |
-| Luci (💡, dal tasto dei modi) | Luci e prese Tuya / Smart Life: accendi, luminosità, bianco, colore, scene; widget "A&C Luci" |
+| Luci (💡, dal tasto dei modi) | Luci e prese Tuya / Smart Life: accendi, luminosità, bianco, colore, scene; tasto Luce e Colori luci nel widget "A&C Comandi" |
 | Impostazioni (⚙ in alto) | Chi usa il telefono, casa, collegamento al foglio, QR code per l'altro telefono, notifiche, backup; in fondo le **aree personali** di Andrea e Cristina: dati (telefono, nascita, email, codice fiscale), documenti e **file e PDF** (curriculum, certificati, attestati, contratti…) salvati nel Drive (cartella "A&C Allegati") |
 
 Le festività seguono le regole dell'Eco-Calendario Alea: un ritiro che cade di festa si sposta al sabato prima (lun–mer) o al sabato dopo (gio–ven); se cade di sabato salta. Pasquetta è calcolata in automatico. Per i casi particolari annunciati da Alea c'è "Aggiungi una variazione".
@@ -96,7 +96,7 @@ Permessi che Android chiede la prima volta (l'app apre da sola la pagina giusta)
   `adb shell pm grant it.andreaecristina.casa android.permission.WRITE_SECURE_SETTINGS`
   (il permesso resta anche dopo gli aggiornamenti dell'app, si perde solo disinstallandola).
 
-**Widget "A&C Comandi"** (tieni premuto sulla home → Widget → A&C): sopra il modo attivo con ▾ — un tocco apre sopra la home l'**elenco a comparsa** di tutti i modi, si sceglie e si chiude; sotto Rotazione (un tocco la cambia), ⏰ Sveglie (apre l'Orologio) e, per Andrea, VPN (collega/scollega) e DNS (colorato quando è disattivato o in pausa per la VPN, normale quando è attivo).
+**Widget "A&C Comandi"** (tieni premuto sulla home → Widget → A&C): sopra una barra compatta con il modo attivo e ▾ — un tocco apre sopra la home l'**elenco a comparsa** dei modi (icona e nome), si sceglie e si chiude; sotto sei tasti grandi su tre colonne e due righe: **Rotazione** (un tocco la cambia), **⏰ Sveglie** (apre l'Orologio), **💡 Luce** / per Andrea **VPN** (collega/scollega) e **DNS** (colorato quando è disattivato o in pausa per la VPN, normale quando è attivo), **🎨 Colori luci**. Se il widget c'era già, allargalo a 4×3 per vederlo bene.
 
 ## Monitora prezzi dei voli
 
@@ -115,7 +115,7 @@ Ogni volo ha il tasto **⏰ Sveglia**: propone 3 ore prima della partenza (tasti
 
 Dal tasto dei modi (🔈 in alto) → **💡 Luci → Apri**: una scheda per ogni luce o presa dell'account Smart Life / Tuya Smart con interruttore, luminosità, bianco caldo/freddo, colore (barra della tonalità e colori pronti, "B" = torna al bianco) e stato (non raggiungibile se offline); sotto le scene **Tap-to-Run** con ▶. Funziona anche dal browser. Le luci passano dallo script del foglio di casa, che parla con il cloud Tuya: le chiavi Tuya stanno solo nello script.
 
-**Widget "A&C Luci"** (tieni premuto sulla home → Widget → A&C Luci): fino a 6 luci (quelle con ★ nella pagina Luci, altrimenti le prime 6): un tocco accende o spegne, giallo se accesa, ⚠ se non raggiungibile; sotto la scena con ★ e ⚙ per aprire A&C. Lo stato si riallinea ogni mezz'ora e dopo ogni tocco.
+**Nel widget "A&C Comandi"**: il tasto **💡 Luce** accende o spegne la prima luce con ★ (giallo se accesa, ⚠ se non raggiungibile); **🎨 Colori luci** apre una finestrella con tutte le luci con ★ (massimo 6): interruttore, colori pronti, bianco, luminosità e bianco caldo/freddo. Toccando il nome di una luce nella finestrella diventa quella del tasto Luce. Lo stato si riallinea ogni mezz'ora e dopo ogni comando. Il vecchio widget separato "A&C Luci" non c'è più.
 
 **Due modi di collegarle:**
 - **📶 Wi-Fi di casa (solo app, consigliato):** A&C chiede a Tuya **una volta** la chiave locale di ogni luce e poi la comanda direttamente sulla rete di casa (protocollo Tuya locale 3.3/3.4/3.5, porta 6668), senza cloud: più veloce, va anche senza internet e non dipende dalla prova Tuya (che dopo può anche scadere). Funziona solo con il telefono sul Wi-Fi di casa. La luce viene cercata da sola (annunci UDP 6666/6667/7000, oppure provando gli indirizzi della rete). La chiave cambia solo se resetti la luce e la riassoci all'app: in quel caso rileggila. Le scene Tap-to-Run in questo modo non ci sono.

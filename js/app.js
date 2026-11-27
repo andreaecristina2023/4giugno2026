@@ -1381,13 +1381,13 @@
       .catch(function (e) { luci.errore = e.message || 'Luci non disponibili'; })
       .then(function () { luci.carico = false; if (rotta() === 'luci') disegna(); });
   }
-  // dati per il widget "A&C Luci": indirizzo e chiave dello script, luci preferite (max 6) e una scena
+  // dati per le luci del widget "A&C Comandi": indirizzo e chiave dello script, luci preferite (max 6)
   function datiWidgetLuci() {
     if (!Native.isApp || !luci.dati || !luci.dati.configurato) return;
     var pref = luciPreferite(), tutte = luci.dati.luci || [];
     var scelte = (pref.length ? pref.map(function (id) { return tutte.filter(function (l) { return l.id === id; })[0]; }).filter(Boolean) : tutte).slice(0, 6);
     var conf = Store.conf();
-    Native.luci.salvaWidget({ url: conf.url, chiave: conf.chiave, chi: conf.chi || '', luci: scelte.map(function (l) { return { id: l.id, nome: l.nome, acceso: !!l.acceso, online: l.online !== false, colore: l.modo === 'colour' && l.colore ? l.colore.h : null }; }), scena: scenaWidget() });
+    Native.luci.salvaWidget({ url: conf.url, chiave: conf.chiave, chi: conf.chi || '', luci: scelte.map(function (l) { return { id: l.id, nome: l.nome, acceso: !!l.acceso, online: l.online !== false, colore: l.modo === 'colour' && l.colore ? l.colore.h : null, luminosita: l.luminosita, temperatura: l.temperatura, modo: l.modo, ha: l.ha }; }), scena: null });
   }
   function aggiornaLuce(nuova) {
     if (!luci.dati || !nuova) return;
@@ -1426,12 +1426,11 @@
       var pref = luciPreferite(), lista = (d.luci || []).slice().sort(function (a, b) { return (pref.indexOf(a.id) < 0) - (pref.indexOf(b.id) < 0) || String(a.nome).localeCompare(String(b.nome)); });
       if (d.locale && lista.length && !lista.some(function (l) { return l.online; })) h += '<p class="testo-muto">Nessuna luce risponde: le luci si comandano solo dal <b>Wi-Fi di casa</b>. Se sei a casa, tocca ↻ Aggiorna.</p>';
       h += lista.length ? '<div class="luci-griglia">' + lista.map(function (l) { return cardLuce(l, pref); }).join('') + '</div>' : '<div class="vuoto">Nessuna luce trovata nell\'account collegato' + (d.altri ? ' (' + d.altri + ' altri dispositivi)' : '') + '.</div>';
-      h += '<p class="testo-muto">☆ = nel widget «A&amp;C Luci» (massimo 6; se non ne scegli nessuna, ci vanno le prime 6).</p>';
+      h += '<p class="testo-muto">☆ = nel widget «A&amp;C Comandi»: la prima è il tasto 💡 Luce, tutte (massimo 6) nella finestra 🎨 Colori luci. Se non ne scegli nessuna valgono le prime.</p>';
       var sw = scenaWidget();
       if (d.locale) { vista.innerHTML = h; return; }
       h += '<h2>Scene <small>' + (d.scene || []).length + '</small></h2>' + ((d.scene || []).length ? '<div class="sezione luci-scene">' + d.scene.map(function (sc) {
-        var nel = sw && sw.scena === sc.id;
-        return '<div class="scena-riga"><button type="button" class="btn piccolo" data-scena="' + esc(sc.id) + '" data-casa="' + esc(sc.casa) + '">▶ ' + esc(sc.nome) + '</button><button type="button" class="luce-stella" data-scena-widget="' + esc(sc.id) + '" data-casa="' + esc(sc.casa) + '" data-nome="' + esc(sc.nome) + '" aria-pressed="' + !!nel + '" aria-label="' + (nel ? 'Togli dal widget' : 'Metti nel widget') + '">' + (nel ? '★' : '☆') + '</button></div>';
+        return '<div class="scena-riga"><button type="button" class="btn piccolo" data-scena="' + esc(sc.id) + '" data-casa="' + esc(sc.casa) + '">▶ ' + esc(sc.nome) + '</button></div>';
       }).join('') + '</div>' : '<p class="testo-muto">Nessuna scena «Tap-to-Run» nell\'app Smart Life / Tuya Smart.</p>');
     }
     vista.innerHTML = h;

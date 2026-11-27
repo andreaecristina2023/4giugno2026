@@ -14,8 +14,8 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 /**
- * Widget "A&C Comandi": il modo attivo (un tocco apre l'elenco a comparsa dei modi), poi rotazione schermo,
- * sveglie (apre l'elenco dell'orologio) e, sul telefono di Andrea, VPN (apre FortiClient) e DNS privato (acceso/spento).
+ * Widget unico "A&C Comandi": il modo attivo (un tocco apre l'elenco a comparsa dei modi), poi 3 colonne su 2 righe:
+ * rotazione schermo, sveglie (elenco dell'orologio), luce (accendi/spegni) / VPN e DNS privato (solo Andrea), colori luci (LuciPopup).
  * I modi arrivano dall'app in SharedPreferences "CapacitorStorage", chiave "comandi":
  * { modi: [ {id, nome, icona, suoneria, dnd, rotazione, volumi} ], andrea: true, dnsHost: "dns.example.it" }
  */
@@ -25,6 +25,12 @@ public class ComandiWidget extends AppWidgetProvider {
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] ids) {
         for (int id : ids) disegna(context, manager, id);
+        // ogni mezz'ora (e quando lo aggiungi) riallineo lo stato delle luci
+        if (LuciWidget.elenco(context).length() > 0) {
+            final PendingResult pr = goAsync();
+            final Context app = context.getApplicationContext();
+            new Thread(() -> { try { LuciWidget.riallinea(app); } finally { pr.finish(); } }).start();
+        }
     }
 
     public static void aggiornaTutti(Context context) {
@@ -68,7 +74,6 @@ public class ComandiWidget extends AppWidgetProvider {
         for (int i = 0; modi != null && i < modi.length(); i++) { JSONObject m = modi.optJSONObject(i); if (m != null && m.optString("id").equals(attivo)) mAtt = m; }
         v.setTextViewText(R.id.c_modo_i, mAtt != null ? mAtt.optString("icona", "🔔") : "🔈");
         v.setTextViewText(R.id.c_modo_t, mAtt != null ? mAtt.optString("nome", "Modo") : (modi == null || modi.length() == 0 ? "Apri A&C" : "Nessun modo"));
-        v.setTextViewText(R.id.c_modo_s, modi == null || modi.length() == 0 ? "per preparare i modi" : "Tocca per cambiare modo");
         v.setInt(R.id.c_modo, "setBackgroundResource", mAtt != null ? R.drawable.widget_tasto_attivo : R.drawable.widget_tasto);
         Intent pop = new Intent(c, (modi == null || modi.length() == 0) ? MainActivity.class : ModiPopup.class);
         // ModiPopup vive in un task a parte (taskAffinity ""), quindi CLEAR_TASK non chiude l'app
@@ -77,10 +82,30 @@ public class ComandiWidget extends AppWidgetProvider {
 
         boolean auto = "auto".equals(ComandiTelefono.rotazione(c));
         v.setTextViewText(R.id.c_rot_i, auto ? "🔄" : "🔒");
-        v.setTextViewText(R.id.c_rot_t, auto ? "Ruota: auto" : "Ruota: bloccata");
+        v.setTextViewText(R.id.c_rot_t, auto ? "Rotazione auto" : "Bloccata");
         v.setOnClickPendingIntent(R.id.c_rot, comando(c, 10, "rotazione", null));
 
         v.setOnClickPendingIntent(R.id.c_sveglie, PendingIntent.getActivity(c, 113, ComandiTelefono.intentElencoSveglie(), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+
+        // luce: tocco = accendi/spegni la prima luce con ★ (o l'ultima scelta nei colori)
+        Intent apriApp = new Intent(c, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        PendingIntent piApp = PendingIntent.getActivity(c, 114, apriApp, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        JSONObject luce = LuciWidget.prima(c);
+        if (luce == null) {
+            v.setTextViewText(R.id.c_luce_i, "💡");
+            v.setTextViewText(R.id.c_luce_t, "Luci");
+            v.setInt(R.id.c_luce, "setBackgroundResource", R.drawable.widget_tasto);
+            v.setOnClickPendingIntent(R.id.c_luce, piApp);
+            v.setOnClickPendingIntent(R.id.c_colori, piApp);
+        } else {
+            boolean on = luce.optBoolean("acceso"), online = luce.optBoolean("online", true);
+            v.setTextViewText(R.id.c_luce_i, !online ? "⚠️" : on ? "💡" : "🔅");
+            v.setTextViewText(R.id.c_luce_t, luce.optString("nome", "Luce"));
+            v.setInt(R.id.c_luce, "setBackgroundResource", on ? R.drawable.widget_tasto_luce : R.drawable.widget_tasto);
+            v.setOnClickPendingIntent(R.id.c_luce, comando(c, 14, "luce", null));
+            Intent col = new Intent(c, LuciPopup.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            v.setOnClickPendingIntent(R.id.c_colori, PendingIntent.getActivity(c, 115, col, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+        }
 
         boolean andrea = conf.optBoolean("andrea", false);
         v.setViewVisibility(R.id.c_vpn, andrea ? View.VISIBLE : View.GONE);
@@ -108,6 +133,11 @@ public class ComandiWidget extends AppWidgetProvider {
         super.onReceive(c, intent);
         if (!AZIONE.equals(intent.getAction())) return;
         String cmd = intent.getStringExtra("cmd");
+        if ("luce".equals(cmd)) {
+            final PendingResult pr = goAsync();
+            LuciWidget.accendiSpegni(c.getApplicationContext(), pr::finish);
+            return;
+        }
         try {
             if ("modo".equals(cmd)) {
                 String id = intent.getStringExtra("id");

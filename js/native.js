@@ -208,7 +208,7 @@ var Native = (function () {
     naviga(a.dataset.navigaQ ? { q: a.dataset.navigaQ } : { lat: a.dataset.navigaLat, lon: a.dataset.navigaLon });
   }, true);
 
-  // widget "A&C Luci": { url, chiave, chi, luci: [{ id, nome, acceso, online, colore }], scena }
+  // luci del widget "A&C Comandi": { url, chiave, chi, luci: [{ id, nome, acceso, online, colore, luminosita, temperatura, modo, ha }] }
   var luci = {
     salvaWidget: function (dati) {
       if (!AudioPl) return Promise.resolve();
