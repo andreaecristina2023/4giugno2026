@@ -105,6 +105,36 @@ public class LuciLocali {
         return new JSONObject().put("luci", luci.length()).put("altri", altri).put("senzaChiave", contaSenzaChiave(luci));
     }
 
+    /** Elenco arrivato dallo script del foglio (le chiavi le ha lette l'altro telefono o lo script): tengo indirizzi e versioni già noti. */
+    public static int salvaElenco(Context c, JSONArray nuove) throws Exception {
+        JSONObject vecchi = new JSONObject();
+        JSONArray prima = elencoSalvato(c);
+        for (int i = 0; i < prima.length(); i++) { JSONObject p = prima.optJSONObject(i); if (p != null) vecchi.put(p.optString("id"), p); }
+        JSONArray luci = new JSONArray();
+        for (int i = 0; i < nuove.length(); i++) {
+            JSONObject n = nuove.optJSONObject(i);
+            if (n == null || n.optString("id").isEmpty() || n.optString("chiave").isEmpty()) continue;
+            JSONObject l = new JSONObject().put("id", n.optString("id")).put("nome", n.optString("nome", "Luce")).put("categoria", n.optString("categoria"))
+                .put("chiave", n.optString("chiave")).put("prodotto", n.optString("prodotto")).put("mappa", n.optJSONObject("mappa") != null ? n.optJSONObject("mappa") : new JSONObject());
+            JSONObject v = vecchi.optJSONObject(n.optString("id"));
+            if (v != null) { l.put("ip", v.optString("ip")); l.put("versione", v.optDouble("versione", 0)); if (v.has("dps")) l.put("dps", v.get("dps")); }
+            luci.put(l);
+        }
+        salva(c, new JSONObject().put("luci", luci).put("aggiornato", System.currentTimeMillis()));
+        return luci.length();
+    }
+
+    /** Le luci con chiave e numeri dei comandi, da lasciare nello script per l'altro telefono (senza indirizzi). */
+    public static JSONArray esporta(Context c) throws Exception {
+        JSONArray out = new JSONArray(), a = elencoSalvato(c);
+        for (int i = 0; i < a.length(); i++) {
+            JSONObject l = a.getJSONObject(i);
+            out.put(new JSONObject().put("id", l.optString("id")).put("nome", l.optString("nome")).put("categoria", l.optString("categoria"))
+                .put("chiave", l.optString("chiave")).put("prodotto", l.optString("prodotto")).put("mappa", l.optJSONObject("mappa")));
+        }
+        return out;
+    }
+
     static int contaSenzaChiave(JSONArray a) { int n = 0; for (int i = 0; i < a.length(); i++) if (a.optJSONObject(i).optString("chiave").isEmpty()) n++; return n; }
 
     static boolean eLuce(JSONObject d) {

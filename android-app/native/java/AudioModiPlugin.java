@@ -282,6 +282,14 @@ public class AudioModiPlugin extends Plugin {
         inFondo(call, () -> { JSONObject r = LuciLocali.importa(getContext(), id, secret, reg); r.put("trovate", LuciLocali.cerca(getContext())); return r; });
     }
     @PluginMethod
+    public void luciLocaliSalva(PluginCall call) {
+        org.json.JSONArray l = call.getArray("luci");
+        if (l == null) { call.reject("Nessuna luce"); return; }
+        inFondo(call, () -> { int n = LuciLocali.salvaElenco(getContext(), l); return new JSONObject().put("luci", n).put("trovate", n > 0 ? LuciLocali.cerca(getContext()) : 0); });
+    }
+    @PluginMethod
+    public void luciLocaliEsporta(PluginCall call) { inFondo(call, () -> new JSONObject().put("luci", LuciLocali.esporta(getContext()))); }
+    @PluginMethod
     public void luciLocaliCerca(PluginCall call) { inFondo(call, () -> new JSONObject().put("trovate", LuciLocali.cerca(getContext()))); }
     @PluginMethod
     public void luciLocaliElenco(PluginCall call) { inFondo(call, () -> LuciLocali.elenco(getContext())); }

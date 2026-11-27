@@ -219,6 +219,8 @@ var Native = (function () {
     locale: {
       stato: function () { return AudioPl && AudioPl.luciLocaliStato ? AudioPl.luciLocaliStato().catch(function () { return { configurato: false }; }) : Promise.resolve({ configurato: false }); },
       importa: function (o) { return AudioPl.luciLocaliImporta(o); },
+      salva: function (luci) { return AudioPl.luciLocaliSalva({ luci: luci }); },
+      esporta: function () { return AudioPl.luciLocaliEsporta().then(function (r) { return r.luci || []; }); },
       cerca: function () { return AudioPl.luciLocaliCerca(); },
       elenco: function () { return AudioPl.luciLocaliElenco(); },
       comando: function (id, cmd) { return AudioPl.luciLocaliComando({ id: id, cmd: cmd }); },

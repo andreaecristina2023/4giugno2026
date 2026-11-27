@@ -1371,6 +1371,11 @@
     luci.carico = true; luci.errore = '';
     if (rotta() === 'luci') disegna();
     return statoLocale().then(function (locale) {
+      if (!locale && Native.isApp && Store.configurato() && !luci.provatoFoglio) {
+        // modalità Wi-Fi senza chiavi sul telefono: le chiavi locali arrivano dallo script del foglio
+        luci.provatoFoglio = true;
+        return prendiDalFoglio(true).then(function (ok) { return ok ? Native.luci.locale.elenco() : Store.chiama('luci_elenco'); });
+      }
       if (locale) return Native.luci.locale.elenco();
       if (!Store.configurato()) {
         if (Native.isApp) return { configurato: false };
@@ -1380,6 +1385,25 @@
     }).then(function (r) { luci.dati = r; luci.quando = Date.now(); datiWidgetLuci(); })
       .catch(function (e) { luci.errore = e.message || 'Luci non disponibili'; })
       .then(function () { luci.carico = false; if (rotta() === 'luci') disegna(); });
+  }
+  // chiavi locali dallo script del foglio (lette lì da Tuya o lasciate dall'altro telefono) → modalità Wi-Fi
+  function prendiDalFoglio(silenzioso) {
+    return Store.chiama('luci_locali').then(function (r) {
+      if (!r.luci || !r.luci.length) { if (!silenzioso) toast('Nel foglio non ci sono ancora le luci: collega Tuya da un telefono'); return false; }
+      return Native.luci.locale.salva(r.luci).then(function (x) {
+        luci.locale = true; luci.localeNoto = true;
+        if (!silenzioso) toast(x.luci + (x.luci === 1 ? ' luce' : ' luci') + ' dal foglio, ' + x.trovate + ' trovate sul Wi-Fi');
+        return true;
+      });
+    }).catch(function (e) { if (!silenzioso) toast(e.message || 'Foglio non raggiungibile'); return false; });
+  }
+  // dopo la lettura con le chiavi: le chiavi Tuya e le chiavi locali vanno anche nello script, per l'altro telefono
+  function lasciaNelFoglio(id, secret, regione) {
+    if (!Store.configurato()) return Promise.resolve();
+    return Store.chiama('tuya_imposta', { id: id, secret: secret, regione: regione }).catch(function () {})
+      .then(function () { return Native.luci.locale.esporta(); })
+      .then(function (l) { return l.length ? Store.chiama('luci_locali_salva', { luci: l }) : null; })
+      .catch(function () {});
   }
   // dati per le luci del widget "A&C Comandi": indirizzo e chiave dello script, luci preferite (max 6)
   function datiWidgetLuci() {
@@ -1452,8 +1476,9 @@
       '<label class="campo">Access ID<span class="aiuto">iot.tuya.com → Cloud → il progetto → Overview</span><input type="text" name="id" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="' + (d.configurato && !d.locale ? 'già inserito: lascia vuoto per non cambiarlo' : 'Es. 7xk3…') + '"></label>' +
       '<label class="campo">Access Secret<input type="password" name="secret" autocomplete="off" placeholder="' + (d.configurato && !d.locale ? '•••• (già inserito)' : '') + '"></label>' +
       '<label class="campo">Data center<select name="regione">' + REGIONI_TUYA.map(function (r) { return '<option value="' + r[0] + '"' + ((d.regione || 'eu') === r[0] ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('') + '</select></label>' +
-      (Native.isApp ? '<p class="testo-muto"><b>Wi-Fi di casa</b>: A&amp;C legge da Tuya, una volta, la chiave di ogni luce e poi le comanda direttamente (le chiavi Access non vengono salvate). <b>Script</b>: le chiavi vanno allo script del foglio e le luci vanno anche da fuori casa.</p>' : '<p class="testo-muto">Le chiavi vanno allo script del foglio di casa e non tornano più al telefono.</p>') +
-      '<div class="azioni">' + (Native.isApp ? '<button class="btn" type="button" data-leggi-locali>📶 Leggi le luci (Wi-Fi di casa)</button>' : '') +
+      (Native.isApp ? '<p class="testo-muto"><b>Wi-Fi di casa</b>: A&amp;C legge da Tuya, una volta, la chiave di ogni luce e poi le comanda direttamente. Access ID e Secret restano nello script del foglio (non sul telefono), così l\'altro telefono prende le luci da lì senza chiavi. <b>Salva nello script</b>: le luci passano dal cloud e vanno anche da fuori casa.</p>' : '<p class="testo-muto">Le chiavi vanno allo script del foglio di casa e non tornano più al telefono.</p>') +
+      (Native.isApp && Store.configurato() ? '<div class="azioni"><button class="btn" type="button" data-dal-foglio>📶 Prendi le luci dal foglio di casa</button></div><p class="testo-muto">Non servono le chiavi se le ha già messe l\'altro telefono (o lo script).</p>' : '') +
+      '<div class="azioni">' + (Native.isApp ? '<button class="btn' + (Store.configurato() ? ' secondario' : '') + '" type="button" data-leggi-locali>📶 Leggi le luci con le chiavi</button>' : '') +
         '<button class="btn' + (Native.isApp ? ' secondario' : '') + '" type="submit">Salva nello script</button><button class="btn secondario" type="button" data-chiudi>Annulla</button>' + (d.configurato && !d.locale ? '<button class="btn pericolo" type="button" data-scollega-tuya style="margin-left:auto">Scollega</button>' : '') + '</div>' +
       (luci.locale ? '<div class="azioni"><button class="btn secondario" type="button" data-cerca-locali>🔎 Cerca di nuovo sul Wi-Fi</button><button class="btn pericolo" type="button" data-togli-locali>Togli la modalità Wi-Fi</button></div>' : '') + '</div></form>';
     var f = $('#form-tuya', foglio);
@@ -1465,10 +1490,13 @@
       ll.disabled = true; toast('Leggo le luci da Tuya e le cerco sul Wi-Fi… (10 secondi)');
       Native.luci.locale.importa({ id: id, secret: secret, regione: f.regione.value }).then(function (r) {
         luci.locale = r.luci > 0; luci.localeNoto = true; foglio.close();
+        if (r.luci) lasciaNelFoglio(id, secret, f.regione.value);
         toast(r.luci ? r.luci + (r.luci === 1 ? ' luce letta' : ' luci lette') + ', ' + r.trovate + ' trovate sul Wi-Fi' + (r.senzaChiave ? ' (' + r.senzaChiave + ' senza chiave locale)' : '') : 'Nessuna luce nell\'account collegato');
         caricaLuci(true);
       }).catch(function (e) { ll.disabled = false; toast(e.message || 'Lettura non riuscita'); });
     };
+    var df = $('[data-dal-foglio]', f);
+    if (df) df.onclick = function () { df.disabled = true; toast('Prendo le luci dal foglio e le cerco sul Wi-Fi…'); prendiDalFoglio(false).then(function (ok) { df.disabled = false; if (ok) { foglio.close(); caricaLuci(true); } }); };
     var cl = $('[data-cerca-locali]', f);
     if (cl) cl.onclick = function () { cl.disabled = true; toast('Cerco le luci sul Wi-Fi…'); Native.luci.locale.cerca().then(function (r) { foglio.close(); toast(r.trovate + ' trovate sul Wi-Fi'); caricaLuci(true); }).catch(function (e) { cl.disabled = false; toast(e.message); }); };
     var tl = $('[data-togli-locali]', f);

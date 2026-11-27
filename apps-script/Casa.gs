@@ -89,6 +89,8 @@ function doPost(e) {
     else if (req.azione === 'luce_stato') out = { ok: true, luce: luceStato(req.id) };
     else if (req.azione === 'scena_avvia') out = scenaAvvia(req);
     else if (req.azione === 'tuya_imposta') out = tuyaImposta(req);
+    else if (req.azione === 'luci_locali') out = luciLocali(req);
+    else if (req.azione === 'luci_locali_salva') out = luciLocaliSalva(req);
     else if (req.azione === 'script_aggiorna') out = aggiornaDaGithub({ forza: !!req.forza, url: req.url });
     else if (req.azione === 'script_ripristina') out = ripristinaScript({ url: req.url });
     else if (req.azione === 'script_info') out = infoScript();
@@ -798,6 +800,62 @@ function scenaAvvia(req) {
   if (!req.casa || !req.scena) throw new Error('Manca la scena');
   tuyaChiama('POST', '/v1.0/homes/' + req.casa + '/scenes/' + req.scena + '/trigger', null, {});
   return { ok: true };
+}
+
+// ---------------- chiavi locali delle luci (per la modalità Wi-Fi dei telefoni) ----------------
+// I telefoni le prendono da qui senza conoscere Access ID e Secret. Lo script ne tiene una copia
+// (proprietà LUCI_LOCALI), così funziona anche quando la prova di Tuya è scaduta.
+function mappaLocale(dev) {
+  var m = {};
+  try {
+    var sp = tuyaChiama('GET', '/v1.1/devices/' + dev.id + '/specifications') || {};
+    (sp.functions || []).concat(sp.status || []).forEach(function (f) {
+      var code = f.code, dp = +f.dp_id || 0, val = {};
+      if (!dp) return;
+      try { val = typeof f.values === 'string' ? JSON.parse(f.values) : (f.values || {}); } catch (e) { val = {}; }
+      if (m.sw == null && /^(switch_led|switch_1|switch)$/.test(code)) m.sw = dp;
+      else if (m.modo == null && code === 'work_mode') m.modo = dp;
+      else if (m.br == null && /^bright_value(_v2|_1)?$/.test(code)) { m.br = dp; m.brMin = val.min != null ? +val.min : 10; m.brMax = val.max != null ? +val.max : 1000; }
+      else if (m.tp == null && /^temp_value(_v2)?$/.test(code)) { m.tp = dp; m.tpMin = val.min != null ? +val.min : 0; m.tpMax = val.max != null ? +val.max : 1000; }
+      else if (m.co == null && /^colour_data(_v2)?$/.test(code)) { m.co = dp; m.coV1 = dp === 5 || !!(val.s && +val.s.max <= 255); }
+    });
+  } catch (e) { /* specifiche non disponibili: standard sotto */ }
+  if (m.sw == null) {
+    var v2 = (dev.status || []).some(function (x) { return /_v2$/.test(x.code); }), cat = dev.category || '';
+    if (/^(kg|cz|pc|tgkg)$/.test(cat)) m = { sw: 1 };
+    else if (v2 || /^(dj|dd|xdd|fwd|dc)$/.test(cat)) m = { sw: 20, modo: 21, br: 22, brMin: 10, brMax: 1000, tp: 23, tpMin: 0, tpMax: 1000, co: 24, coV1: false };
+    else m = { sw: 1, modo: 2, br: 3, brMin: 25, brMax: 255, tp: 4, tpMin: 0, tpMax: 255, co: 5, coV1: true };
+  }
+  return m;
+}
+
+function luciLocali(req) {
+  var p = PropertiesService.getScriptProperties();
+  var copia = null;
+  try { copia = JSON.parse(p.getProperty('LUCI_LOCALI') || 'null'); } catch (e) { copia = null; }
+  if (tuyaConfigurato() && !(req && req.soloCopia)) {
+    try {
+      var luci = tuyaDispositivi().filter(eLuce).map(function (d) {
+        return { id: d.id, nome: d.name || 'Luce', categoria: d.category || '', chiave: d.local_key || '', prodotto: d.product_id || '', mappa: mappaLocale(d) };
+      });
+      if (luci.length) p.setProperty('LUCI_LOCALI', JSON.stringify(luci));
+      return { ok: true, luci: luci, fonte: 'tuya' };
+    } catch (e) {
+      if (!copia) throw e;
+      return { ok: true, luci: copia, fonte: 'copia', avviso: e.message };
+    }
+  }
+  if (copia) return { ok: true, luci: copia, fonte: 'copia' };
+  return { ok: true, luci: [], fonte: 'nessuna' };
+}
+
+// un telefono che ha letto le chiavi da Tuya le lascia anche qui per l'altro
+function luciLocaliSalva(req) {
+  var l = (req.luci || []).filter(function (x) { return x && x.id && x.chiave; }).map(function (x) {
+    return { id: String(x.id), nome: String(x.nome || 'Luce'), categoria: String(x.categoria || ''), chiave: String(x.chiave), prodotto: String(x.prodotto || ''), mappa: x.mappa || {} };
+  });
+  if (l.length) PropertiesService.getScriptProperties().setProperty('LUCI_LOCALI', JSON.stringify(l));
+  return { ok: true, salvate: l.length };
 }
 
 // Da eseguire a mano nell'editor: dice se le chiavi funzionano e cosa vede
