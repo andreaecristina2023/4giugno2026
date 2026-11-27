@@ -82,7 +82,7 @@ public class ComandiWidget extends AppWidgetProvider {
 
         boolean auto = "auto".equals(ComandiTelefono.rotazione(c));
         v.setTextViewText(R.id.c_rot_i, auto ? "🔄" : "🔒");
-        v.setTextViewText(R.id.c_rot_t, auto ? "Rotazione auto" : "Bloccata");
+        v.setTextViewText(R.id.c_rot_t, auto ? "Auto" : "Bloccata");
         v.setOnClickPendingIntent(R.id.c_rot, comando(c, 10, "rotazione", null));
 
         v.setOnClickPendingIntent(R.id.c_sveglie, PendingIntent.getActivity(c, 113, ComandiTelefono.intentElencoSveglie(), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
@@ -106,6 +106,13 @@ public class ComandiWidget extends AppWidgetProvider {
             Intent col = new Intent(c, LuciPopup.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             v.setOnClickPendingIntent(R.id.c_colori, PendingIntent.getActivity(c, 115, col, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
         }
+
+        // TV: telecomando a comparsa e accendi/spegni
+        boolean tvOk = !TvCasa.conf(c).optString("chiave").isEmpty();
+        Intent tvi = tvOk ? new Intent(c, TvPopup.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK) : apriApp;
+        v.setOnClickPendingIntent(R.id.c_tv, PendingIntent.getActivity(c, 116, tvi, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+        v.setOnClickPendingIntent(R.id.c_tvon, tvOk ? comando(c, 15, "tvon", null) : piApp);
+        v.setTextViewText(R.id.c_tvon_t, "Acc./Spegni");
 
         boolean andrea = conf.optBoolean("andrea", false);
         // VPN solo sul telefono di Andrea (altrove resta lo spazio vuoto); DNS per tutti
@@ -136,6 +143,17 @@ public class ComandiWidget extends AppWidgetProvider {
         super.onReceive(c, intent);
         if (!AZIONE.equals(intent.getAction())) return;
         String cmd = intent.getStringExtra("cmd");
+        if ("tvon".equals(cmd)) {
+            final PendingResult pr = goAsync();
+            final Context app = c.getApplicationContext();
+            new Thread(() -> {
+                String msg;
+                try { msg = TvCasa.accendiSpegni(app); } catch (Exception e) { msg = e.getMessage(); }
+                LuciWidget.avviso(app, msg);
+                pr.finish();
+            }).start();
+            return;
+        }
         if ("luce".equals(cmd)) {
             final PendingResult pr = goAsync();
             LuciWidget.accendiSpegni(c.getApplicationContext(), pr::finish);

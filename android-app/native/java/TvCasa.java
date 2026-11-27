@@ -59,6 +59,7 @@ public class TvCasa {
         d.put("ip", ip).put("chiave", chiave);
         salva(c, d);
         try { aggiornaInfo(c); } catch (Exception ignored) { }
+        ComandiWidget.aggiornaTutti(c);
         return conf(c);
     }
 
@@ -90,6 +91,18 @@ public class TvCasa {
         } catch (Exception ignored) { }
         salva(c, d);
         return d;
+    }
+
+    /** Tasto unico del widget: se la TV risponde la spegne, altrimenti la accende (Wake-on-LAN). */
+    public static String accendiSpegni(Context c) throws Exception {
+        JSONObject d = conf(c);
+        boolean accesa;
+        TvLg prova = new TvLg(d.optString("ip"), d.optString("chiave"));
+        prova.timeout = 2500;
+        try { prova.connetti(); accesa = true; } catch (Exception e) { accesa = false; } finally { prova.chiudiTutto(); }
+        if (accesa) { comando(c, new JSONObject().put("tipo", "spegni")); return "📺 TV spenta"; }
+        comando(c, new JSONObject().put("tipo", "accendi"));
+        return "📺 Accendo la TV…";
     }
 
     /** Comando: { tipo: "tasto"|"ssap"|"app"|"ingresso"|"accendi"|"spegni"|"volume", valore, payload } */

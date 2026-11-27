@@ -331,7 +331,7 @@ public class AudioModiPlugin extends Plugin {
         inFondo(call, () -> TvCasa.comando(getContext(), cmd));
     }
     @PluginMethod
-    public void tvTogli(PluginCall call) { TvCasa.prefs(getContext()).edit().remove("tv").apply(); call.resolve(); }
+    public void tvTogli(PluginCall call) { TvCasa.prefs(getContext()).edit().remove("tv").commit(); ComandiWidget.aggiornaTutti(getContext()); call.resolve(); }
 
     /** Il sito ha salvato le luci del widget: ridisegno "A&C Luci". */
     @PluginMethod

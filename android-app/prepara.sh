@@ -74,6 +74,8 @@ if 'CasaWidget' not in s:
             android:theme="@android:style/Theme.DeviceDefault.NoActionBar" />
         <activity android:name=".LuciPopup" android:exported="false" android:taskAffinity="" android:excludeFromRecents="true" android:noHistory="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" android:label="Luci" />
+        <activity android:name=".TvPopup" android:exported="false" android:taskAffinity="" android:excludeFromRecents="true" android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" android:label="TV" />
         <service android:name=".FotoWidgetService" android:exported="false" android:permission="android.permission.BIND_REMOTEVIEWS" />
     </application>'''
     s = s.replace('</application>', ricevitore, 1)
