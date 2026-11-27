@@ -102,7 +102,7 @@ Permessi che Android chiede la prima volta (l'app apre da sola la pagina giusta)
 
 ## Monitora prezzi dei voli
 
-Viaggi → in fondo **Monitora prezzi** → "+ Monitora un volo" (oppure "📉 Monitora il prezzo" dentro un viaggio, che prende aeroporti e date dal primo volo). Per ogni tratta: aeroporti (codici di 3 lettere, anche più d'uno separati da virgola, es. `BLQ, FRL`), andata, ritorno (vuoto = solo andata), **date esatte o ±3 giorni**, adulti, scali e una soglia in euro.
+Viaggi → in fondo **Monitora prezzi** → "+ Monitora un volo" (oppure "📉 Monitora il prezzo" dentro un viaggio, che prende aeroporti e date dal primo volo). Per ogni tratta: aeroporti — si scrive la città, il nome o il codice e si tocca uno dei suggerimenti (tutti i circa 4.000 aeroporti del mondo con voli di linea, dati OurAirports; anche più d'uno separati da virgola, es. `BLQ, FRL`), andata, ritorno (vuoto = solo andata), **date esatte o ±3 giorni**, adulti, scali e una soglia in euro.
 
 - I prezzi arrivano da **Google Flights** tramite [SerpApi](https://serpapi.com): piano gratuito di 250 ricerche al mese. Ogni tratta usa **una ricerca al giorno**, anche con ±3 giorni (il calendario prezzi di Google dà il prezzo di ogni giorno di partenza con la stessa durata del viaggio). Con 8 tratte attive si resta nel gratuito.
 - **Chiave**: registrati su serpapi.com, copia la chiave da *Api Key* e incollala in Viaggi → Monitora prezzi → ⚙. Lo script la salva (proprietà `SERPAPI_KEY`) e attiva da solo il controllo di **ogni mattina verso le 7** (`controllaPrezziVoli`; si può installare anche a mano con `installaPrezziVoli`).

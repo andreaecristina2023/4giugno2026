@@ -177,23 +177,61 @@ var PrezziVoli = (function () {
   }
 
   // ---------- modulo ----------
-  var AEROPORTI = [['BLQ', 'Bologna'], ['FRL', 'Forlì'], ['RMI', 'Rimini'], ['AOI', 'Ancona'], ['FLR', 'Firenze'], ['PSA', 'Pisa'], ['VCE', 'Venezia'], ['TSF', 'Treviso'], ['VRN', 'Verona'],
-    ['BGY', 'Bergamo'], ['MXP', 'Milano Malpensa'], ['LIN', 'Milano Linate'], ['TRN', 'Torino'], ['GOA', 'Genova'], ['FCO', 'Roma Fiumicino'], ['CIA', 'Roma Ciampino'], ['NAP', 'Napoli'],
-    ['BRI', 'Bari'], ['BDS', 'Brindisi'], ['CTA', 'Catania'], ['PMO', 'Palermo'], ['CAG', 'Cagliari'], ['OLB', 'Olbia'], ['AHO', 'Alghero'],
-    ['LHR', 'Londra Heathrow'], ['STN', 'Londra Stansted'], ['LGW', 'Londra Gatwick'], ['CDG', 'Parigi'], ['BCN', 'Barcellona'], ['MAD', 'Madrid'], ['SVQ', 'Siviglia'], ['SCQ', 'Santiago de Compostela'],
-    ['LIS', 'Lisbona'], ['OPO', 'Porto'], ['AMS', 'Amsterdam'], ['BRU', 'Bruxelles'], ['FRA', 'Francoforte'], ['MUC', 'Monaco'], ['BER', 'Berlino'], ['VIE', 'Vienna'], ['ZRH', 'Zurigo'],
-    ['PRG', 'Praga'], ['BUD', 'Budapest'], ['ATH', 'Atene'], ['IST', 'Istanbul'], ['DUB', 'Dublino'], ['CPH', 'Copenaghen'], ['KEF', 'Reykjavik'], ['TFS', 'Tenerife'],
-    ['DXB', 'Dubai'], ['JFK', 'New York'], ['MIA', 'Miami'], ['LAX', 'Los Angeles'], ['NRT', 'Tokyo Narita'], ['HND', 'Tokyo Haneda'], ['BKK', 'Bangkok'], ['SIN', 'Singapore']];
+  // tutti gli aeroporti con voli di linea (js/aeroporti.js): ricerca per codice, città, nome o paese
+  var aer = null;
+  function senzaAccenti(t) { return String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+  function aeroporti() {
+    if (aer) return aer;
+    var paese = function (c) { try { return new Intl.DisplayNames(['it'], { type: 'region' }).of(c) || c; } catch (e) { return c; } };
+    var nomiPaese = {};
+    aer = { elenco: [], perCodice: {} };
+    String(window.AEROPORTI_TUTTI || '').split('\n').forEach(function (r) {
+      var x = r.split('|'); if (x.length < 4) return;
+      if (!nomiPaese[x[2]]) nomiPaese[x[2]] = paese(x[2]);
+      var o = { c: x[0], n: x[1], p: nomiPaese[x[2]], w: +x[3], k: senzaAccenti(x[0] + ' ' + x[1] + ' ' + (x[4] || '') + ' ' + nomiPaese[x[2]]) };
+      aer.elenco.push(o); aer.perCodice[o.c] = o;
+    });
+    return aer;
+  }
+  function nomeAeroporto(cod) { var o = aeroporti().perCodice[String(cod || '').split(',')[0]]; return o ? o.n : ''; }
+  function cercaAeroporti(q) {
+    q = senzaAccenti(q).trim(); if (q.length < 2) return [];
+    var parole = q.split(/\s+/), out = [];
+    aeroporti().elenco.forEach(function (o) {
+      if (!parole.every(function (p) { return o.k.indexOf(p) >= 0; })) return;
+      var n = senzaAccenti(o.n), punti = o.c.toLowerCase() === q ? 0 : n.indexOf(q) === 0 ? 1 : (' ' + n).indexOf(' ' + parole[0]) >= 0 ? 2 : 3;
+      out.push([punti * 10 + o.w, o]);
+    });
+    return out.sort(function (a, b) { return a[0] - b[0]; }).slice(0, 8).map(function (x) { return x[1]; });
+  }
+  // suggerimenti sotto i campi Da / A: si scrive una città o un codice, il tocco mette il codice (anche più di uno, separati da virgola)
+  function suggeritore(f, nome) {
+    var inp = f[nome], box = f.querySelector('[data-sugg="' + nome + '"]'), nomi = f.querySelector('[data-nomi="' + nome + '"]');
+    function scriviNomi() { nomi.textContent = codici(inp.value).split(',').filter(Boolean).map(function (c) { var n = nomeAeroporto(c); return n ? c + ' = ' + n : c + ' = ?'; }).join(' · '); }
+    inp.addEventListener('input', function () {
+      var parti = inp.value.split(','), q = parti[parti.length - 1];
+      var l = cercaAeroporti(q);
+      box.innerHTML = l.map(function (o) { return '<button type="button" data-cod="' + o.c + '"><b>' + o.c + '</b> ' + esc(o.n) + ' <small>' + esc(o.p) + '</small></button>'; }).join('');
+      box.hidden = !l.length;
+      scriviNomi();
+    });
+    box.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-cod]'); if (!b) return;
+      var parti = inp.value.split(','); parti[parti.length - 1] = (parti.length > 1 ? ' ' : '') + b.dataset.cod;
+      inp.value = parti.join(','); box.hidden = true; box.innerHTML = ''; scriviNomi(); inp.focus();
+    });
+    scriviNomi();
+  }
   function apriModulo(id, preset) {
     var m = id ? JSON.parse(JSON.stringify(Store.get(id))) : Object.assign({ tipo: 'prezzovolo', da: 'BLQ', a: '', andata: C.addGiorni(C.oggi(), 30), ritorno: '', flex: 0, adulti: 2, scali: '', soglia: '', attivo: true, note: '' }, preset || {});
     var fg = ui.foglio;
-    var opzA = AEROPORTI.map(function (x) { return '<option value="' + x[0] + ' ' + esc(x[1]) + '">'; }).join('');
     fg.classList.remove('visore');
     fg.innerHTML = '<form method="dialog" id="form-prezzo"><div class="maniglia"></div><h3 id="foglio-titolo">' + (id ? 'Modifica tratta' : 'Monitora un volo') + '</h3><div class="campi">' +
-      '<datalist id="lista-aeroporti">' + opzA + '</datalist>' +
-      '<div class="due"><label class="campo">Da<input type="text" name="da" list="lista-aeroporti" required value="' + esc(m.da) + '" placeholder="BLQ" autocapitalize="characters"></label>' +
-      '<label class="campo">A<input type="text" name="a" list="lista-aeroporti" required value="' + esc(m.a) + '" placeholder="NRT" autocapitalize="characters"></label></div>' +
-      '<span class="aiuto">Codice dell\'aeroporto di 3 lettere. Più aeroporti separati da virgola (es. BLQ, FRL).</span>' +
+      '<label class="campo">Da<input type="text" name="da" required value="' + esc(m.da) + '" placeholder="Città o codice (es. Bologna, BLQ)" autocomplete="off" autocapitalize="off"><span class="aiuto" data-nomi="da"></span></label>' +
+      '<div class="sugg-aer" data-sugg="da" hidden></div>' +
+      '<label class="campo">A<input type="text" name="a" required value="' + esc(m.a) + '" placeholder="Città o codice (es. Tokyo, NRT)" autocomplete="off" autocapitalize="off"><span class="aiuto" data-nomi="a"></span></label>' +
+      '<div class="sugg-aer" data-sugg="a" hidden></div>' +
+      '<span class="aiuto">Scrivi la città, il nome o il codice e tocca l\'aeroporto. Più aeroporti separati da virgola (es. BLQ, FRL).</span>' +
       '<div class="due"><label class="campo">Andata<input type="date" name="andata" required value="' + esc(m.andata) + '"></label>' +
       '<label class="campo">Ritorno<input type="date" name="ritorno" value="' + esc(m.ritorno || '') + '"></label></div>' +
       '<span class="aiuto">Ritorno vuoto = solo andata.</span>' +
@@ -209,6 +247,7 @@ var PrezziVoli = (function () {
       (id ? '<button class="btn pericolo" type="button" data-elimina style="margin-left:auto">Elimina</button>' : '') + '</div></div></form>';
     if (!fg.open) fg.showModal();
     var f = fg.querySelector('form');
+    suggeritore(f, 'da'); suggeritore(f, 'a');
     f.querySelector('[data-annulla]').onclick = function () { fg.close(); };
     if (id) f.querySelector('[data-elimina]').onclick = function () { if (confirm('Smettere di monitorare questa tratta?')) { Store.elimina(id); fg.close(); ui.toast('Tratta eliminata'); } };
     f.onsubmit = function (e) {
@@ -220,7 +259,7 @@ var PrezziVoli = (function () {
       if (f.ritorno.value && f.ritorno.value < f.andata.value) { ui.toast('Il ritorno è prima dell\'andata'); return; }
       var flex = +f.querySelector('input[name=flex]:checked').value;
       if (C.addGiorni(f.andata.value, flex) < C.oggi()) { ui.toast('La data di andata è già passata'); return; }
-      var nomeDi = function (cod) { var x = AEROPORTI.filter(function (p) { return p[0] === cod.split(',')[0]; })[0]; return x ? x[1] : ''; };
+      var nomeDi = function (cod) { return nomeAeroporto(cod).split(' – ')[0]; };
       var cambiata = !id || m.da !== da || m.a !== a || m.andata !== f.andata.value || (m.ritorno || '') !== f.ritorno.value || +m.flex !== flex || +m.adulti !== +f.adulti.value || (m.scali || '') !== f.scali.value;
       m.da = da; m.a = a; m.andata = f.andata.value; m.ritorno = f.ritorno.value; m.flex = flex;
       m.adulti = Math.max(1, Math.min(9, parseInt(f.adulti.value, 10) || 1)); m.scali = f.scali.value;

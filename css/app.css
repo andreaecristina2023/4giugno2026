@@ -617,3 +617,9 @@ a.contatto[data-naviga-lat], a.contatto[data-naviga-q] { text-decoration: none; 
 .scena-riga { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
 .scena-riga .btn { flex: 1; justify-content: flex-start; }
 .guida-tuya .passi li { margin-bottom: 4px; }
+
+/* suggerimenti aeroporti (Monitora prezzi) */
+.sugg-aer { display: grid; gap: 4px; margin: -4px 0 4px; }
+.sugg-aer button { text-align: left; padding: 9px 12px; border: 1px solid var(--confine); border-radius: 12px; background: var(--superficie); color: inherit; font: inherit; font-size: 15px; }
+.sugg-aer button b { display: inline-block; min-width: 3.2em; }
+.sugg-aer button small { color: var(--muschio); }
