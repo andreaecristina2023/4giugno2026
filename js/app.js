@@ -1357,17 +1357,27 @@
 
 
   // ---------- 💡 LUCI (Tuya / Smart Life tramite lo script del foglio) ----------
-  var luci = { dati: null, quando: 0, carico: false, errore: '' };
+  var luci = { dati: null, quando: 0, carico: false, errore: '', locale: false, localeNoto: !Native.isApp };
+  function statoLocale() {
+    if (luci.localeNoto) return Promise.resolve(luci.locale);
+    return Native.luci.locale.stato().then(function (r) { luci.locale = !!r.configurato; luci.localeNoto = true; return luci.locale; });
+  }
   var REGIONI_TUYA = [['eu', 'Europa centrale (Italia)'], ['weu', 'Europa occidentale'], ['us', 'America occidentale'], ['ueaz', 'America orientale'], ['in', 'India'], ['cn', 'Cina']];
   var PRESET_COLORI = [['Rosso', 0], ['Arancio', 30], ['Giallo', 55], ['Verde', 120], ['Azzurro', 190], ['Blu', 230], ['Viola', 275], ['Rosa', 320]];
   function luciPreferite() { return leggiLocale('aec.luciPreferite', []); }
   function scenaWidget() { return leggiLocale('aec.luciScena', null); }
   function caricaLuci(forza) {
     if (luci.carico || (!forza && luci.dati && Date.now() - luci.quando < 60000)) return Promise.resolve();
-    if (!Store.configurato()) { luci.errore = 'Collega prima il foglio di casa (Impostazioni → Condivisione tra i telefoni).'; return Promise.resolve(); }
     luci.carico = true; luci.errore = '';
     if (rotta() === 'luci') disegna();
-    return Store.chiama('luci_elenco').then(function (r) { luci.dati = r; luci.quando = Date.now(); datiWidgetLuci(); })
+    return statoLocale().then(function (locale) {
+      if (locale) return Native.luci.locale.elenco();
+      if (!Store.configurato()) {
+        if (Native.isApp) return { configurato: false };
+        throw new Error('Collega prima il foglio di casa (Impostazioni → Condivisione tra i telefoni).');
+      }
+      return Store.chiama('luci_elenco');
+    }).then(function (r) { luci.dati = r; luci.quando = Date.now(); datiWidgetLuci(); })
       .catch(function (e) { luci.errore = e.message || 'Luci non disponibili'; })
       .then(function () { luci.carico = false; if (rotta() === 'luci') disegna(); });
   }
@@ -1388,7 +1398,8 @@
     var l = (luci.dati.luci || []).filter(function (x) { return x.id === id; })[0];
     if (l) { Object.keys(cmd).forEach(function (k) { if (k !== 'colore') l[k] = cmd[k]; }); if (cmd.colore) { l.modo = 'colour'; l.colore = Object.assign({ v: l.luminosita || 100 }, cmd.colore); } if (cmd.temperatura != null) l.modo = 'white'; if (cmd.luminosita != null || cmd.colore || cmd.temperatura != null) l.acceso = true; }
     disegna();
-    return Store.chiama('luce_comando', Object.assign({ id: id }, cmd)).then(function (r) { aggiornaLuce(r.luce); if (rotta() === 'luci') disegna(); })
+    var invio = luci.locale ? Native.luci.locale.comando(id, cmd) : Store.chiama('luce_comando', Object.assign({ id: id }, cmd));
+    return invio.then(function (r) { aggiornaLuce(r.luce); if (rotta() === 'luci') disegna(); })
       .catch(function (e) { toast(e.message || 'Comando non riuscito'); caricaLuci(true); });
   }
   function cardLuce(l, pref) {
@@ -1406,16 +1417,18 @@
       '</div>';
   }
   function vistaLuci() {
-    var d = luci.dati, h = testata('Luci', d && d.configurato ? (d.luci || []).filter(function (l) { return l.acceso; }).length + ' accese su ' + (d.luci || []).length : 'Tuya / Smart Life');
+    var d = luci.dati, h = testata('Luci', d && d.configurato ? (d.luci || []).filter(function (l) { return l.acceso; }).length + ' accese su ' + (d.luci || []).length + (d.locale ? ' · Wi-Fi di casa' : '') : 'Tuya / Smart Life');
     h += '<div class="azioni luci-azioni"><button type="button" class="btn secondario piccolo" data-luci-aggiorna>↻ Aggiorna</button><button type="button" class="btn secondario piccolo" data-luci-imposta>⚙ Collegamento Tuya</button></div>';
     if (luci.carico && !d) h += '<div class="vuoto">Cerco le luci…</div>';
     else if (luci.errore) h += '<div class="vuoto">' + esc(luci.errore) + (/Aggiorna lo script/.test(luci.errore) ? '<br><span class="testo-muto">Serve la nuova versione di Casa.gs (README → «Aggiornare lo script»).</span>' : '') + '</div>';
     else if (d && !d.configurato) h += guidaTuya();
     else if (d) {
       var pref = luciPreferite(), lista = (d.luci || []).slice().sort(function (a, b) { return (pref.indexOf(a.id) < 0) - (pref.indexOf(b.id) < 0) || String(a.nome).localeCompare(String(b.nome)); });
+      if (d.locale && lista.length && !lista.some(function (l) { return l.online; })) h += '<p class="testo-muto">Nessuna luce risponde: le luci si comandano solo dal <b>Wi-Fi di casa</b>. Se sei a casa, tocca ↻ Aggiorna.</p>';
       h += lista.length ? '<div class="luci-griglia">' + lista.map(function (l) { return cardLuce(l, pref); }).join('') + '</div>' : '<div class="vuoto">Nessuna luce trovata nell\'account collegato' + (d.altri ? ' (' + d.altri + ' altri dispositivi)' : '') + '.</div>';
       h += '<p class="testo-muto">☆ = nel widget «A&amp;C Luci» (massimo 6; se non ne scegli nessuna, ci vanno le prime 6).</p>';
       var sw = scenaWidget();
+      if (d.locale) { vista.innerHTML = h; return; }
       h += '<h2>Scene <small>' + (d.scene || []).length + '</small></h2>' + ((d.scene || []).length ? '<div class="sezione luci-scene">' + d.scene.map(function (sc) {
         var nel = sw && sw.scena === sc.id;
         return '<div class="scena-riga"><button type="button" class="btn piccolo" data-scena="' + esc(sc.id) + '" data-casa="' + esc(sc.casa) + '">▶ ' + esc(sc.nome) + '</button><button type="button" class="luce-stella" data-scena-widget="' + esc(sc.id) + '" data-casa="' + esc(sc.casa) + '" data-nome="' + esc(sc.nome) + '" aria-pressed="' + !!nel + '" aria-label="' + (nel ? 'Togli dal widget' : 'Metti nel widget') + '">' + (nel ? '★' : '☆') + '</button></div>';
@@ -1430,19 +1443,37 @@
       '<li><b>Cloud → Development → Create Cloud Project</b>: nome «A&amp;C», settore Smart Home, metodo <i>Smart Home</i>, data center <b>Central Europe</b>. Nella pagina dei servizi lascia <b>IoT Core</b> (più Authorization e Smart Home Scene Linkage).</li>' +
       '<li>Nel progetto: <b>Devices → Link App Account → Add App Account</b>: compare un QR. Aprilo con l\'app <b>Smart Life</b> o <b>Tuya Smart</b> (Io/Profilo → icona di scansione in alto) e conferma.</li>' +
       '<li>Nel progetto: <b>Overview</b>: copia <b>Access ID</b> e <b>Access Secret</b> e incollali qui con <b>⚙ Collegamento Tuya</b>.</li></ol>' +
-      '<p class="testo-muto">Le chiavi restano nello script del foglio di casa, non nel telefono. La prova gratuita di Tuya va rinnovata ogni tanto (Cloud → Cloud Services → IoT Core → Extend Trial Period): se le luci smettono di rispondere, il messaggio lo dirà.</p></div>';
+      (Native.isApp ? '<p class="testo-muto"><b>Nell\'app conviene «Leggi le luci (Wi-Fi di casa)»</b>: A&amp;C chiede a Tuya una volta sola la chiave di ogni luce e poi le comanda direttamente sul Wi-Fi, senza cloud e senza scadenze. Funziona solo quando il telefono è sul Wi-Fi di casa.</p>' : '') +
+      '<p class="testo-muto">Con «Salva nello script» invece le chiavi restano nello script del foglio di casa e le luci si comandano anche da fuori, ma la prova gratuita di Tuya va rinnovata ogni tanto (Cloud → Cloud Services → IoT Core → Extend Trial Period).</p></div>';
   }
   function impostaTuya() {
     var d = luci.dati || {};
     foglio.classList.remove('visore');
     foglio.innerHTML = '<form method="dialog" id="form-tuya"><div class="maniglia"></div><h3 id="foglio-titolo">Collegamento Tuya</h3><div class="campi">' +
-      '<label class="campo">Access ID<span class="aiuto">iot.tuya.com → Cloud → il progetto → Overview</span><input type="text" name="id" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="' + (d.configurato ? 'già inserito: lascia vuoto per non cambiarlo' : 'Es. 7xk3…') + '"></label>' +
-      '<label class="campo">Access Secret<input type="password" name="secret" autocomplete="off" placeholder="' + (d.configurato ? '•••• (già inserito)' : '') + '"></label>' +
+      '<label class="campo">Access ID<span class="aiuto">iot.tuya.com → Cloud → il progetto → Overview</span><input type="text" name="id" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="' + (d.configurato && !d.locale ? 'già inserito: lascia vuoto per non cambiarlo' : 'Es. 7xk3…') + '"></label>' +
+      '<label class="campo">Access Secret<input type="password" name="secret" autocomplete="off" placeholder="' + (d.configurato && !d.locale ? '•••• (già inserito)' : '') + '"></label>' +
       '<label class="campo">Data center<select name="regione">' + REGIONI_TUYA.map(function (r) { return '<option value="' + r[0] + '"' + ((d.regione || 'eu') === r[0] ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('') + '</select></label>' +
-      '<p class="testo-muto">Le chiavi vanno allo script del foglio di casa e non tornano più al telefono.</p>' +
-      '<div class="azioni"><button class="btn" type="submit">Salva e prova</button><button class="btn secondario" type="button" data-chiudi>Annulla</button>' + (d.configurato ? '<button class="btn pericolo" type="button" data-scollega-tuya style="margin-left:auto">Scollega</button>' : '') + '</div></div></form>';
+      (Native.isApp ? '<p class="testo-muto"><b>Wi-Fi di casa</b>: A&amp;C legge da Tuya, una volta, la chiave di ogni luce e poi le comanda direttamente (le chiavi Access non vengono salvate). <b>Script</b>: le chiavi vanno allo script del foglio e le luci vanno anche da fuori casa.</p>' : '<p class="testo-muto">Le chiavi vanno allo script del foglio di casa e non tornano più al telefono.</p>') +
+      '<div class="azioni">' + (Native.isApp ? '<button class="btn" type="button" data-leggi-locali>📶 Leggi le luci (Wi-Fi di casa)</button>' : '') +
+        '<button class="btn' + (Native.isApp ? ' secondario' : '') + '" type="submit">Salva nello script</button><button class="btn secondario" type="button" data-chiudi>Annulla</button>' + (d.configurato && !d.locale ? '<button class="btn pericolo" type="button" data-scollega-tuya style="margin-left:auto">Scollega</button>' : '') + '</div>' +
+      (luci.locale ? '<div class="azioni"><button class="btn secondario" type="button" data-cerca-locali>🔎 Cerca di nuovo sul Wi-Fi</button><button class="btn pericolo" type="button" data-togli-locali>Togli la modalità Wi-Fi</button></div>' : '') + '</div></form>';
     var f = $('#form-tuya', foglio);
     $('[data-chiudi]', f).onclick = function () { foglio.close(); };
+    var ll = $('[data-leggi-locali]', f);
+    if (ll) ll.onclick = function () {
+      var id = f.id.value.trim(), secret = f.secret.value.trim();
+      if (!id || !secret) { toast('Servono Access ID e Access Secret'); return; }
+      ll.disabled = true; toast('Leggo le luci da Tuya e le cerco sul Wi-Fi… (10 secondi)');
+      Native.luci.locale.importa({ id: id, secret: secret, regione: f.regione.value }).then(function (r) {
+        luci.locale = r.luci > 0; luci.localeNoto = true; foglio.close();
+        toast(r.luci ? r.luci + (r.luci === 1 ? ' luce letta' : ' luci lette') + ', ' + r.trovate + ' trovate sul Wi-Fi' + (r.senzaChiave ? ' (' + r.senzaChiave + ' senza chiave locale)' : '') : 'Nessuna luce nell\'account collegato');
+        caricaLuci(true);
+      }).catch(function (e) { ll.disabled = false; toast(e.message || 'Lettura non riuscita'); });
+    };
+    var cl = $('[data-cerca-locali]', f);
+    if (cl) cl.onclick = function () { cl.disabled = true; toast('Cerco le luci sul Wi-Fi…'); Native.luci.locale.cerca().then(function (r) { foglio.close(); toast(r.trovate + ' trovate sul Wi-Fi'); caricaLuci(true); }).catch(function (e) { cl.disabled = false; toast(e.message); }); };
+    var tl = $('[data-togli-locali]', f);
+    if (tl) tl.onclick = function () { if (!confirm('Togliere le luci in modalità Wi-Fi da questo telefono?')) return; Native.luci.locale.togli().then(function () { luci.locale = false; luci.dati = null; foglio.close(); toast('Modalità Wi-Fi tolta'); caricaLuci(true); }); };
     var sc = $('[data-scollega-tuya]', f);
     if (sc) sc.onclick = function () { if (!confirm('Togliere le chiavi Tuya dallo script?')) return; Store.chiama('tuya_imposta', { id: '', secret: '' }).then(function () { foglio.close(); toast('Tuya scollegato'); caricaLuci(true); }).catch(function (e) { toast(e.message); }); };
     f.onsubmit = function (e) {
@@ -1450,9 +1481,14 @@
       var req = { regione: f.regione.value };
       if (f.id.value.trim()) req.id = f.id.value.trim();
       if (f.secret.value.trim()) req.secret = f.secret.value.trim();
-      if (!d.configurato && (!req.id || !req.secret)) { toast('Servono Access ID e Access Secret'); return; }
+      if (!Store.configurato()) { toast('Per lo script collega prima il foglio di casa (Altro)'); return; }
+      if ((!d.configurato || d.locale) && (!req.id || !req.secret)) { toast('Servono Access ID e Access Secret'); return; }
       toast('Provo le chiavi…');
-      Store.chiama('tuya_imposta', req).then(function () { foglio.close(); toast('Tuya collegato'); caricaLuci(true); })
+      Store.chiama('tuya_imposta', req).then(function () {
+        foglio.close(); toast('Tuya collegato allo script');
+        if (luci.locale) return Native.luci.locale.togli().then(function () { luci.locale = false; caricaLuci(true); });
+        caricaLuci(true);
+      })
         .catch(function (err) { toast(err.message || 'Chiavi non valide'); });
     };
     foglio.showModal();

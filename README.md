@@ -117,14 +117,19 @@ Dal tasto dei modi (🔈 in alto) → **💡 Luci → Apri**: una scheda per ogn
 
 **Widget "A&C Luci"** (tieni premuto sulla home → Widget → A&C Luci): fino a 6 luci (quelle con ★ nella pagina Luci, altrimenti le prime 6): un tocco accende o spegne, giallo se accesa, ⚠ se non raggiungibile; sotto la scena con ★ e ⚙ per aprire A&C. Lo stato si riallinea ogni mezz'ora e dopo ogni tocco.
 
+**Due modi di collegarle:**
+- **📶 Wi-Fi di casa (solo app, consigliato):** A&C chiede a Tuya **una volta** la chiave locale di ogni luce e poi la comanda direttamente sulla rete di casa (protocollo Tuya locale 3.3/3.4/3.5, porta 6668), senza cloud: più veloce, va anche senza internet e non dipende dalla prova Tuya (che dopo può anche scadere). Funziona solo con il telefono sul Wi-Fi di casa. La luce viene cercata da sola (annunci UDP 6666/6667/7000, oppure provando gli indirizzi della rete). La chiave cambia solo se resetti la luce e la riassoci all'app: in quel caso rileggila. Le scene Tap-to-Run in questo modo non ci sono.
+- **Script del foglio (cloud):** le chiavi stanno nello script e le luci vanno anche da fuori casa e dal browser, con le scene; la prova IoT Core va rinnovata.
+
 **Configurazione (una volta, dal computer):**
 
 1. Vai su [iot.tuya.com](https://iot.tuya.com) e crea un account sviluppatore (gratuito).
 2. **Cloud → Development → Create Cloud Project**: nome "A&C", Industry *Smart Home*, Development Method *Smart Home*, Data Center **Central Europe**. Nella pagina dei servizi lascia **IoT Core** (con Authorization e Smart Home Scene Linkage) e conferma.
 3. Nel progetto: **Devices → Link App Account → Add App Account**: compare un QR. Nell'app **Smart Life** o **Tuya Smart**: Io/Profilo → icona di scansione in alto → inquadra il QR e conferma. I dispositivi compaiono nella scheda Devices.
 4. Nel progetto: **Overview** → copia **Access ID** e **Access Secret**.
-5. Aggiorna lo script (sezione "Aggiornare lo script": la prima volta a mano, poi con il tasto ⟳ Aggiorna lo script).
-6. In A&C: **💡 Luci → ⚙ Collegamento Tuya** → incolla Access ID e Access Secret, data center Europa centrale → **Salva e prova**. In alternativa mettile a mano nelle proprietà script `TUYA_ID`, `TUYA_SECRET` (e `TUYA_REGIONE`: `eu`, `weu`, `us`, `ueaz`, `in`, `cn`).
+5. **Wi-Fi di casa:** con il telefono sul Wi-Fi di casa, in A&C **💡 Luci → ⚙ Collegamento Tuya** → incolla Access ID e Access Secret → **📶 Leggi le luci (Wi-Fi di casa)**. Fatto: i passi 6–8 servono solo per il modo con lo script. Dallo stesso foglio: **🔎 Cerca di nuovo sul Wi-Fi** (se il router dà un altro indirizzo alla luce) e **Togli la modalità Wi-Fi**.
+5. *(Solo script)* Aggiorna lo script (sezione "Aggiornare lo script": la prima volta a mano, poi con il tasto ⟳ Aggiorna lo script).
+6. In A&C: **💡 Luci → ⚙ Collegamento Tuya** → incolla Access ID e Access Secret, data center Europa centrale → **Salva nello script**. In alternativa mettile a mano nelle proprietà script `TUYA_ID`, `TUYA_SECRET` (e `TUYA_REGIONE`: `eu`, `weu`, `us`, `ueaz`, `in`, `cn`).
 7. Se qualcosa non va: nell'editor dello script esegui **`verificaTuya`** e guarda il registro (dice se le chiavi sono giuste, quante luci vede, oppure cosa manca).
 
 La prova gratuita di Tuya (servizio IoT Core) dura un mese e va **rinnovata**: Cloud → Cloud Services → IoT Core → *Extend Trial Period* (modulo da compilare, di solito accettato in poche ore, fino a 6 mesi alla volta). Quando scade, A&C mostra il messaggio "periodo di prova scaduto".

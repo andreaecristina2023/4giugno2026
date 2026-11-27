@@ -25,7 +25,7 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * Widget "A&C Luci": fino a 6 luci Tuya (un tocco = accendi/spegni, colorata se accesa) e una scena.
- * Chiama direttamente lo script del foglio di casa (stesso indirizzo e chiave dell'app), che parla con il cloud Tuya.
+ * Se le luci sono state lette in modalità locale le comanda sul Wi-Fi di casa (LuciLocali), altrimenti chiama lo script del foglio di casa (cloud Tuya).
  * Dati dall'app in SharedPreferences "CapacitorStorage", chiave "luci":
  * { url, chiave, chi, luci: [ { id, nome, acceso, online } ], scena: { casa, scena, nome } | null }
  */
@@ -106,8 +106,9 @@ public class LuciWidget extends AppWidgetProvider {
             aggiornaTutti(app);
             new Thread(() -> {
                 try {
-                    JSONObject r = chiama(app, new JSONObject().put("azione", "luce_comando").put("id", id).put("acceso", nuovo));
-                    JSONObject l = r.optJSONObject("luce");
+                    JSONObject l;
+                    if (LuciLocali.trova(app, id) != null) l = LuciLocali.comando(app, id, new JSONObject().put("acceso", nuovo)); // sul Wi-Fi di casa
+                    else l = chiama(app, new JSONObject().put("azione", "luce_comando").put("id", id).put("acceso", nuovo)).optJSONObject("luce");
                     if (l != null) impostaStato(app, id, l.optBoolean("acceso", nuovo), l.optBoolean("online", true));
                 } catch (Exception e) {
                     impostaStato(app, id, !nuovo, true);
@@ -159,8 +160,11 @@ public class LuciWidget extends AppWidgetProvider {
     static void riallinea(Context c) {
         try {
             JSONObject d = dati(c);
-            if (d.optString("url").isEmpty() || d.optJSONArray("luci") == null || d.optJSONArray("luci").length() == 0) return;
-            JSONObject r = chiama(c, new JSONObject().put("azione", "luci_elenco"));
+            if (d.optJSONArray("luci") == null || d.optJSONArray("luci").length() == 0) return;
+            JSONObject r;
+            if (LuciLocali.configurato(c)) r = LuciLocali.elenco(c);
+            else if (d.optString("url").isEmpty()) return;
+            else r = chiama(c, new JSONObject().put("azione", "luci_elenco"));
             JSONArray tutte = r.optJSONArray("luci");
             for (int i = 0; tutte != null && i < tutte.length(); i++) {
                 JSONObject l = tutte.optJSONObject(i);

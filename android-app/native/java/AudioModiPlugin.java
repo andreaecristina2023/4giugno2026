@@ -242,6 +242,45 @@ public class AudioModiPlugin extends Plugin {
         } catch (Exception e) { call.reject("Impostazioni non disponibili"); }
     }
 
+    // ---------- luci sul Wi-Fi di casa (senza cloud) ----------
+    private void inFondo(PluginCall call, Lavoro l) {
+        new Thread(() -> {
+            try { JSObject r = JSObject.fromJSONObject(l.fai()); call.resolve(r); }
+            catch (Exception e) { call.reject(e.getMessage() != null ? e.getMessage() : "Errore"); }
+        }).start();
+    }
+    interface Lavoro { JSONObject fai() throws Exception; }
+
+    @PluginMethod
+    public void luciLocaliStato(PluginCall call) {
+        try {
+            JSONObject d = LuciLocali.dati(getContext());
+            org.json.JSONArray a = d.optJSONArray("luci");
+            call.resolve(JSObject.fromJSONObject(new JSONObject().put("configurato", a != null && a.length() > 0).put("luci", a != null ? a.length() : 0).put("aggiornato", d.optLong("aggiornato"))));
+        } catch (Exception e) { call.reject(e.getMessage()); }
+    }
+    @PluginMethod
+    public void luciLocaliImporta(PluginCall call) {
+        String id = call.getString("id", ""), secret = call.getString("secret", ""), reg = call.getString("regione", "eu");
+        if (id.isEmpty() || secret.isEmpty()) { call.reject("Servono Access ID e Access Secret"); return; }
+        inFondo(call, () -> { JSONObject r = LuciLocali.importa(getContext(), id, secret, reg); r.put("trovate", LuciLocali.cerca(getContext())); return r; });
+    }
+    @PluginMethod
+    public void luciLocaliCerca(PluginCall call) { inFondo(call, () -> new JSONObject().put("trovate", LuciLocali.cerca(getContext()))); }
+    @PluginMethod
+    public void luciLocaliElenco(PluginCall call) { inFondo(call, () -> LuciLocali.elenco(getContext())); }
+    @PluginMethod
+    public void luciLocaliComando(PluginCall call) {
+        String id = call.getString("id", "");
+        JSObject cmd = call.getObject("cmd", new JSObject());
+        inFondo(call, () -> new JSONObject().put("luce", LuciLocali.comando(getContext(), id, cmd)));
+    }
+    @PluginMethod
+    public void luciLocaliTogli(PluginCall call) {
+        LuciLocali.prefs(getContext()).edit().remove("luciLocali").apply();
+        call.resolve();
+    }
+
     /** Il sito ha salvato le luci del widget: ridisegno "A&C Luci". */
     @PluginMethod
     public void aggiornaLuci(PluginCall call) {

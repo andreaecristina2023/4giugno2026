@@ -213,6 +213,15 @@ var Native = (function () {
     salvaWidget: function (dati) {
       if (!AudioPl) return Promise.resolve();
       return Prefs.set({ key: 'luci', value: JSON.stringify(dati) }).then(function () { return AudioPl.aggiornaLuci(); }).catch(function () {});
+    },
+    // sul Wi-Fi di casa, senza cloud (solo app)
+    locale: {
+      stato: function () { return AudioPl && AudioPl.luciLocaliStato ? AudioPl.luciLocaliStato().catch(function () { return { configurato: false }; }) : Promise.resolve({ configurato: false }); },
+      importa: function (o) { return AudioPl.luciLocaliImporta(o); },
+      cerca: function () { return AudioPl.luciLocaliCerca(); },
+      elenco: function () { return AudioPl.luciLocaliElenco(); },
+      comando: function (id, cmd) { return AudioPl.luciLocaliComando({ id: id, cmd: cmd }); },
+      togli: function () { return AudioPl.luciLocaliTogli(); }
     }
   };
 

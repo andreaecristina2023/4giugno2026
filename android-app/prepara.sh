@@ -96,6 +96,8 @@ permessi = [
     '<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />',
     # stato della VPN (widget e DNS)
     '<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />',
+    '<uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />',
+    '<uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />',
     # modi audio: Non disturbare, volumi, rotazione schermo
     '<uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />',
     '<uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />',
