@@ -31,7 +31,7 @@
         android:orientation="vertical" android:gravity="center_horizontal" android:visibility="gone">
         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Turno"
             android:textSize="13sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:maxLines="1" android:paddingBottom="2dp" android:shadowColor="#CC000000" android:shadowRadius="4" android:shadowDx="0" android:shadowDy="1"/>
-        <ImageView android:layout_width="38dp" android:layout_height="34dp" android:src="@drawable/mascotte" android:scaleType="fitCenter" android:contentDescription="Turno VVF"/>
+        <TextView android:layout_width="wrap_content" android:layout_height="34dp" android:text="🚒" android:textSize="26sp" android:gravity="center" android:includeFontPadding="false" android:contentDescription="Turno VVF"/>
         <TextView android:id="@+id/r_servizio" android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:textSize="11sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:maxLines="1" android:shadowColor="#CC000000" android:shadowRadius="4" android:shadowDx="0" android:shadowDy="1"/>
     </LinearLayout>
