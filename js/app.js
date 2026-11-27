@@ -238,7 +238,7 @@
         return '<i style="--c:' + col + '"></i>';
       }).join('');
       var tt = C.turnoDel(tcfg, d), tinta = '';
-      if (tt && C.STATI_TURNO[tt.stato] && (C.STATI_TURNO[tt.stato].lavoro || tt.stato === 'salto' || tt.stato === 'ferie')) { cls += ' tinta-turno'; tinta = ' style="--t:' + C.STATI_TURNO[tt.stato].colore + '"'; }
+      if (tt && C.STATI_TURNO[tt.stato] && (C.STATI_TURNO[tt.stato].lavoro || tt.stato === 'salto' || (C.STATI_TURNO[tt.stato] || {}).assenza)) { cls += ' tinta-turno'; tinta = ' style="--t:' + C.STATI_TURNO[tt.stato].colore + '"'; }
       h += '<button class="' + cls + '"' + tinta + ' type="button" data-giorno="' + d + '" aria-label="' + esc(C.etichettaGiorno(d, oggi)) + (tt ? ', ' + esc(C.testoTurno(tt)) : '') + ((perGiorno[d] || []).length ? ', ' + perGiorno[d].length + ' voci' : '') + '"><span class="n">' + C.parse(d).getDate() + '</span>' + servizioCella(tcfg, d) + '<span class="punti">' + punti + '</span></button>';
     }
     h += '</div>';
@@ -277,7 +277,7 @@
     h += '<div class="griglia turni" role="grid">' + ['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'].map(function (x) { return '<div class="intest">' + x + '</div>'; }).join('');
     for (var d = inizio; d <= fine; d = C.addGiorni(d, 1)) {
       var tt = C.turnoDel(t, d), st = C.STATI_TURNO[tt.stato] || C.STATI_TURNO.altro;
-      var cls = 'cella' + (d.slice(0, 7) !== ui.meseCal ? ' fuori' : '') + (d === oggi ? ' oggi' : '') + (st.lavoro || tt.stato === 'salto' || tt.stato === 'ferie' ? ' piena' : '') + (tt.modificato ? ' modificata' : '');
+      var cls = 'cella' + (d.slice(0, 7) !== ui.meseCal ? ' fuori' : '') + (d === oggi ? ' oggi' : '') + (st.lavoro || tt.stato === 'salto' || st.assenza ? ' piena' : '') + (tt.modificato ? ' modificata' : '');
       var sv = C.turniDelGiorno(d);
       var badgeE = (tt.modificato || tt.stato === 'salto') ? '<span class="badge-turno" style="--c:' + st.colore + '">' + esc(st.breve) + '</span>' : '';
       h += '<button class="' + cls + '" type="button" data-turno-giorno="' + d + '" style="--c:' + st.colore + '" aria-label="' + esc(C.etichettaGiorno(d, oggi) + ': ' + C.testoTurno(tt) + '. In servizio diurno ' + sv.giorno + ', notte ' + sv.notte) + '">' + badgeE + '<span class="n">' + C.parse(d).getDate() + '</span>' + servizioCella(t, d) + '</button>';
@@ -285,9 +285,9 @@
     h += '</div>';
     var tg0 = C.turniDelGiorno(oggi);
     h += '<p class="testo-muto" style="margin:10px 0 0">Oggi in servizio: diurno <b>' + esc(tg0.giorno) + '</b>, notte <b>' + esc(tg0.notte.toLowerCase()) + '</b> (come FireOps). In ogni giorno: diurno/notte; il tuo turno è sottolineato.</p>';
-    h += '<div class="legenda">' + ['diurno', 'notte', 'smonto', 'riposo', 'salto', 'ferie', 'addestramento', 'corso', 'presidio', 'boschiva'].map(function (k) { return '<span><i style="--c:' + C.STATI_TURNO[k].colore + '"></i>' + C.STATI_TURNO[k].nome + '</span>'; }).join('') + '</div>';
+    h += '<div class="legenda">' + ['diurno', 'notte', 'smonto', 'riposo', 'salto', 'ferie', 'permesso', 'malattia', 'recupero', 'congedo', 'addestramento', 'corso', 'presidio', 'boschiva'].map(function (k) { return '<span><i style="--c:' + C.STATI_TURNO[k].colore + '"></i>' + C.STATI_TURNO[k].nome + '</span>'; }).join('') + '</div>';
     h += '<div class="totali" style="margin-top:14px"><div class="totale"><div class="valore">' + (conta.diurno || 0) + ' + ' + (conta.notte || 0) + '</div><div class="cosa">Diurni + notti a ' + C.MESI[m0.getMonth()] + '</div></div>' +
-      '<div class="totale"><div class="valore">' + Math.round(ore) + ' h</div><div class="cosa">Ore di servizio' + ['salto', 'ferie', 'addestramento', 'corso', 'presidio', 'boschiva', 'straordinario'].filter(function (k) { return conta[k]; }).map(function (k) { return ' · ' + conta[k] + ' ' + C.STATI_TURNO[k].nome.toLowerCase(); }).join('') + '</div></div></div>';
+      '<div class="totale"><div class="valore">' + Math.round(ore) + ' h</div><div class="cosa">Ore di servizio' + ['salto', 'ferie', 'permesso', 'malattia', 'recupero', 'congedo', 'addestramento', 'corso', 'presidio', 'boschiva', 'straordinario'].filter(function (k) { return conta[k]; }).map(function (k) { return ' · ' + conta[k] + ' ' + C.STATI_TURNO[k].nome.toLowerCase(); }).join('') + '</div></div></div>';
     var prossimi = [];
     for (var q = oggi; prossimi.length < 4 && q <= C.addGiorni(oggi, 40); q = C.addGiorni(q, 1)) { var tq = C.turnoDel(t, q); if (C.STATI_TURNO[tq.stato].lavoro) prossimi.push(tq); }
     h += '<h2>Prossimi turni <small>turno ' + esc(t.turno) + (t.saltoturno ? ', saltoturno ' + esc(t.saltoturno) : '') + '</small></h2><ul class="righe">' + prossimi.map(function (x) {
@@ -306,32 +306,32 @@
   }
   function apriGiornoTurno(data) {
     var t = turni(), tt = C.turnoDel(t, data), ecc = (t.eccezioni || []).filter(function (e) { return e.data === data; })[0];
-    var scelte = [['', 'Come da turno (' + C.STATI_TURNO[tt.base].nome.toLowerCase() + (tt.sigla ? ' ' + (tt.fascia === 'notte' ? tt.sigla.toLowerCase() : tt.sigla) : '') + ')'], ['ferie', 'Ferie'], ['salto', 'Salto'], ['straordinario', 'Straordinario'], ['addestramento', 'Addestramento'], ['corso', 'Corso'], ['presidio', 'Presidio rurale'], ['boschiva', 'Boschiva (AIB)'], ['diurno', 'Diurno (cambio)'], ['notte', 'Notte (cambio)'], ['riposo', 'Riposo (cambio)'], ['altro', 'Altro']];
+    var scelte = [['', 'Come da turno (' + C.STATI_TURNO[tt.base].nome.toLowerCase() + (tt.sigla ? ' ' + (tt.fascia === 'notte' ? tt.sigla.toLowerCase() : tt.sigla) : '') + ')'], ['ferie', 'Ferie'], ['permesso', 'Permesso'], ['malattia', 'Malattia'], ['recupero', 'Recupero'], ['congedo', 'Congedo'], ['salto', 'Salto'], ['straordinario', 'Straordinario'], ['addestramento', 'Addestramento'], ['corso', 'Corso'], ['presidio', 'Presidio rurale'], ['boschiva', 'Boschiva (AIB)'], ['diurno', 'Diurno (cambio)'], ['notte', 'Notte (cambio)'], ['riposo', 'Riposo (cambio)'], ['altro', 'Altro']];
     var tg = C.turniDelGiorno(data);
     foglio.innerHTML = '<form method="dialog" id="form-giorno-turno"><div class="maniglia"></div><h3 id="foglio-titolo">' + esc(C.etichettaGiorno(data)) + ' · ' + esc(C.testoTurno(tt)) + '</h3><div class="campi">' +
       '<p class="testo-muto" style="margin:0">In servizio: notte uscente ' + esc(tg.uscente.toLowerCase()) + ', diurno <b>' + esc(tg.giorno) + '</b>, notte <b>' + esc(tg.notte.toLowerCase()) + '</b></p>' +
       '<div class="campo">Cambia questo giorno<div style="display:flex;flex-wrap:wrap;gap:8px">' + scelte.map(function (c) { return '<label class="chip"><input type="radio" name="stato" value="' + c[0] + '"' + (((ecc && ecc.stato) || '') === c[0] ? ' checked' : '') + ' class="sr">' + c[1] + '</label>'; }).join('') + '</div></div>' +
-      '<div id="ferie-extra" class="campo" style="display:' + ((ecc && ecc.stato === 'ferie') ? '' : 'none') + '"><span>Ferie</span><span class="aiuto">Segna i turni di servizio (diurni e notturni) dalla data indicata; i giorni di riposo restano liberi.</span><div class="due"><label class="campo">Dal<input type="date" name="dal" value="' + esc(data) + '"></label><label class="campo">Quanti turni<input type="number" name="quanti" min="1" max="60" inputmode="numeric" value="1"></label></div></div>' +
+      '<div id="ferie-extra" class="campo" style="display:' + ((ecc && (C.STATI_TURNO[ecc.stato] || {}).assenza) ? '' : 'none') + '"><span>Più turni</span><span class="aiuto">Segna i turni di servizio (diurni e notturni) dalla data indicata; i giorni di riposo restano liberi. In quei giorni le sveglie del turnario non suonano.</span><div class="due"><label class="campo">Dal<input type="date" name="dal" value="' + esc(data) + '"></label><label class="campo">Quanti turni<input type="number" name="quanti" min="1" max="60" inputmode="numeric" value="1"></label></div></div>' +
       '<label class="campo">Orario<span class="aiuto">Facoltativo, es. 08:00-14:00 (per straordinario, addestramento, corso, presidio, boschiva)</span><input type="text" name="orario" value="' + esc((ecc && ecc.orario) || '') + '"></label>' +
       '<label class="campo">Nota<input type="text" name="nota" maxlength="120" value="' + esc((ecc && ecc.nota) || '') + '" placeholder="Es. cambio con Marco"></label>' +
       '<div class="azioni"><button class="btn" type="submit">Salva</button><button class="btn secondario" type="button" data-chiudi>Annulla</button></div></div></form>';
     var f = $('#form-giorno-turno', foglio);
     $('[data-chiudi]', f).onclick = function () { foglio.close(); };
-    f.querySelectorAll('input[name=stato]').forEach(function (r) { r.onchange = function () { $('#ferie-extra', f).style.display = (r.value === 'ferie' && r.checked) ? '' : 'none'; }; });
+    f.querySelectorAll('input[name=stato]').forEach(function (r) { r.onchange = function () { $('#ferie-extra', f).style.display = ((C.STATI_TURNO[r.value] || {}).assenza && r.checked) ? '' : 'none'; }; });
     f.onsubmit = function (e) {
       e.preventDefault();
       var stato = (f.querySelector('input[name=stato]:checked') || {}).value || '';
       var cfg = JSON.parse(JSON.stringify(turni()));
       cfg.eccezioni = (cfg.eccezioni || []).filter(function (x) { return x.data !== data; });
-      if (stato === 'ferie') {
-        // ferie: conta i turni di servizio (diurni e notturni) a partire dalla data indicata
+      if ((C.STATI_TURNO[stato] || {}).assenza) {
+        // ferie, permessi, malattia…: conta i turni di servizio (diurni e notturni) a partire dalla data indicata
         var dal = f.dal.value || data, n = Math.max(1, Math.min(60, parseInt(f.quanti.value, 10) || 1)), giorni = [];
         for (var i = 0; giorni.length < n && i < 400; i++) {
           var g = C.addGiorni(dal, i), tg2 = C.turnoDel(cfg, g);
           if (tg2 && C.STATI_TURNO[tg2.base] && C.STATI_TURNO[tg2.base].lavoro) giorni.push(g);
         }
         cfg.eccezioni = cfg.eccezioni.filter(function (x) { return giorni.indexOf(x.data) < 0; });
-        giorni.forEach(function (g) { cfg.eccezioni.push({ data: g, stato: 'ferie', nota: f.nota.value.trim(), orario: '' }); });
+        giorni.forEach(function (g) { cfg.eccezioni.push({ data: g, stato: stato, nota: f.nota.value.trim(), orario: '' }); });
       } else if (stato) cfg.eccezioni.push({ data: data, stato: stato, nota: f.nota.value.trim(), orario: f.orario.value.trim() });
       cfg.eccezioni = cfg.eccezioni.filter(function (x) { return x.data >= C.addGiorni(C.oggi(), -400); });
       Store.setSettings({ turni: cfg }); foglio.close(); toast(stato ? 'Giorno modificato' : 'Torna come da turno');
@@ -1962,7 +1962,7 @@
         (isAndrea() ? (function () {
           var st = sveglieTurno(), tcfg = Store.settings().turni, ok = tcfg && tcfg.attivo && tcfg.turno, prossime = ok ? eventiSveglieTurno(22).slice(0, 3) : [];
           return '<div class="sezione sveglie-turno"><div class="campi"><b>🚒 Segui il turnario</b>' +
-            (ok ? '<span class="aiuto">Suonano in A&amp;C (l\'Orologio non accetta una data precisa), anche con Non disturbare. Ferie, salti turno e giorni cambiati vengono saltati.</span>' : '<span class="aiuto">Prima imposta il tuo turno in Calendario → Turni VVF.</span>') +
+            (ok ? '<span class="aiuto">Suonano in A&amp;C (l\'Orologio non accetta una data precisa), anche con Non disturbare. Non suonano nei giorni con ferie, permesso, malattia, recupero, congedo o salto turno, né nei giorni cambiati a mano.</span>' : '<span class="aiuto">Prima imposta il tuo turno in Calendario → Turni VVF.</span>') +
             '<label class="riga-turno"><input type="checkbox" name="st-diurno"' + (st.diurno.on ? ' checked' : '') + (ok ? '' : ' disabled') + '><span>Giorno di <b>diurno</b></span><input type="time" name="st-diurno-ora" value="' + esc(st.diurno.ora) + '"' + (ok ? '' : ' disabled') + '></label>' +
             '<label class="riga-turno"><input type="checkbox" name="st-smonto"' + (st.smonto.on ? ' checked' : '') + (ok ? '' : ' disabled') + '><span>Giorno <b>dopo la notte</b></span><input type="time" name="st-smonto-ora" value="' + esc(st.smonto.ora) + '"' + (ok ? '' : ' disabled') + '></label>' +
             (prossime.length ? '<span class="aiuto">Prossime: ' + prossime.map(function (e) { return quandoBreve(e.t); }).join(' · ') + '</span>' : '') +
@@ -2003,9 +2003,11 @@
           var msg = [];
           if (r && r.prossima) msg.push('Prossima sveglia: <b>' + esc(quandoBreve(r.prossima)) + '</b> · ' + esc(r.nome));
           else if (st.diurno.on || st.smonto.on) msg.push('Nessuna sveglia nelle prossime 3 settimane.');
+          if (r && r.permessoDnd === false) msg.push('Per farla sentire anche con Non disturbare in «silenzio totale» dai ad A&amp;C l\'accesso a Non disturbare: <button type="button" class="btn secondario piccolo" data-perm-dnd>Consenti</button>');
           if (r && r.schermoBloccato === false) msg.push('Per vedere la sveglia a telefono bloccato consenti le notifiche a schermo intero: <button type="button" class="btn secondario piccolo" data-perm-schermo>Consenti</button>');
           av.innerHTML = msg.length ? '<p class="testo-muto">' + msg.join('<br>') + '</p>' : '';
           var bp = $('[data-perm-schermo]', av); if (bp) bp.onclick = function () { Native.audio.permessoSchermoSveglia(); };
+          var bd = $('[data-perm-dnd]', av); if (bd) bd.onclick = function () { Native.audio.apriPermesso('dnd'); };
         });
       }
       ['st-diurno', 'st-diurno-ora', 'st-smonto', 'st-smonto-ora'].forEach(function (n) { if (f[n]) f[n].onchange = salvaSt; });

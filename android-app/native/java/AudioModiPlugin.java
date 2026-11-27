@@ -174,6 +174,7 @@ public class AudioModiPlugin extends Plugin {
             r.put("schermoBloccato", android.os.Build.VERSION.SDK_INT < 34 || (nm != null && nm.canUseFullScreenIntent()));
             android.app.AlarmManager am = (android.app.AlarmManager) getContext().getSystemService(android.content.Context.ALARM_SERVICE);
             r.put("esatte", android.os.Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms());
+            r.put("permessoDnd", ComandiTelefono.permessoDnd(getContext()));
             call.resolve(r);
         } catch (Exception e) {
             call.reject("Sveglie non programmate: " + e.getMessage());

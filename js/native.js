@@ -103,7 +103,7 @@ var Native = (function () {
     var tcfg = (Store.settings() || {}).turni;
     for (var g = da; g <= a; g = Casa.addGiorni(g, 1)) {
       var tt = Casa.turnoDel(tcfg, g);
-      if (tt && (Casa.STATI_TURNO[tt.stato].lavoro || tt.stato === 'salto' || tt.stato === 'ferie')) righe.push({ data: g, testo: Casa.testoTurno(tt) + (tt.nota ? ' · ' + tt.nota : ''), colore: Casa.STATI_TURNO[tt.stato].colore, turno: true });
+      if (tt && (Casa.STATI_TURNO[tt.stato].lavoro || tt.stato === 'salto' || Casa.STATI_TURNO[tt.stato].assenza)) righe.push({ data: g, testo: Casa.testoTurno(tt) + (tt.nota ? ' · ' + tt.nota : ''), colore: Casa.STATI_TURNO[tt.stato].colore, turno: true });
     }
     righe = righe.filter(function (r) { return r.data >= da; }).sort(function (p, q) { return p.data < q.data ? -1 : p.data > q.data ? 1 : (p.turno ? -1 : q.turno ? 1 : (q.rifiuti ? 1 : -1)); });
     // in servizio (tutti i turni) per i prossimi 35 giorni: il widget mostra quello di oggi

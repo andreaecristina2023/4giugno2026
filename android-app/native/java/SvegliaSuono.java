@@ -126,8 +126,49 @@ public class SvegliaSuono extends Service {
         return START_NOT_STICKY;
     }
 
+    // ---------- farsi sentire anche con Non disturbare e volume basso ----------
+    private int filtroPrima = -1, volumePrima = -1;
+
+    /** Se Non disturbare bloccherebbe la sveglia, passo a "solo sveglie" finché suona; volume sveglia almeno al 70%. */
+    private void garantisciAscolto() {
+        NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (nm != null && nm.isNotificationPolicyAccessGranted()) {
+            int f = nm.getCurrentInterruptionFilter();
+            boolean bloccata = f == NotificationManager.INTERRUPTION_FILTER_NONE;
+            if (f == NotificationManager.INTERRUPTION_FILTER_PRIORITY && Build.VERSION.SDK_INT >= 28) {
+                NotificationManager.Policy pol = nm.getNotificationPolicy();
+                bloccata = pol != null && (pol.priorityCategories & NotificationManager.Policy.PRIORITY_CATEGORY_ALARMS) == 0;
+            }
+            if (bloccata) {
+                try { nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALARMS); filtroPrima = f; } catch (Exception e) { /* niente */ }
+            }
+        }
+        AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        if (am != null) {
+            int max = am.getStreamMaxVolume(AudioManager.STREAM_ALARM), v = am.getStreamVolume(AudioManager.STREAM_ALARM);
+            if (max > 0 && v < Math.round(max * 0.4f)) {
+                try { am.setStreamVolume(AudioManager.STREAM_ALARM, Math.round(max * 0.7f), 0); volumePrima = v; } catch (Exception e) { /* niente */ }
+            }
+        }
+    }
+
+    /** Rimette Non disturbare e volume com'erano. */
+    private void ripristinaAscolto() {
+        if (filtroPrima >= 0) {
+            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            try { if (nm != null && nm.isNotificationPolicyAccessGranted()) nm.setInterruptionFilter(filtroPrima); } catch (Exception e) { /* niente */ }
+            filtroPrima = -1;
+        }
+        if (volumePrima >= 0) {
+            AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+            try { if (am != null) am.setStreamVolume(AudioManager.STREAM_ALARM, volumePrima, 0); } catch (Exception e) { /* niente */ }
+            volumePrima = -1;
+        }
+    }
+
     private void suona() {
         fermaPlayer();
+        garantisciAscolto();
         JSONObject s = suono(this);
         Uri uri = null;
         if ("file".equals(s.optString("tipo")) && !s.optString("uri").isEmpty()) uri = Uri.parse(s.optString("uri"));
@@ -176,6 +217,7 @@ public class SvegliaSuono extends Service {
     private void fine() {
         h.removeCallbacksAndMessages(null);
         fermaPlayer();
+        ripristinaAscolto();
         if (vib != null) vib.cancel();
         if (Build.VERSION.SDK_INT >= 24) stopForeground(STOP_FOREGROUND_REMOVE); else stopForeground(true);
         stopSelf();
@@ -185,6 +227,7 @@ public class SvegliaSuono extends Service {
     public void onDestroy() {
         h.removeCallbacksAndMessages(null);
         fermaPlayer();
+        ripristinaAscolto();
         if (vib != null) vib.cancel();
         super.onDestroy();
     }
