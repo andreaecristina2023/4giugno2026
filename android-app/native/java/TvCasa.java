@@ -105,6 +105,22 @@ public class TvCasa {
         return "📺 Accendo la TV…";
     }
 
+    /** Stato ricordato per il widget (true = accesa). */
+    static boolean accesa(Context c) { return prefs(c).getBoolean("tvAccesa", false); }
+    static void segnaAccesa(Context c, boolean on) { prefs(c).edit().putBoolean("tvAccesa", on).apply(); ComandiWidget.aggiornaTutti(c); }
+
+    /** Controlla se la TV risponde (per il widget, in un thread). */
+    static void verificaAccesa(Context c) {
+        JSONObject d = conf(c);
+        if (d.optString("chiave").isEmpty()) return;
+        boolean on;
+        try (java.net.Socket so = new java.net.Socket()) { so.connect(new java.net.InetSocketAddress(d.optString("ip"), 3000), 1500); on = true; }
+        catch (Exception e) {
+            try (java.net.Socket so = new java.net.Socket()) { so.connect(new java.net.InetSocketAddress(d.optString("ip"), 3001), 1500); on = true; } catch (Exception e2) { on = false; }
+        }
+        if (on != accesa(c)) segnaAccesa(c, on);
+    }
+
     /** Comando: { tipo: "tasto"|"ssap"|"app"|"ingresso"|"accendi"|"spegni"|"volume", valore, payload } */
     public static JSONObject comando(Context c, JSONObject cmd) throws Exception {
         String tipo = cmd.optString("tipo"), v = cmd.optString("valore");
@@ -112,13 +128,14 @@ public class TvCasa {
         if ("accendi".equals(tipo)) {
             if (d.optString("mac").isEmpty()) throw new Exception("Non conosco il MAC della TV: accendila col telecomando e tocca ↻ in 📺 TV → ⚙");
             TvLg.accendi(d.optString("mac"), broadcast(c));
+            segnaAccesa(c, true);
             return new JSONObject().put("ok", true);
         }
         TvLg t = tv(c);
         String r = "{}";
         switch (tipo) {
             case "tasto": t.tastoAperto(v); break;
-            case "spegni": r = t.chiediAperto("ssap://system/turnOff", "{}"); synchronized (TvCasa.class) { t.chiudiTutto(); sessione = null; } break;
+            case "spegni": r = t.chiediAperto("ssap://system/turnOff", "{}"); synchronized (TvCasa.class) { t.chiudiTutto(); sessione = null; } segnaAccesa(c, false); break;
             case "app": r = t.chiediAperto("ssap://system.launcher/launch", new JSONObject().put("id", v).toString()); break;
             case "ingresso": r = t.chiediAperto("ssap://tv/switchInput", new JSONObject().put("inputId", v).toString()); break;
             case "ssap": r = t.chiediAperto(v, cmd.has("payload") ? cmd.get("payload").toString() : "{}"); break;

@@ -26,10 +26,10 @@ public class ComandiWidget extends AppWidgetProvider {
     public void onUpdate(Context context, AppWidgetManager manager, int[] ids) {
         for (int id : ids) disegna(context, manager, id);
         // ogni mezz'ora (e quando lo aggiungi) riallineo lo stato delle luci
-        if (LuciWidget.elenco(context).length() > 0) {
+        if (LuciWidget.elenco(context).length() > 0 || !TvCasa.conf(context).optString("chiave").isEmpty()) {
             final PendingResult pr = goAsync();
             final Context app = context.getApplicationContext();
-            new Thread(() -> { try { LuciWidget.riallinea(app); } finally { pr.finish(); } }).start();
+            new Thread(() -> { try { LuciWidget.riallinea(app); TvCasa.verificaAccesa(app); } finally { pr.finish(); } }).start();
         }
     }
 
@@ -112,7 +112,9 @@ public class ComandiWidget extends AppWidgetProvider {
         Intent tvi = tvOk ? new Intent(c, TvPopup.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK) : apriApp;
         v.setOnClickPendingIntent(R.id.c_tv, PendingIntent.getActivity(c, 116, tvi, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
         v.setOnClickPendingIntent(R.id.c_tvon, tvOk ? comando(c, 15, "tvon", null) : piApp);
-        v.setTextViewText(R.id.c_tvon_t, "Acc./Spegni");
+        boolean tvAccesa = TvCasa.accesa(c);
+        v.setTextViewText(R.id.c_tvon_i, tvAccesa ? "🔴" : "🟢");
+        v.setTextViewText(R.id.c_tvon_t, tvAccesa ? "Spegni TV" : "Accendi TV");
 
         boolean andrea = conf.optBoolean("andrea", false);
         // VPN solo sul telefono di Andrea (altrove resta lo spazio vuoto); DNS per tutti

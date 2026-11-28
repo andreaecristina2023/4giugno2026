@@ -59,7 +59,8 @@ public class TvPopup extends Activity {
         t.setPadding(dp(4), 0, 0, dp(8));
         scheda.addView(t);
 
-        riga(new String[][] { { "🔌", "potenza" }, { "🔇", "muto" }, { "⤵ Sorgente", "sorgente" }, { "🏠", "tasto:HOME" } });
+        riga(new String[][] { { "🟢 Accendi", "accendi" }, { "🔴 Spegni", "spegni" } });
+        riga(new String[][] { { "🔇", "muto" }, { "⤵ Sorgente", "sorgente" }, { "🏠", "tasto:HOME" } });
         riga(new String[][] { { "Vol +", "ssap:ssap://audio/volumeUp" }, null, { "▲", "tasto:UP" }, null, { "Ch +", "ssap:ssap://tv/channelUp" } });
         riga(new String[][] { { "Vol −", "ssap:ssap://audio/volumeDown" }, { "◀", "tasto:LEFT" }, { "OK", "tasto:ENTER" }, { "▶", "tasto:RIGHT" }, { "Ch −", "ssap:ssap://tv/channelDown" } });
         riga(new String[][] { { "↩", "tasto:BACK" }, null, { "▼", "tasto:DOWN" }, null, { "✕", "tasto:EXIT" } });
@@ -101,6 +102,8 @@ public class TvPopup extends Activity {
         new Thread(() -> {
             try {
                 if ("potenza".equals(azione)) LuciWidget.avviso(app, TvCasa.accendiSpegni(app));
+                else if ("accendi".equals(azione)) { TvCasa.comando(app, new JSONObject().put("tipo", "accendi")); LuciWidget.avviso(app, "📺 Accendo la TV…"); }
+                else if ("spegni".equals(azione)) { TvCasa.comando(app, new JSONObject().put("tipo", "spegni")); LuciWidget.avviso(app, "📺 TV spenta"); }
                 else if ("muto".equals(azione)) { muto = !muto; TvCasa.comando(app, new JSONObject().put("tipo", "ssap").put("valore", "ssap://audio/setMute").put("payload", new JSONObject().put("mute", muto))); }
                 else if (azione.startsWith("tasto:")) TvCasa.comando(app, new JSONObject().put("tipo", "tasto").put("valore", azione.substring(6)));
                 else if (azione.startsWith("ssap:")) TvCasa.comando(app, new JSONObject().put("tipo", "ssap").put("valore", azione.substring(5)));
