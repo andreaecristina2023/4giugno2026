@@ -59,7 +59,7 @@ public class TvPopup extends Activity {
         t.setPadding(dp(4), 0, 0, dp(8));
         scheda.addView(t);
 
-        riga(new String[][] { { "⏻", "potenza" }, { "🔇", "muto" }, { "⤵ Sorgente", "sorgente" }, { "⌂", "tasto:HOME" } });
+        riga(new String[][] { { "🔌", "potenza" }, { "🔇", "muto" }, { "⤵ Sorgente", "sorgente" }, { "🏠", "tasto:HOME" } });
         riga(new String[][] { { "Vol +", "ssap:ssap://audio/volumeUp" }, null, { "▲", "tasto:UP" }, null, { "Ch +", "ssap:ssap://tv/channelUp" } });
         riga(new String[][] { { "Vol −", "ssap:ssap://audio/volumeDown" }, { "◀", "tasto:LEFT" }, { "OK", "tasto:ENTER" }, { "▶", "tasto:RIGHT" }, { "Ch −", "ssap:ssap://tv/channelDown" } });
         riga(new String[][] { { "↩", "tasto:BACK" }, null, { "▼", "tasto:DOWN" }, null, { "✕", "tasto:EXIT" } });

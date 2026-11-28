@@ -1571,13 +1571,13 @@
     else {
       var t = function (tipo, val, testo, cls, aria) { return '<button type="button" class="tv-tasto' + (cls ? ' ' + cls : '') + '" data-tv="' + tipo + '" data-val="' + esc(val || '') + '" aria-label="' + esc(aria || testo) + '">' + testo + '</button>'; };
       h += '<div class="tv-telecomando">' +
-        '<div class="tv-riga">' + t('accendi', '', '⏻ Accendi', 'verde') + t('spegni', '', '⏻ Spegni', 'rosso') + t('ingressi', '', '⤵ Sorgente') + '</div>' +
+        '<div class="tv-riga">' + t('accendi', '', '🟢 Accendi', 'verde') + t('spegni', '', '🔴 Spegni', 'rosso') + t('ingressi', '', '⤵ Sorgente') + '</div>' +
         '<div class="tv-riga tv-tre">' +
           '<div class="tv-colonna">' + t('ssap', 'ssap://audio/volumeUp', '＋', '', 'Volume su') + '<span>Vol</span>' + t('ssap', 'ssap://audio/volumeDown', '－', '', 'Volume giù') + '</div>' +
           '<div class="tv-croce">' + t('tasto', 'UP', '▲', 'su', 'Su') + t('tasto', 'LEFT', '◀', 'sx', 'Sinistra') + t('tasto', 'ENTER', 'OK', 'ok', 'OK') + t('tasto', 'RIGHT', '▶', 'dx', 'Destra') + t('tasto', 'DOWN', '▼', 'giu', 'Giù') + '</div>' +
           '<div class="tv-colonna">' + t('ssap', 'ssap://tv/channelUp', '＋', '', 'Canale su') + '<span>Ch</span>' + t('ssap', 'ssap://tv/channelDown', '－', '', 'Canale giù') + '</div>' +
         '</div>' +
-        '<div class="tv-riga">' + t('tasto', 'BACK', '↩ Indietro') + t('tasto', 'HOME', '⌂ Home') + t('muto', '', '🔇 Muto') + '</div>' +
+        '<div class="tv-riga">' + t('tasto', 'BACK', '↩ Indietro') + t('tasto', 'HOME', '🏠 Home') + t('muto', '', '🔇 Muto') + '</div>' +
         '<div class="tv-riga">' + t('ssap', 'ssap://media.controls/play', '▶ Play') + t('ssap', 'ssap://media.controls/pause', '⏸ Pausa') + t('tasto', 'MENU', '⚙ Menu') + t('tasto', 'EXIT', '✕ Esci') + '</div>' +
         '<details class="tv-numeri"><summary>Numeri</summary><div class="tv-griglia">' + [1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map(function (n) { return t('tasto', String(n), String(n)); }).join('') + '</div></details>' +
         '<h2>App</h2><div class="tv-app">' + appTv().map(function (a) { return '<button type="button" class="chip" data-tv="app" data-val="' + esc(a.id) + '">' + esc(a.nome) + '</button>'; }).join('') + '</div>' +

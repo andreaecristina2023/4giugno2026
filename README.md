@@ -98,7 +98,7 @@ Permessi che Android chiede la prima volta (l'app apre da sola la pagina giusta)
   `adb shell pm grant it.andreaecristina.casa android.permission.WRITE_SECURE_SETTINGS`
   (il permesso resta anche dopo gli aggiornamenti dell'app, si perde solo disinstallandola).
 
-**Widget "A&C Comandi"** (tieni premuto sulla home → Widget → A&C): sopra una barra compatta con il modo attivo e ▾ — un tocco apre sopra la home l'**elenco a comparsa** dei modi (icona e nome); sotto otto tasti su quattro colonne e due righe: **Rotazione**, **⏰ Sveglie** (apre l'Orologio), **VPN** (solo sul telefono di Andrea, altrove lo spazio resta vuoto), **DNS** (colorato quando è disattivato o in pausa per la VPN; sull'altro telefono serve lo stesso permesso dato con adb) / **💡 Luce**, **🎨 Colori** (luci), **📺 TV** (telecomando compatto a comparsa: accendi/spegni, muto, sorgente, Home, volume, canali, frecce e OK, Indietro, Esci) e **⏻ Acc./Spegni** la TV. Se il widget c'era già, allargalo a 4×3.
+**Widget "A&C Comandi"** (tieni premuto sulla home → Widget → A&C): sopra una barra compatta con il modo attivo e ▾ — un tocco apre sopra la home l'**elenco a comparsa** dei modi (icona e nome); sotto otto tasti su quattro colonne e due righe: **Rotazione**, **⏰ Sveglie** (apre l'Orologio), **VPN** (solo sul telefono di Andrea, altrove lo spazio resta vuoto), **DNS** (colorato quando è disattivato o in pausa per la VPN; sull'altro telefono serve lo stesso permesso dato con adb) / **💡 Luce**, **🎨 Colori** (luci), **📺 TV** (telecomando compatto a comparsa: accendi/spegni, muto, sorgente, Home, volume, canali, frecce e OK, Indietro, Esci) e **🔌 Acc./Spegni** la TV. Se il widget c'era già, allargalo a 4×3.
 
 ## Monitora prezzi dei voli
 
