@@ -54,7 +54,7 @@ public class TvCasa {
     public static JSONObject abbina(Context c, String ip) throws Exception {
         synchronized (TvCasa.class) { if (sessione != null) sessione.chiudiTutto(); sessione = null; }
         JSONObject d = conf(c);
-        TvLg t = new TvLg(ip, ip.equals(d.optString("ip")) ? d.optString("chiave") : "");
+        TvLg t = new TvLg(ip, ""); // sempre da zero: la TV chiede di nuovo "Consenti" e dà tutti i permessi
         String chiave = t.abbina(60000);
         d.put("ip", ip).put("chiave", chiave);
         salva(c, d);
